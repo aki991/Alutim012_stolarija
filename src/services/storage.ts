@@ -20,6 +20,9 @@ export function parseBackup(data:unknown):{jobs:Job[];settings:Settings}{
   for(const p of j.positions){
    if(!record(p)||!strings(p,['id','name','color','notes','access','extraWork'])||![p.width,p.height,p.quantity].every(draftNumber)||!number(p.extraCost)||!(p.manualPrice===null||number(p.manualPrice))||!['PVC','ALU'].includes(String(p.material))||!['Dvoslojno','Troslojno','Sigurnosno'].includes(String(p.glass))||!['Standardni','Sigurnosni'].includes(String(p.hardware))||!['Prozori','Vrata','Klizni sistemi','Ulazna vrata','Roletne','Komarnici','Klupice','Usluge'].includes(String(p.category))||!['shutter','mosquito','sill','installation','removal'].every(k=>typeof p[k]==='boolean')||!Array.isArray(p.segments)||p.segments.length<1||p.segments.length>4||positions.has(p.id))return fail();
    positions.add(p.id);
+   if(p.customInfill!==undefined&&(!p.customGeometry||!['glass','panel'].includes(String(p.customInfill))))return fail();
+   if(p.customKind!==undefined&&(!p.customGeometry||!['window','door','other'].includes(String(p.customKind))))return fail();
+   if(p.customFrameMm!==undefined&&(!p.customGeometry||!number(p.customFrameMm)||Number(p.customFrameMm)<20||Number(p.customFrameMm)>150))return fail();
    if(p.customGeometry!==undefined&&!isGeometry(p.customGeometry))return fail();
    if(p.elementType==='nacrtaj'&&!isGeometry(p.customGeometry))return fail();
    if(p.customGeometry&&((p.segments as {opening:string}[]).some(s=>s.opening!=='Fiksno')||p.elementType!=='nacrtaj'))return fail();

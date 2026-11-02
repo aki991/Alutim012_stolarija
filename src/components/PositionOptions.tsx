@@ -1,3 +1,4 @@
+import { customInfillOf } from '../models';
 import { useState, type ReactNode } from 'react';
 import { Camera, Check, ChevronRight, Droplet, Layers, MessageSquare, Minus, Plus, Puzzle, RectangleHorizontal, Settings, SlidersHorizontal, Wrench, X } from 'lucide-react';
 import type { Position } from '../models';
@@ -29,7 +30,7 @@ export function PositionOptions({position:p,onChange,onClose}:{position:Position
   <div className="options-main-fields">
    <div className="option-setting"><Layers aria-hidden="true"/><Field label="Profil"><select value={p.profile||profiles[0]} onChange={e=>onChange({profile:e.target.value})}>{profiles.map(v=><option key={v}>{v}</option>)}</select></Field></div>
    <div className="option-setting option-color"><Droplet aria-hidden="true"/><div><span className="option-label" id="option-color-label">Boja</span><div className="option-color-buttons" role="group" aria-labelledby="option-color-label">{colors.map(color=><button key={color} className={p.color===color?'selected':''} aria-pressed={p.color===color} onClick={()=>onChange({color})}><i className={`color-swatch ${color==='Antracit'?'swatch-antracit':color==='Orah'?'swatch-orah':'swatch-bela'}`} aria-hidden="true"/>{color}{p.color===color&&<Check aria-hidden="true"/>}</button>)}</div></div></div>
-   <div className="option-setting"><RectangleHorizontal aria-hidden="true"/><Field label="Staklo"><select value={p.glass} onChange={e=>onChange({glass:e.target.value as Position['glass']})}>{['Dvoslojno','Troslojno','Sigurnosno'].map(v=><option key={v}>{v}</option>)}</select></Field></div>
+   {(!p.customGeometry||customInfillOf(p)==='glass')&&<div className="option-setting"><RectangleHorizontal aria-hidden="true"/><Field label="Staklo"><select value={p.glass} onChange={e=>onChange({glass:e.target.value as Position['glass']})}>{['Dvoslojno','Troslojno','Sigurnosno'].map(v=><option key={v}>{v}</option>)}</select></Field></div>}
    {!p.customGeometry&&<div className="option-setting"><Settings aria-hidden="true"/><Field label="Okov"><select value={p.hardware} onChange={e=>onChange({hardware:e.target.value as Position['hardware']})}><option>Standardni</option><option>Sigurnosni</option></select></Field></div>}
   </div>
   <div className="options-sections">

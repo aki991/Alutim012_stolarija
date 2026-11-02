@@ -168,3 +168,34 @@ Svih osam osnovnih alata prikazano je u dva reda, bez horizontalnog skrolovanja.
 U editoru mere dugme Zaključaj meru čuva tačnu dužinu, a za luk i radijus. Zaključane linije imaju katanac i plavu isprekidanu oznaku. Izmena susednih stranica i čvorova rešava povezane dužine uz izabrani fiksni kraj; kada ograničenja ne mogu da se ispune, izmena se odbija bez promene nacrta. Lock stanje se čuva uz geometriju i učestvuje u Undo/Redo. Zaključanu liniju treba otključati pre direktne izmene ili brisanja; promena početnog oblika traži otključavanje. Obriši sve namerno započinje novu konturu.
 
 Žuta kontrola je u sredini luka. Pomeranjem ka tetivi ili od nje menja zakrivljenost, uz živi prikaz radijusa. Tangencijalno klizanje duž postojećeg luka ne pomera kontrolu. Kada je luk zaključan, kontrola je skrivena.
+
+## Instalacija kao PWA
+
+Aplikacija koristi React/Vite i `vite-plugin-pwa`. `public/manifest.json` je povezan u HTML zaglavlju: naziv ALU TIM 012, `id`, početna putanja i scope `/`, standalone režim, boje i PNG ikone 192×192 / 512×512 sa `purpose: any maskable`. Ikone imaju neprovidnu pozadinu i sadržaj u bezbednoj maskable zoni; SVG izvor i Apple ikona 180×180 su u `public/icons`.
+
+Za kompletnu proveru instalacije i offline rada:
+
+1. Pokrenuti `npm install`, `npm run build`, zatim `npm run preview`.
+2. U običnom Chrome prozoru otvoriti `http://localhost:4187/` ili `http://127.0.0.1:4187/`, sačekati učitavanje i izabrati instalaciju aplikacije.
+3. Za telefon ili javni server koristiti HTTPS. Obična HTTP adresa računara u lokalnoj mreži nije bezbedan origin za Service Worker. Incognito režim ne podržava instalaciju aplikacije.
+4. Server mora da posluži aplikaciju iz korena domena, sa SPA fallback-om na `index.html` za rute `/posao/...`. Manifest, ikone, `sw.js` i `workbox-*.js` moraju biti javno dostupni. Za `sw.js` i HTML preporučeno je `Cache-Control: no-cache`; za hashirane `assets/` datoteke može dugotrajni immutable cache.
+
+Produkcioni build generiše `dist/sw.js` i Workbox runtime. Precache uključuje aplikaciju, PDF module, fontove, ikone i manifest. Jedina registracija je u `src/offline.ts`. Novi worker čeka zatvaranje starih tabova, umesto da automatski osveži formular usred merenja. Vite razvojni server ne kešira razvojne module; manifest i ikone su dostupni i na njemu. Za testiranje stvarnog offline režima koristiti produkcioni preview.
+
+`tests/pwa.spec.ts` proverava manifest, dimenzije ikona, offline ponovno otvaranje i PDF, kao i Chrome-ovu proveru instalabilnosti u odvojenom običnom profilu.
+
+### Namena i ram nepravilnog elementa
+
+Nacrtana kontura označava spoljašnju ivicu rama. U konfiguraciji je izbor Prozor / Vrata / Drugi element i širina rama 20–150 mm. Ram se prikazuje ka unutrašnjosti konture, prati prave stranice i kružne lukove i koristi izabranu boju. Spoljašnje mere, čvorovi i zaključavanja time se ne menjaju. Geometrija ostaje terenska skica; izbor vrata ili prozora ne potvrđuje automatski otvaranje i standardni okov. Ručna cena i tehnička provera ostaju važeći.
+
+Namena (`customKind`) i širina rama (`customFrameMm`) su opcioni podaci pozicije, uključeni u čuvanje, ponovno uređivanje, kopiranje i PDF specifikaciju. Stari nacrti bez ovih polja prikazuju se kao prozor sa ramom 70 mm.
+
+Logo bez kružnog okvira je `public/assets/brand-emblem-no-ring.png`, izdvojen built-in imagegen alatom iz izvornog znaka. Prompt: ukloniti zlatni kružni prsten, disk i tamnu pozadinu; sačuvati crveni znak vrata/prozora i natpise ALU & PVC PROFILI / ALU TIM 012 na transparentnoj pozadini.
+
+Ispuna nepravilnog elementa može biti staklo ili puni panel (`customInfill`), uz isti spoljašnji ram i mere. Vrata podrazumevano biraju puni panel, a namena i ispuna ostaju posebno podesivi.
+
+U editoru prave linije su Poravnaj vodoravno / Poravnaj uspravno. Izabrani fiksni kraj i stvarna dužina ostaju sačuvani, a oba kraja dobijaju potpuno istu Y odnosno X koordinatu. Povezane zaključane mere se rešavaju uz nepomične krajeve poravnate linije; ako to nije moguće ili bi se kontura presekla, izmena se odbija. Undo/Redo i čuvanje nacrta rade kao za ostale geometrijske izmene.
+
+Prethodni obrađeni kružni logo je `public/assets/brand-round-transparent.png`. Obrađen je ugrađenim imagegen alatom prema promptu: ukloniti samo spoljnu belu pozadinu, sačuvati ceo kružni amblem, boje, bele detalje i natpise; izlaz PNG sa alpha transparentnošću.
+
+Aktuelni logo je `public/assets/logo.png`, prekopiran bez izmene iz korisnikovog fajla `Ograde/src/assets/logo.png`. Koristi se u bočnoj navigaciji i mobilnom zaglavlju.

@@ -112,3 +112,15 @@ export function moveArcControl(g:Geometry,id:string,q:Point){
  if(Math.abs(sag)<1)throw Error('Pomerite žuti čvor dalje od tetive luka.');
  e.via={x:mid.x+normal.x*sag,y:mid.y+normal.y*sag};arcThrough(a,b,e.via);next.preset='free';return next;
 }
+
+/** Align a segment exactly to an axis. Both endpoints are pinned during constraint solving. */
+export function alignLine(g:Geometry,id:string,axis:'horizontal'|'vertical',fixed:'from'|'to'='from'){
+ const next=structuredClone(g),e=next.edges.find(e=>e.id===id);if(!e||e.kind!=='line')throw Error('Poravnanje je dostupno samo za pravu liniju.');
+ const[a,b]=ends(next,e),anchor=fixed==='from'?a:b,moving=fixed==='from'?b:a,length=distance(a,b);if(length<.01)throw Error('Linija mora imati dva različita kraja.');
+ if(axis==='horizontal'){const direction=moving.x<anchor.x?-1:1;moving.x=anchor.x+direction*length;moving.y=anchor.y;}
+ else{const direction=moving.y<anchor.y?-1:1;moving.x=anchor.x;moving.y=anchor.y+direction*length;}
+ next.preset='free';const solved=solveLockedGeometry(g,next,[a.id,b.id]);
+ // Explicit pins ensure a constraint solver cannot introduce a small slope.
+ const[sa,sb]=ends(solved,solved.edges.find(edge=>edge.id===id)!);if(axis==='horizontal'?sa.y!==sb.y:sa.x!==sb.x)throw Error(lockMessage);
+ const errors=validateGeometry(solved,isClosed(g));if(errors.length)throw Error(errors[0]);return solved;
+}

@@ -1,9 +1,10 @@
+import { customInfillOf } from '../models';
 import { CustomDrawing } from '../custom/CustomDrawing';
 import type { Position } from '../models';
 
 /** Proportional field sketch. Geometry and opening marks are shared by UI and PDFs. */
 export function Drawing({position:p,selected=-1,onSelect,zoom=1,compact=false}:{position:Position;selected?:number;onSelect?:(i:number)=>void;zoom?:number;compact?:boolean}) {
- if(p.customGeometry)return <CustomDrawing geometry={p.customGeometry} compact={compact}/>;
+ if(p.customGeometry)return <CustomDrawing geometry={p.customGeometry} frameMm={p.customFrameMm??70} frameColor={p.color} infill={customInfillOf(p)} compact={compact}/>;
  const W=560,H=450;
  const scale=Math.min(400/Math.max(p.width,200),320/Math.max(p.height,200))*zoom;
  const width=Math.max(1,p.width*scale),height=Math.max(1,p.height*scale);

@@ -1,3 +1,4 @@
+import { customKindLabel, customInfillOf } from '../models';
 import { edgeArc, edgeLength, ends, fmt } from '../custom/geometry';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { jsPDF as PDF } from 'jspdf';
@@ -28,7 +29,7 @@ export async function makeDocument(job:Job,settings:Settings,kind:'kupac'|'kance
  for(let i=0;i<job.positions.length;i++){
   const p=job.positions[i],price=positionCost(p,settings,job.package);ensure(88);text(`${String(i+1).padStart(2,'0')}  ${p.name}`,11,true);const start=y;
   doc.addImage(await drawingImage(p),'PNG',15,start,69,55);y=start+5;
-  text(`${fmt(p.width)} × ${fmt(p.height)} mm  |  ${p.quantity} kom`,10,true,88,104);text(`${p.material} · ${p.profile||(p.material==='PVC'?'PVC 70 mm':'ALU termo profil')}, ${p.color}`,9,false,88,104);text(p.customGeometry?`${p.glass} staklo, fiksno zastakljenje`:`${p.glass} staklo, ${p.hardware.toLowerCase()} okov`,9,false,88,104);
+  text(`${fmt(p.width)} × ${fmt(p.height)} mm  |  ${p.quantity} kom`,10,true,88,104);text(`${p.material} · ${p.profile||(p.material==='PVC'?'PVC 70 mm':'ALU termo profil')}, ${p.color}`,9,false,88,104);text(p.customGeometry?`${customInfillOf(p)==='panel'?'Puni panel':p.glass+' staklo'}, ${customKindLabel(p.customKind).toLowerCase()}`:`${p.glass} staklo, ${p.hardware.toLowerCase()} okov`,9,false,88,104);
   const extras=[p.shutter?'roletna':'',p.mosquito?'komarnik':'',p.sill?'klupica':'',p.installation?'montaža':'',p.removal?'demontaža':''].filter(Boolean).join(', ');
   if(extras)text(`Uključeno: ${extras}`,8,false,88,104);
   if(price.requiresReview)text(reviewPrice,10,true,88,104);else{text(`${p.customGeometry?'Ručno / kom':'Jedinično'}: ${euro(price.unit)}`,9,false,88,104);text(`Ukupno: ${euro(price.total)}`,10,true,88,104);}y=Math.max(y,start+58);
@@ -36,7 +37,7 @@ export async function makeDocument(job:Job,settings:Settings,kind:'kupac'|'kance
   if(p.extraWork)text(`Dodatni radovi: ${p.extraWork} (${euro(p.extraCost)} / kom)`);
   if(kind==='kancelarija'){
    if(!p.customGeometry)text(`Krila: ${p.segments.map((s,k)=>`${k+1}: ${Math.round(s.width)} mm / ${s.opening}`).join('; ')}`,9);
-   if(p.customGeometry){const g=p.customGeometry;text('Geometrija u mm. Fiksno zastakljenje. Podele su terenska skica.',9,true);for(let k=0;k<g.edges.length;k++){const e=g.edges[k],[a,b]=ends(g,e);text(`${k+1}. ${e.kind==='arc'?'Luk':'Linija'}: (${fmt(a.x)}; ${fmt(a.y)}) → (${fmt(b.x)}; ${fmt(b.y)}), dužina ${fmt(edgeLength(g,e))} mm`,8);if(e.kind==='arc'){const arc=edgeArc(g,e);text(`R ${fmt(arc.radius)} mm; centar (${fmt(arc.center.x)}; ${fmt(arc.center.y)}); kontrolna tačka (${fmt(e.via!.x)}; ${fmt(e.via!.y)})`,8);}}for(let k=0;k<g.bars.length;k++){const b=g.bars[k];text(`Prečka ${k+1}: (${fmt(b.a.x)}; ${fmt(b.a.y)}) → (${fmt(b.b.x)}; ${fmt(b.b.y)}) mm`,8);}}
+   if(p.customGeometry){const g=p.customGeometry;text(`Geometrija u mm. ${customKindLabel(p.customKind)}. Širina rama: ${p.customFrameMm??70} mm. Otvaranje za tehničku proveru.`,9,true);for(let k=0;k<g.edges.length;k++){const e=g.edges[k],[a,b]=ends(g,e);text(`${k+1}. ${e.kind==='arc'?'Luk':'Linija'}: (${fmt(a.x)}; ${fmt(a.y)}) → (${fmt(b.x)}; ${fmt(b.y)}), dužina ${fmt(edgeLength(g,e))} mm`,8);if(e.kind==='arc'){const arc=edgeArc(g,e);text(`R ${fmt(arc.radius)} mm; centar (${fmt(arc.center.x)}; ${fmt(arc.center.y)}); kontrolna tačka (${fmt(e.via!.x)}; ${fmt(e.via!.y)})`,8);}}for(let k=0;k<g.bars.length;k++){const b=g.bars[k];text(`Prečka ${k+1}: (${fmt(b.a.x)}; ${fmt(b.a.y)}) → (${fmt(b.b.x)}; ${fmt(b.b.y)}) mm`,8);}}
    if(p.notes)text('Napomena: '+p.notes);if(p.access)text('Pristup i uslovi: '+p.access);
    text(`Montaža: ${p.installation?'DA':'NE'}  |  Demontaža: ${p.removal?'DA':'NE'}`);
    if(!p.customGeometry)text('Obračun po komadu:',8,true);for(const line of price.lines)text(`${line.name}: ${line.basis} = ${euro(line.amount)}`,8);

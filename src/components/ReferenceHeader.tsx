@@ -10,6 +10,7 @@ export function ReferenceHeader({ onNotifications, onSearch, technician, hasNoti
 }) {
   const initials = technician.split(' ').map(name => name[0]).slice(0, 2).join('');
   return <header className="reference-header">
+    <Link className="reference-emblem" to="/" aria-label="ALU TIM 012 — Početna"><img src="/assets/logo.png" alt="ALU TIM 012 — ALU i PVC profili"/></Link>
     <Link className="reference-header-logo" to="/" aria-label="ALU TIM 012 — Početna">
       <Logo />
       <svg className="reference-logo-phone" viewBox="86 57 124 42" role="img" aria-label="ALU TIM 012"><image href="/assets/reference-phone.png" width="338" height="735" /></svg>

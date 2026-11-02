@@ -24,11 +24,11 @@ export function AppShell({children,onNew,onSearch,onNotifications,onNavigation}:
  useEffect(()=>{if(navigation.jobId&&!jobs.some(j=>j.id===navigation.jobId))navigation.clearJob();},[jobs,navigation.jobId]);
  return <div className={`app-shell reference-app unified-shell ${compact?'sidebar-compact':''} ${field?'field-flow':''} ${home?'reference-home-page':'work-modules'} ${navigation.fullscreen?'is-fullscreen':''}`}>
   <aside className="app-sidebar" aria-label="Glavna bočna navigacija">
-   <Link to="/" className="app-brand" aria-label="ALU TIM 012 — Početna"><Logo/></Link>
-   <button className="sidebar-toggle" onClick={()=>navigation.toggleSidebar(compact)} aria-label={compact?'Proširi navigaciju':'Skupi navigaciju'} title={compact?'Proširi navigaciju':'Skupi navigaciju'}>{compact?<PanelLeftOpen/>:<PanelLeftClose/>}</button>
+   <Link to="/" className="app-brand" aria-label="ALU TIM 012 — Početna"><img className="brand-emblem" src="/assets/logo.png" alt="ALU TIM 012 — ALU i PVC profili"/></Link>
    <nav className="app-primary-nav" aria-label="Glavna navigacija">{links.map(({to,label,Icon})=><Link key={to} to={to} className={activeSection(location.pathname,to)?'active':''} aria-current={activeSection(location.pathname,to)?'page':undefined} title={label} onClick={onNavigation}><Icon aria-hidden="true"/><span>{label}</span></Link>)}</nav>
    {resume&&<Link className="sidebar-resume" to={resume} title={`Nastavi merenje: ${activeJob!.customer.name}`}><Play/><span>Nastavi merenje<small>{activeJob!.customer.name}</small></span></Link>}
    <div className="sidebar-local"><HardHat/><div><strong>Terenski rad</strong><span><i/>Lokalno</span></div></div>
+   <button className="sidebar-toggle" onClick={()=>navigation.toggleSidebar(compact)} aria-label={compact?'Proširi navigaciju':'Skupi navigaciju'} title={compact?'Proširi navigaciju':'Skupi navigaciju'}>{compact?<PanelLeftOpen/>:<PanelLeftClose/>}</button>
   </aside>
   <div className="main-shell" ref={mainRef}>
    {home&&<ReferenceHeader onSearch={onSearch} onNotifications={onNotifications} technician={settings.technician} hasNotifications={jobs.some(j=>j.status==='Čeka proveru')}/>}
