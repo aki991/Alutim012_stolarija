@@ -1,0 +1,27 @@
+import { bounds, contourPath, edgeArc, edgePath, ends, fmt, isClosed, pointAt, type Geometry } from './geometry';
+import { dimensionLabels, type LabelBox } from './labels';
+export function GeometryArtwork({geometry:g,selected,unit=4,editable=false,dimensions=true,viewport,onDimensionSelect}:{geometry:Geometry;selected?:string|null;unit?:number;editable?:boolean;dimensions?:boolean;viewport?:LabelBox;onDimensionSelect?:(id:string)=>void}){
+ let path='';try{path=contourPath(g);}catch{path=g.edges.map(e=>{const[a,b]=ends(g,e);return `M${a.x} ${a.y}L${b.x} ${b.y}`;}).join(' ');}
+ const labels=dimensions?dimensionLabels(g,unit,viewport):[];
+ return <>
+  <path d={path} fill={isClosed(g)?'#dcf2fc':'none'} stroke="#42484d" strokeWidth={editable?9:6} strokeLinejoin="round" vectorEffect="non-scaling-stroke"/>
+  <path d={path} fill="none" stroke="#f5f5f3" strokeWidth={editable?5:3} strokeLinejoin="round" vectorEffect="non-scaling-stroke"/>
+  {g.edges.map(e=>{let d='';try{d=edgePath(g,e);}catch{return null;}return <g key={e.id}>
+   {e.locked&&<path d={d} className="custom-locked-edge" stroke="#23658c" fill="none" strokeWidth="2.5" strokeDasharray="7 4" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
+   {editable&&<path data-edge={e.id} d={d} fill="none" stroke="transparent" strokeWidth="30" vectorEffect="non-scaling-stroke" className="custom-edge-hit"/>}
+   {selected===e.id&&<path d={d} stroke="#be0018" fill="none" strokeWidth="3" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
+  </g>;})}
+  {g.bars.map(bar=><g key={bar.id}><path d={`M${bar.a.x} ${bar.a.y}L${bar.b.x} ${bar.b.y}`} stroke="#525a60" strokeWidth="7" vectorEffect="non-scaling-stroke"/><path d={`M${bar.a.x} ${bar.a.y}L${bar.b.x} ${bar.b.y}`} stroke="#f7f7f5" strokeWidth="3" vectorEffect="non-scaling-stroke"/>{editable&&<path data-bar={bar.id} d={`M${bar.a.x} ${bar.a.y}L${bar.b.x} ${bar.b.y}`} stroke="transparent" strokeWidth="28" vectorEffect="non-scaling-stroke"/>}</g>)}
+  {labels.map(label=><g key={label.id+'label'}>
+   {label.leader&&<path d={`M${label.anchor.x} ${label.anchor.y}L${label.center.x} ${label.center.y}`} fill="none" stroke="#8d9aa8" strokeWidth="1" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
+   <g transform={`translate(${label.center.x} ${label.center.y}) rotate(${label.angle})`} data-dimension={editable?label.id:undefined} className={editable?'custom-dimension-label':undefined} role={editable?'button':undefined} tabIndex={editable?0:undefined} aria-label={editable?`${label.text}${label.locked?', zaključano':''}`:undefined} onKeyDown={e=>{if(editable&&(e.key==='Enter'||e.key===' ')){e.preventDefault();onDimensionSelect?.(label.id);}}}>
+    <rect x={-label.width/2} y={-label.height/2} width={label.width} height={label.height} rx={5*unit} fill={label.locked?'#edf7ff':'#ffffff'} fillOpacity=".95" stroke={selected===label.id?'#c0001a':'none'} strokeWidth="1" vectorEffect="non-scaling-stroke"/>
+    <text data-dimension-text={label.id} x={label.locked?-8*unit:0} y={0} textAnchor="middle" dominantBaseline="central" fontSize={15*unit} fontFamily="Arial,sans-serif" fontWeight="700" fill={label.locked?'#205775':'#191d21'} pointerEvents="none">{label.text}</text>
+    {label.locked&&<g transform={`translate(${label.width/2-21*unit} ${-8*unit}) scale(${unit})`} fill="none" stroke="#23658c" strokeWidth="1.7" pointerEvents="none"><rect x="1" y="7" width="12" height="10" rx="2"/><path d="M4 7V4a3 3 0 016 0v3"/></g>}
+   </g>
+  </g>)}
+  {editable&&g.points.map(p=><g key={p.id}><circle data-node={p.id} cx={p.x} cy={p.y} r={20*unit} fill="transparent"/><circle cx={p.x} cy={p.y} r={7*unit} fill="#fff" stroke="#24282c" strokeWidth="2.5" vectorEffect="non-scaling-stroke" pointerEvents="none"/></g>)}
+  {editable&&g.edges.filter(e=>e.kind==='arc'&&!e.locked).map(e=>{try{const control=pointAt(g,e,.5),[a,b]=ends(g,e),mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};return <g key={e.id+'control'}>{selected===e.id&&<path d={`M${mid.x} ${mid.y}L${control.x} ${control.y}`} stroke="#b08a32" strokeDasharray="4 4" strokeWidth="1" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}<circle data-control={e.id} cx={control.x} cy={control.y} r={20*unit} fill="transparent" role="button" aria-label="Kontrolna tačka luka"><title>Povucite ka tetivi ili od nje da promenite radijus.</title></circle><circle cx={control.x} cy={control.y} r={7*unit} fill="#ffd46b" stroke="#9e6500" strokeWidth="2" vectorEffect="non-scaling-stroke" pointerEvents="none"/></g>;}catch{return null;}})}
+ </>;
+}
+export function CustomDrawing({geometry,compact=false}:{geometry:Geometry;compact?:boolean}){const b=bounds(geometry),unit=Math.max(b.width,b.height,200)/400,margin=compact?8*unit:120*unit;return <svg xmlns="http://www.w3.org/2000/svg" viewBox={`${b.x-margin} ${b.y-margin} ${Math.max(1,b.width)+2*margin} ${Math.max(1,b.height)+2*margin}`} role="img" aria-label={`Nacrtan element, ${fmt(b.width)} puta ${fmt(b.height)} milimetara`} className="custom-sketch"><GeometryArtwork geometry={geometry} unit={unit} dimensions={!compact}/>{!compact&&<text x={b.x+b.width/2} y={b.y+b.height+95*unit} textAnchor="middle" fontSize={14*unit} fontFamily="Arial,sans-serif" fill="#424b56">Širina {fmt(b.width)} mm · Visina {fmt(b.height)} mm</text>}</svg>;}

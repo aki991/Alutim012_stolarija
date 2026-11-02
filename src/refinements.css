@@ -1,0 +1,68 @@
+/* Compact field controls and sheets share the space above permanent navigation. */
+.unified-shell .modal-sheet{font:400 19px/1.25 AluNarrow,Arial,sans-serif;color:#171717;background:linear-gradient(130deg,#fff,#f8f9fa);display:flex;flex-direction:column;overflow:hidden;padding:22px;max-width:480px}
+.unified-shell .modal-sheet.modal-wide{max-width:760px}
+.unified-shell .modal-sheet>header{flex-shrink:0;margin-bottom:20px;gap:12px}
+.unified-shell .modal-sheet>header h2{font:700 29px AluNarrow,Arial,sans-serif;letter-spacing:0}
+.unified-shell .modal-sheet>header .icon-btn{background:#eff0f2;color:#333;border-radius:10px;min-width:44px;min-height:44px}
+.position-options{display:flex;flex-direction:column;flex:1;min-height:0;gap:0}
+.position-options-body{overflow-y:auto;overscroll-behavior:contain;min-height:0;padding:0 3px 12px;scrollbar-width:thin}
+.options-basics-row{display:grid;grid-template-columns:minmax(0,1fr) 140px;gap:16px;align-items:start;margin-bottom:18px}
+.position-options .field{margin:0;gap:5px}
+.position-options .field>span,.options-quantity>label,.option-label{font:400 18px AluNarrow,Arial,sans-serif;color:#262626;display:block;margin:0 0 5px}
+.position-options .field input,.position-options .field select,.position-options .field textarea{font:400 21px/1.25 AluNarrow,Arial,sans-serif;color:#151515;border:1px solid #d2d5dc;min-height:48px;padding:9px 11px;border-radius:8px;background:#fff;max-width:100%}
+.options-quantity>div{display:flex;min-height:48px;border:1px solid #d2d5dc;border-radius:8px;overflow:hidden;background:#fff}
+.options-quantity button{flex-shrink:0;width:42px;min-height:46px;border:0;background:#f1f2f4;display:grid;place-items:center;color:#171717}
+.options-quantity button:disabled{color:#a7a7a7}.options-quantity button svg{width:20px}
+.options-quantity input{width:100%;min-width:0;border:0;background:#fff;text-align:center;font:700 23px AluNarrow,Arial,sans-serif;appearance:textfield;padding:0}
+.options-quantity input::-webkit-inner-spin-button,.options-quantity input::-webkit-outer-spin-button{appearance:none;margin:0}
+.options-main-fields{display:grid;grid-template-columns:1fr 1fr;gap:18px 24px;margin-bottom:24px}
+.option-setting{display:flex;gap:12px;align-items:center;min-width:0}.option-setting>svg{width:25px;height:25px;flex-shrink:0;stroke-width:1.8;margin-top:23px}.option-setting>.field,.option-setting>div{flex:1;min-width:0}
+.option-color{grid-column:1/-1;grid-row:2}.option-color-buttons{display:flex;gap:10px;flex-wrap:wrap}
+.option-color-buttons button{display:flex;align-items:center;justify-content:center;gap:8px;flex:1;min-width:100px;min-height:48px;border:1px solid #d9dce1;border-radius:8px;background:linear-gradient(#fafafa,#eff0f2);color:#191919;font:700 20px AluNarrow,Arial,sans-serif;padding:8px 10px}
+.option-color-buttons button.selected{border-color:#c00019;background:#fff2f2;box-shadow:inset 0 0 0 1px #c0001922}.option-color-buttons button>svg{width:19px;height:19px;color:white;background:#b80016;border-radius:50%;padding:2px;flex-shrink:0}
+.color-swatch{width:17px;height:17px;border:1px solid #c9c9c9;border-radius:4px;flex-shrink:0}.swatch-bela{background:#fff}.swatch-antracit{background:#303236;border-color:#303236}.swatch-orah{background:linear-gradient(100deg,#815031,#a97a4c 35%,#6e4127 42%,#aa7950 75%,#7a4d2f);border-color:#815031}
+.options-sections{display:flex;flex-direction:column;gap:9px}
+.options-section{border:1px solid #dedfe4;border-radius:10px;background:#f4f5f7;overflow:hidden}
+.options-section>summary{display:flex;align-items:center;gap:11px;padding:10px 12px;min-height:52px;cursor:pointer;list-style:none;font:700 22px AluNarrow,Arial,sans-serif}
+.options-section>summary::-webkit-details-marker{display:none}.options-section>summary>svg{width:24px;height:24px;flex-shrink:0;stroke-width:1.8}.options-section>summary>span{flex:1;min-width:0}.options-section>summary>small{font:400 16px AluNarrow,Arial,sans-serif;color:#666;max-width:42%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.options-section>summary>svg:last-child{width:20px;transition:transform .15s}.options-section[open]>summary>svg:last-child{transform:rotate(90deg)}.options-section[open]>summary{border-bottom:1px solid #e0e2e6}
+.options-section-content{padding:14px;background:#fff;display:flex;flex-direction:column;gap:14px}
+.position-options .field-options-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.position-options .field-options-grid .field:first-child:has(textarea){grid-column:1/-1}
+.position-options .field-checks{margin:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.position-options .field-checks>label{font:400 20px AluNarrow,Arial,sans-serif;min-height:50px;padding:8px;gap:8px}.position-options .field-checks input{width:21px;height:21px;accent-color:#b80016;flex-shrink:0}.position-options .field-photos{margin:0}
+.options-footer{flex-shrink:0;padding:12px 3px 0;border-top:1px solid #e4e5e8;background:#fafbfc}.position-options .options-done{width:100%;min-height:50px;margin:0;font-size:22px}
+.more-navigation{overflow-y:auto;min-height:0;gap:10px;padding:0 2px 6px}.more-navigation>a,.more-navigation>button{min-height:60px;background:linear-gradient(#fbfbfc,#f0f1f3);border-color:#dcdfe5;font-size:23px;border-radius:11px;padding:12px 15px}
+.unified-shell .modal-backdrop:has(.field-expanded-drawing){padding:0}
+.unified-shell .modal:has(.field-expanded-drawing){display:flex;flex-direction:column;width:100%;max-width:none;height:var(--app-height);max-height:var(--app-height);border-radius:0;overflow:hidden;padding:16px 20px}
+.unified-shell .field-expanded-drawing{flex:1;min-height:0;height:auto}.expanded-zoom{display:flex;align-items:center;justify-content:center;gap:15px;flex-shrink:0}.expanded-zoom>.field-icon-button{min-width:44px;min-height:44px}.expanded-measures{flex-shrink:0}
+@media(min-width:761px){.unified-shell .reference-header-logo{margin-left:0}.unified-shell .reference-header{padding-left:28px}}
+@media(max-width:999px){.measurement-canvas{min-height:390px}.field-drawing,.field-drawing>svg{min-height:310px;max-height:400px}.measurement-workspace{gap:12px}.field-canvas-toolbar{min-height:44px}.field-sketch-note{padding:2px 8px 7px}}
+@media(max-width:700px){
+ .unified-shell .reference-header-logo{left:50%;transform:translate(-50%,-50%)}
+ .unified-shell .sheet-backdrop{padding:10px 0 0;align-items:flex-end;background:#18101066}
+ .unified-shell .modal-sheet,.unified-shell .modal-sheet.modal-wide{width:100%;max-width:none;max-height:calc(var(--app-height) - 10px);border-radius:24px 24px 0 0;padding:31px 18px 15px;position:relative}
+ .unified-shell .modal-sheet:before{content:'';position:absolute;width:44px;height:5px;top:11px;left:calc(50% - 22px);border-radius:5px;background:#aeb0b5}
+ .unified-shell .modal-sheet>header{margin-bottom:20px}.unified-shell .modal-sheet>header h2{font-size:28px}
+ .options-basics-row{grid-template-columns:minmax(0,1fr) 124px;gap:12px;margin-bottom:16px}.options-quantity button{width:36px}.options-main-fields{display:flex;flex-direction:column;gap:13px;margin-bottom:21px}.option-setting{gap:12px}.option-setting>svg{width:24px;height:24px}
+ .option-color-buttons{gap:7px}.option-color-buttons button{min-width:0;min-height:46px;font-size:20px;gap:5px;padding:8px}.option-color-buttons .color-swatch{display:none}
+ .position-options .field input,.position-options .field select,.position-options .field textarea{min-height:44px;font-size:20px;padding:8px 10px}
+ .options-basics-row .field input{min-height:48px}.position-options .field>span,.options-quantity>label,.option-label{font-size:18px;margin-bottom:2px}
+ .position-options .field-checks{grid-template-columns:1fr 1fr}.position-options .field-options-grid{grid-template-columns:1fr}.position-options .field-checks>label{font-size:20px}.options-section-content{padding:12px}.options-section>summary{font-size:21px;padding:9px 12px;min-height:50px}.options-section>summary>small{font-size:15px;max-width:34%}
+ .options-footer{padding-top:10px}.options-footer .options-done{min-height:48px}
+ .more-navigation{padding:0 2px 28px;gap:10px}.more-navigation>a,.more-navigation>button{min-height:60px;font-size:23px}.unified-shell .modal-sheet:has(.more-navigation){min-height:min(510px,calc(var(--app-height) - 10px))}
+ .measurement-workspace{padding:6px 10px 12px;gap:10px}.measurement-canvas{min-height:335px;background:#fff;box-shadow:none;border:0}.field-canvas-toolbar{min-height:44px;padding:0 3px}.field-canvas-toolbar>span{background:#f0f1f3;padding:7px 10px;border-radius:9px}.field-drawing,.field-drawing>svg{min-height:270px;max-height:340px}.field-sketch-note{font-size:13px;padding:0 5px 4px}
+ .dimension-control{padding:8px 7px}.wing-count-options>button{min-height:70px}.wing-count-options>button svg{height:40px}.opening-options>button{min-height:78px}.opening-options>button svg{height:35px}.visual-control{padding:9px}.material-control{min-height:66px}
+ .measurement-footer{min-height:82px;padding:9px 12px}.measurement-footer>.field-button{min-height:52px}.expanded-measures input{min-height:48px}.unified-shell .modal:has(.field-expanded-drawing){padding:12px}.unified-shell .modal:has(.field-expanded-drawing)>header{margin-bottom:4px}
+}
+@media(max-width:360px){.options-basics-row{grid-template-columns:minmax(0,1fr) 113px;gap:9px}.options-quantity button{width:33px}.unified-shell .modal-sheet{padding-left:13px;padding-right:13px}.option-color-buttons button{font-size:19px;padding:7px 5px}}
+/* Keep primary settings compact enough to expose the grouped sections on a phone. */
+.unified-shell .position-options .field{gap:0}
+.unified-shell .position-options .field input,.unified-shell .position-options .field select,.unified-shell .position-options .field textarea{min-height:48px;padding:9px 11px;font:400 21px/1.25 AluNarrow,Arial,sans-serif}
+@media(max-width:700px){
+ .unified-shell .modal-sheet,.unified-shell .modal-sheet.modal-wide{padding:26px 16px 10px}
+ .unified-shell .modal-sheet>header{margin-bottom:12px}
+ .unified-shell .position-options .field input,.unified-shell .position-options .field select,.unified-shell .position-options .field textarea{min-height:44px;padding:8px 10px;font-size:20px}
+ .unified-shell .position-options .field>span{line-height:20px;margin-bottom:4px}
+ .options-basics-row{margin-bottom:12px}.options-quantity>label{line-height:20px;margin-bottom:4px}.options-quantity>div{min-height:44px}.options-quantity button{min-height:42px}
+ .options-main-fields{gap:8px;margin-bottom:16px}.option-label{line-height:20px;margin-bottom:4px}
+ .option-color-buttons button{min-height:44px}.options-sections{gap:7px}.options-section>summary{min-height:44px;padding:8px 11px;font-size:20px}
+ .options-footer{padding-top:8px}.options-footer .options-done{min-height:44px;font-size:21px}
+}
