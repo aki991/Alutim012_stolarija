@@ -26,11 +26,12 @@ for(const width of [390,620,1024])test(`Slanje kancelarijske specifikacije bez p
  await expect(dialog.getByRole('link',{name:'Pripremi email'})).toHaveCount(0);
  const send=dialog.getByRole('button',{name:'Pošalji u app',exact:true});await expect(send.getByAltText('ALU TIM 012')).toBeVisible();
  await expect(dialog.locator('input')).toHaveCount(0);
- await send.click();await expect(dialog.getByRole('status')).toContainText('Specifikacija je sačuvana u app.');
+ await send.click();await expect(dialog.getByRole('status')).toHaveText('Sačuvano');
+ await expect(dialog.getByRole('status')).toHaveClass(/office-notice-success/);await expect(page.locator('.price-workspace [role=status]')).toHaveCount(0);await expect(dialog).not.toContainText('Broj prijema');
  expect(received).toHaveLength(1);expect(received[0]).toMatchObject({job_id:'AT-2026-012',customer_name:'Porodica Petrović',position_count:3});
- await send.click();await expect(dialog.getByRole('status')).toContainText('Specifikacija je sačuvana u app.');expect(received).toHaveLength(2);expect(received[0].id).toBe(received[1].id);
+ await send.click();await expect(dialog.getByRole('status')).toHaveText('Sačuvano');expect(received).toHaveLength(2);expect(received[0].id).toBe(received[1].id);
  expect(await page.evaluate(()=>localStorage.getItem('alu-tim-teren-v1'))).toBe(original);
- expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBeTruthy();await page.screenshot({path:path.join(folder,`poslato-${width}.png`)});
+ expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBeTruthy();await page.screenshot({path:path.join(folder,`poslato-${width}.png`)});await dialog.getByRole('button',{name:'Zatvori',exact:true}).click();await expect(page.getByRole('status')).toHaveCount(0);await page.getByRole('button',{name:'Podeli dokument',exact:true}).click();await expect(page.getByRole('status')).toHaveCount(0);
 });
 
 test('Greška i offline ne prikazuju lažnu potvrdu i omogućavaju ponovno slanje',async({page,context})=>{
@@ -39,5 +40,5 @@ test('Greška i offline ne prikazuju lažnu potvrdu i omogućavaju ponovno slanj
  await page.goto('/posao/AT-2026-012/ponuda');await page.getByRole('button',{name:'Podeli dokument',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Podeli dokument'}),send=dialog.getByRole('button',{name:'Pošalji u app',exact:true});
  await context.setOffline(true);await send.click();await expect(dialog.getByRole('status')).toContainText('potreban je internet');expect(attempts).toBe(0);await context.setOffline(false);
  await send.click();await expect(dialog.getByRole('status')).toContainText('Baza trenutno nije dostupna');await expect(send).toBeEnabled();
- await send.click();await expect(dialog.getByRole('status')).toContainText('Specifikacija je sačuvana u app.');expect(ids[0]).toBe(ids[1]);
+ await send.click();await expect(dialog.getByRole('status')).toHaveText('Sačuvano');expect(ids[0]).toBe(ids[1]);
 });
