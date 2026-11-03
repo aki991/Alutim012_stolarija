@@ -8,14 +8,15 @@ import { categories } from './catalog';
 export function Dashboard({ onNew }: { onNew: () => void }) {
   const { jobs, saveState } = useStore();
   const navigate = useNavigate();
-  const active = jobs.filter(job => job.status !== 'Završeno');
+  const active = jobs.filter(job => !['Završeno','Odbijeno'].includes(job.status));
   const last = active[0];
 
   return <div className="reference-home">
     <section className="reference-hero" aria-labelledby="reference-title">
       <div className="reference-hero-photo" aria-hidden="true">
         <svg className="reference-facade-wide" viewBox="552 156 416 248" preserveAspectRatio="xMidYMid slice"><image href="/assets/reference.png" width="1672" height="941" /></svg>
-        <svg className="reference-facade-phone" viewBox="14 109 302 204" preserveAspectRatio="xMidYMid slice"><image href="/assets/reference-phone.png" width="338" height="735" /></svg>
+        {/* Use only the facade crop: the phone mockup includes a baked-in yellow button. */}
+        <svg className="reference-facade-phone" viewBox="552 156 416 248" preserveAspectRatio="xMidYMid slice"><image href="/assets/reference.png" width="1672" height="941" /></svg>
       </div>
       <div className="reference-hero-content">
         <h1 id="reference-title">Brza ponuda<br /><em>na terenu</em></h1>
@@ -39,7 +40,7 @@ export function Dashboard({ onNew }: { onNew: () => void }) {
               <span className={`reference-status reference-status-${job.status === 'U izradi' ? 'progress' : job.status === 'Ponuda' ? 'offer' : 'review'}`}>{job.status}</span>
               <ChevronRight className="reference-job-arrow" aria-hidden="true" />
             </Link>)}
-            {!active.length && <Empty title="Nema aktivnih poslova" action={<Button onClick={onNew}>Novi posao</Button>} />}
+            {!active.length && <Empty title="Nema aktivnih poslova" />}
           </div>
         </section>
         <section className="reference-actions" aria-labelledby="actions-title">

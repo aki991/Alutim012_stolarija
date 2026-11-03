@@ -1,0 +1,47 @@
+/* Quick status and customer details share the same controls across screens. */
+.reference-active .empty h3{font:700 26px/1.25 AluNarrow,Arial,sans-serif;color:#525b65}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.job-status-select{display:inline-flex;min-width:0;max-width:100%;border-radius:10px;background:#fff0c9;color:#805100}
+.job-status-select select{width:100%;max-width:100%;min-width:0;min-height:44px;border:1px solid transparent;border-radius:10px;padding:8px 7px;font:700 18px AluNarrow,Arial,sans-serif;background:transparent;color:inherit;cursor:pointer}
+.job-status-select option{background:white;color:#222}
+.job-status-select.status-offer{background:#bc0018;color:white}.job-status-select.status-done{background:#d9f3d8;color:#245e24}.job-status-select.status-rejected{background:#f9dbdd;color:#a21422}
+.job-card-status .job-status-select{width:100%}.job-card-status select{font-size:17px;padding:7px 2px}
+.summary-customer{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 16px;border:1px solid #dedfe4;border-radius:13px;background:#fff;margin-bottom:12px}
+.summary-customer-info{display:flex;align-items:center;gap:14px;min-width:0;flex:1;background:none;border:0;text-align:left;padding:0;color:inherit;min-height:48px}
+.summary-customer-info>svg{flex-shrink:0}.summary-customer-info span{min-width:0}.summary-customer-info strong{display:block;font:700 24px/1.2 AluNarrow,Arial,sans-serif;overflow-wrap:anywhere}.summary-customer-info small{display:block;font:400 17px/1.3 AluNarrow,Arial,sans-serif;color:#58616d;margin-top:4px}
+.summary-customer>.job-status-select{flex:0 0 142px}
+.unified-shell .job-quick-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.unified-shell .job-quick-actions>.field-button{font-size:20px;min-width:0;padding:10px;gap:8px}
+.summary-more-offer{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:32px;font-size:17px;color:#a00015}
+.document-download-message{grid-column:1/-1;font-size:16px;text-align:center}
+.customer-section{background:#fafbfc;border:1px solid #dddfe6;border-radius:12px;padding:16px;margin-bottom:14px}
+.customer-form h3{margin:0 0 14px!important;font-size:23px!important}.customer-contacts{display:grid;grid-template-columns:1fr 1fr;gap:14px}.customer-contacts>div{min-width:0}.contact-link{display:inline-flex;align-items:center;gap:8px;color:#9d0013;font-size:18px;min-height:44px;margin-bottom:8px}
+.customer-section>summary{cursor:pointer;min-height:40px;font:700 23px AluNarrow,Arial,sans-serif}.customer-section[open]>.form-grid{padding-top:14px}.customer-status{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.customer-form .modal-footer{position:sticky;bottom:-20px;background:white;padding:12px 0;margin:0;z-index:1}
+.correction-entry{margin-top:20px;width:100%}
+.correction-page{display:flex;flex-direction:column;height:var(--app-height);overflow:hidden}.correction-page>.field-header{flex-shrink:0}.correction-form{flex:1;min-height:0;display:flex;flex-direction:column}.correction-workspace{overflow-y:auto;flex:1;min-height:0;padding:20px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px;align-content:start;align-items:start;font:400 19px AluNarrow,Arial,sans-serif}
+.correction-workspace h2{font:700 25px AluNarrow,Arial,sans-serif;margin-bottom:12px}.correction-elements,.correction-card,.correction-total{border:1px solid #dddfe6;border-radius:14px;background:white;padding:18px;min-width:0}
+.correction-element{display:grid;grid-template-columns:40px minmax(0,1fr) 130px;gap:12px;align-items:center;padding:16px 0;border-bottom:1px solid #e6e7eb}.correction-element:last-child{border:0}.correction-element .price-sketch{width:40px}.correction-element strong{display:block;font-size:21px;overflow-wrap:anywhere}.correction-element small,.correction-element>div>span{display:block;font-size:17px;color:#58616d;margin-top:5px}.correction-element .field{margin:0}
+.correction-workspace .field>span{font-size:17px}.correction-workspace .field input,.correction-workspace .field select{width:100%;min-width:0;min-height:48px;font-size:22px;padding:9px;border:1px solid #ccd1db;border-radius:8px;background:#fff}.correction-settings{display:grid;align-items:start;gap:16px;min-width:0}.quick-adjustments{padding:0;border:0;margin:12px 0}.quick-adjustments:disabled{opacity:.45}.adjustment-row{display:grid;grid-template-columns:minmax(0,1fr) 88px;gap:10px}.price-mode-note{font-size:17px;line-height:1.4;color:#58616d;margin:8px 0}.manual-total-toggle{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:bold;min-height:52px}.manual-total-toggle input{width:23px;height:23px;accent-color:#b40017}
+.correction-total>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0}.correction-total>div:last-of-type{background:#fff0d3;margin:8px -6px 0;padding:14px 10px;border-radius:9px}.correction-total h2{font-size:22px;margin:0}.correction-total [data-testid]{font-size:29px;color:#ac0014;white-space:nowrap}.correction-advanced{grid-column:1/-1}.correction-advanced>summary{cursor:pointer;font:700 24px AluNarrow,Arial,sans-serif;min-height:34px}.advanced-content{padding-top:18px}.advanced-content .form-grid{margin-top:20px}.correction-save{position:static;flex-shrink:0;flex-wrap:wrap}.correction-save>span{flex:1 1 100%;font-size:16px;color:#58616d;text-align:center}.correction-save>.field-button{flex:1}
+@media(max-width:1100px){.correction-workspace{grid-template-columns:1fr}.correction-settings{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.correction-total{position:sticky;top:0}}
+@media(max-width:700px){
+ .summary-customer{padding:12px;gap:8px}.summary-customer-info{gap:9px}.summary-customer-info strong{font-size:21px}.summary-customer-info small{font-size:16px}.summary-customer>.job-status-select{flex-basis:125px}.summary-toolbar .saved{margin-left:auto}
+ .unified-shell .job-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:8px 10px}.unified-shell .job-quick-actions>.field-button{min-height:52px;font-size:19px;padding:8px}.summary-more-offer{min-height:28px;font-size:16px}.job-card-open{grid-template-columns:38px minmax(0,1fr) 102px}.job-card-status .job-status-select{width:132px;max-width:none}.job-card-status select{font-size:17px;padding:5px}.job-card-open>a:last-child{display:none}
+ .customer-contacts,.customer-form .form-grid{grid-template-columns:1fr}.customer-section{padding:12px}.customer-form .modal-footer{bottom:-16px}.customer-form .modal-footer>.btn{flex:1;min-width:0;white-space:normal}
+ .correction-workspace{padding:12px;gap:14px}.correction-settings{grid-template-columns:1fr}.correction-card,.correction-elements,.correction-total{padding:14px}.correction-total{position:static}.correction-element{grid-template-columns:32px minmax(0,1fr);gap:10px}.correction-element .price-sketch{width:32px}.correction-element>.field{grid-column:2}.correction-element>.field input{max-width:180px}.correction-workspace .form-grid{grid-template-columns:1fr}.correction-element strong{font-size:20px}.correction-save{gap:8px;padding:8px 10px}.correction-save>.field-button{font-size:19px;min-height:50px}
+}
+@media(max-width:360px){.summary-customer-info>svg{display:none}.summary-customer>.job-status-select{flex-basis:112px}.summary-customer-info strong{font-size:19px}.unified-shell .job-quick-actions>.field-button{font-size:17px;gap:5px}.unified-shell .job-quick-actions>.field-button svg{width:20px;flex-shrink:0}}
+
+.badge-rejected{background:#f9dbdd;color:#a21422}
+.summary-toolbar{justify-content:flex-end;margin-bottom:8px}.summary-customer-info>svg:last-child:not(:first-child){margin-left:auto;color:#66707c;flex-shrink:0}
+.correction-sticky-total{flex:1 1 100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 8px;font:400 19px AluNarrow,Arial,sans-serif}.correction-sticky-total strong{color:#aa0014;font-size:28px;white-space:nowrap}
+@media(min-width:701px) and (max-width:1100px){.job-card-open{grid-template-columns:48px minmax(0,1fr) 132px 130px 16px}}
+@media(max-width:700px){.correction-element{grid-template-columns:32px minmax(0,1fr) 100px;gap:9px;padding:12px 0}.correction-element>.field{grid-column:auto}.correction-element .field>span{font-size:15px}.correction-element .field input{font-size:20px}.correction-element strong{font-size:19px}.price-mode-note{font-size:16px}.summary-customer-info>svg:last-child:not(:first-child){display:none}}
+@media(max-width:370px){.job-card-status .job-status-select{width:110px}.job-card-status select{font-size:15px}.correction-element{grid-template-columns:26px minmax(0,1fr) 84px;gap:6px}.correction-element .price-sketch{width:26px}}
+
+/* Job summary leads to the document screen; downloads stay on that screen. */
+.unified-shell .job-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+.unified-shell .job-quick-actions>.summary-more-offer{grid-column:1/-1;min-height:54px;color:#281900;font-size:20px}
+
+.share-company-logo{display:block;width:38px;height:38px;object-fit:contain;justify-self:end}

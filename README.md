@@ -199,3 +199,45 @@ U editoru prave linije su Poravnaj vodoravno / Poravnaj uspravno. Izabrani fiksn
 Prethodni obrađeni kružni logo je `public/assets/brand-round-transparent.png`. Obrađen je ugrađenim imagegen alatom prema promptu: ukloniti samo spoljnu belu pozadinu, sačuvati ceo kružni amblem, boje, bele detalje i natpise; izlaz PNG sa alpha transparentnošću.
 
 Aktuelni logo je `public/assets/logo.png`, prekopiran bez izmene iz korisnikovog fajla `Ograde/src/assets/logo.png`. Koristi se u bočnoj navigaciji i mobilnom zaglavlju.
+
+## Supabase konfiguracija
+
+Instaliran je `@supabase/supabase-js`. Fajl `.env.local` u korenu projekta već sadrži adresu projekta. Dopuniti drugi red javnim anon ključem (ili publishable ključem):
+
+```dotenv
+VITE_SUPABASE_URL=https://guqxveicqhmhasgdlxpw.supabase.co
+VITE_SUPABASE_ANON_KEY=
+```
+
+Posle izmene ponovo pokrenuti razvojni server (`npm run dev`). `.env.local` je ignorisan u Gitu; `.env.example` je šablon za druge računare. Ne unositi ključ u izvorni kod.
+
+Na Vercelu otvoriti projekat → Settings → Environment Variables i dodati obe promenljive pod identičnim imenima, sa odgovarajućim vrednostima. Izabrati Production i, ako se koriste, Preview/Development okruženja. Zatim pokrenuti novi deployment (Redeploy), jer Vite ugrađuje ove vrednosti pri build-u. Lokalni `.env.local` se ne šalje na Vercel preko Gita. [Vercel uputstvo](https://vercel.com/docs/environment-variables/managing-environment-variables).
+
+`VITE_` promenljive dostupne su u browseru: koristiti isključivo javni anon/publishable ključ, nikada `service_role` ili secret ključ. Pristup tabelama se uređuje Supabase RLS pravilima i autentifikacijom. [Supabase API ključevi](https://supabase.com/docs/guides/getting-started/api-keys).
+
+Zajednički klijent je u `src/services/supabase.ts`:
+
+```ts
+import { getSupabase, isSupabaseConfigured } from './services/supabase';
+
+// U budućem servisu za podatke, tek kada je konfiguracija uneta:
+if (isSupabaseConfigured) {
+  const supabase = getSupabase();
+  // Upite dodati prema stvarnoj šemi tabela i RLS pravilima.
+}
+```
+
+Klijent se kreira tek pri pozivu `getSupabase()`. Bez ključa postojeća aplikacija nastavlja lokalni rad; eksplicitni poziv klijenta daje jasnu poruku o nedostajućoj konfiguraciji. Ova priprema ne kreira tabele, prijavu niti automatsku sinhronizaciju: poslovi, podešavanja i fotografije i dalje se čuvaju lokalno kao ranije. Za povezivanje čitanja i upisa potrebni su šema tabela i pravila pristupa.
+
+
+## Brzi status, kupac i korekcija cene
+
+Status se menja istom komponentom `JobStatus` uz naziv kupca na poslu, u listi poslova i u obrascu kupca. Brzi izbori su U izradi, Ponuda, Prihvaćeno, Odbijeno i Završeno. Stari status Čeka proveru ostaje čitljiv i sačuvan u postojećim poslovima i kopijama. Status na poslu i listi odmah se čuva lokalno; obrazac kupca primenjuje promene dugmetom Sačuvaj podatke. Promene cena i preuzimanje/slanje PDF-a ne menjaju status. Odbijeni i završeni poslovi ostaju u listi i kopijama, ali nisu među aktivnim poslovima na početnoj.
+
+Obrazac kupca ima naziv, telefon, email i adresu; samo naziv je obavezan. Pozovi i Pošalji email koriste unete kontakt podatke. Datum merenja (uključujući prazan datum), majstor i tip objekta su u zatvorenoj sekciji Dodatni podaci; napomene su odvojene.
+
+Na poslu su stalno dostupni Dodaj element, Korekcija cene i veliko dugme Pogledaj cenu i podeli dokument. Oba preuzimanja PDF-a i deljenje nalaze se na sledećem ekranu Cena i ponuda. `/posao/:id/korekcija` je ekran za ručne jedinične cene, popust i uvećanje. Ukupna cena i Sačuvaj cenu ostaju u donjoj traci. Izmene na ovom ekranu primenjuju se tek čuvanjem; pregled i PDF koriste poslednje sačuvane cene. Napredne opcije čuvaju pakete, transport, dodatne radove, detaljan obračun, PDV i uslove ponude.
+
+Nova polja su opciona: `discountMode` i `surchargeMode` (percent/amount), `surcharge`, `manualTotal`, `vat` i `vatMode`. Stari popust i dalje je procenat; stari poslovi bez novih polja zadržavaju isti obračun. Popust se primenjuje na elemente + radove + transport, ograničen tim zbirom. Uvećanje ide na zbir posle popusta, zatim se primenjuje postojeći poreski režim. Ručna ukupna cena je konačan iznos za plaćanje: popust i uvećanje se tada ne primenjuju, a PDV se izdvaja iz tog iznosa (ili je nula u režimu bez PDV-a). Isključivanje ručnog režima vraća sačuvane korekcije. Poreske izmene na korekciji važe samo za taj posao; demonstracioni cenovnik nije izmenjen.
+
+Provere: `src/services/corrections.test.ts` i `tests/workflow.spec.ts`, uključujući čuvanje, stari format kopije, statuse, kupca, pojedinačne cene, oba tipa korekcija, poreske režime, PDF i širine 320/390/620/768/1024/1440 px. Screenshotovi su u `output/design/workflow`, a primeri PDF-a u `output/pdf/workflow-*.pdf`.

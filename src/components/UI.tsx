@@ -13,7 +13,7 @@ export function CategoryIcon({category,size=24}:{category:Category;size?:number}
  return <svg width={size} height={size} viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">{paths}</svg>;
 }
 export function Button({children,variant='primary',className='',...props}:ButtonHTMLAttributes<HTMLButtonElement>&{variant?:'primary'|'secondary'|'ghost'|'danger'}){return <button className={`btn btn-${variant} ${className}`} {...props}>{children}</button>;}
-export function Badge({status}:{status:Status}){return <span className={`badge badge-${status==='U izradi'?'progress':status==='Ponuda'?'offer':status==='Čeka proveru'?'review':'done'}`}><i/>{status}</span>;}
+export function Badge({status}:{status:Status}){return <span className={`badge badge-${status==='U izradi'?'progress':status==='Ponuda'?'offer':status==='Čeka proveru'?'review':status==='Odbijeno'?'rejected':'done'}`}><i/>{status}</span>;}
 export function Modal({title,children,onClose,wide=false,sheet=false}:{title:string;children:ReactNode;onClose:()=>void;wide?:boolean;sheet?:boolean}){
  const ref=useRef<HTMLElement>(null);
  useEffect(()=>{const previous=document.activeElement as HTMLElement,overflow=document.body.style.overflow;document.body.style.overflow='hidden';if(!ref.current?.contains(document.activeElement))ref.current?.querySelector<HTMLElement>('button,input,select,textarea')?.focus();return()=>{document.body.style.overflow=overflow;previous?.focus();};},[]);

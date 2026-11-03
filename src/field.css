@@ -191,6 +191,10 @@
 .document-actions>.field-button:last-child{flex:0 0 auto;min-width:150px}
 .field-empty-text{padding:24px;font-size:20px}
 .share-choices{display:flex;flex-direction:column;gap:16px}
+.share-choices>.share-document-choice{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:10px;text-align:left}
+.share-document-choice>svg{width:24px;height:24px}
+.share-app-icons{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.share-app-icons img{display:block;width:28px;height:28px;flex-shrink:0}
 .share-choices>p{font:400 18px/1.4 AluNarrow,Arial,sans-serif;color:#555}
 
 /* Existing secondary modules remain available, with tablet-sized text and targets. */

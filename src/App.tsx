@@ -12,6 +12,7 @@ import { SettingsPage } from './pages-settings';
 import { Editor, TypeChooser, ElementEditor } from './pages-editor';
 import { CustomEditor } from './custom/CustomEditor';
 import { Quote } from './pages-quote';
+import { Correction } from './pages-correction';
 
 export default function App(){
  const {jobs,settings,addJob,storageError,retrySave}=useStore(),navigate=useNavigate(),location=useLocation();
@@ -33,6 +34,7 @@ export default function App(){
    <Route path="/posao/:id/dodaj" element={<TypeChooser/>}/>
    <Route path="/posao/:id/nov/:type" element={<PositionEditor key={location.pathname+location.search}/>}/>
    <Route path="/posao/:id/element/:positionId" element={<PositionEditor key={location.pathname+location.search}/>}/>
+   <Route path="/posao/:id/korekcija" element={<Correction/>}/>
    <Route path="/posao/:id/ponuda" element={<Quote/>}/>
    <Route path="*" element={<Empty title="Stranica nije pronađena" action={<Link to="/" className="field-button field-button-yellow">Vrati se na početnu</Link>}/>}/>
   </Routes>

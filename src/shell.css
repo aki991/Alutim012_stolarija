@@ -101,6 +101,15 @@
  .unified-shell .field-bottom-actions{padding:10px;gap:8px}.unified-shell .field-bottom-actions>.field-button{font-size:19px;min-height:58px;padding:10px}.unified-shell .measurement-footer{padding:10px 12px;min-height:82px}.unified-shell .measurement-footer>.field-button{font-size:21px}.unified-shell .document-actions>.field-button{min-height:65px}.unified-shell .document-actions>.field-button:last-child{min-height:48px}
 }
 @media(max-width:370px){.job-card-open{grid-template-columns:30px minmax(0,1fr) 87px;gap:4px 7px}.job-card-sketch{width:30px}.job-card-info h2{font-size:21px}.job-card-value strong{font-size:20px}.job-card-info p{font-size:16px}.module-title-icon{display:none}.module-new-job{font-size:18px;padding:10px}.module-header h1{font-size:25px}.resume-strip>a>strong{max-width:130px}}
+/* The two-column job cards start at 700px; their cell placement must too. */
+@media (min-width:601px) and (max-width:700px){
+ .unified-shell .job-line-head,.unified-shell .line-number{display:none}
+ .unified-shell .line-element{grid-column:1;grid-row:1;align-self:start}
+ .unified-shell .line-element strong{overflow-wrap:normal}
+ .unified-shell .line-dimensions{grid-column:1;grid-row:2}
+ .unified-shell .line-price{grid-column:2;align-self:center}
+ .unified-shell .line-tools{grid-column:2;grid-row:1;justify-content:flex-end}
+}
 .unified-shell.is-fullscreen,.unified-shell.is-fullscreen.sidebar-compact{--sidebar-width:0px;--nav-bottom:0px}
 @media(max-width:700px){.module-page:has(.jobs-controls) .module-header p{display:none}}
 @media(min-width:1000px) and (max-width:1150px){.unified-shell:not(.sidebar-compact) .measurement-workspace{grid-template-columns:minmax(0,1fr) 360px}}

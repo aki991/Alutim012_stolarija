@@ -15,7 +15,13 @@ export function parseBackup(data:unknown):{jobs:Job[];settings:Settings}{
  if(settings.documentDefaults!==undefined&&(!record(settings.documentDefaults)||!strings(settings.documentDefaults,['validity','delivery','payment'])))return fail();
  const ids=new Set();
  for(const j of data.jobs){
-  if(!record(j)||!strings(j,['id','date','technician','notes','extraWork','validity','delivery','payment','updated'])||!record(j.customer)||!strings(j.customer,['name','phone','email','address','building'])||!Array.isArray(j.positions)||!['U izradi','Ponuda','Čeka proveru','Završeno'].includes(String(j.status))||!['Standard','Optimal','Premium'].includes(String(j.package))||![j.discount,j.transport,j.extraCost].every(number)||Number(j.discount)>100||ids.has(j.id)||!/^\d{4}-\d{2}-\d{2}$/.test(String(j.date)))return fail();
+  if(!record(j)||!strings(j,['id','date','technician','notes','extraWork','validity','delivery','payment','updated'])||!record(j.customer)||!strings(j.customer,['name','phone','email','address','building'])||!Array.isArray(j.positions)||!['U izradi','Ponuda','Prihvaćeno','Odbijeno','Čeka proveru','Završeno'].includes(String(j.status))||!['Standard','Optimal','Premium'].includes(String(j.package))||![j.discount,j.transport,j.extraCost].every(number)||(j.discountMode!=='amount'&&Number(j.discount)>100)||ids.has(j.id)||(j.date!==''&&!/^\d{4}-\d{2}-\d{2}$/.test(String(j.date))))return fail();
+  if(j.discountMode!==undefined&&!['percent','amount'].includes(String(j.discountMode)))return fail();
+  if(j.surchargeMode!==undefined&&!['percent','amount'].includes(String(j.surchargeMode)))return fail();
+  if(j.surcharge!==undefined&&!number(j.surcharge))return fail();
+  if(j.manualTotal!==undefined&&j.manualTotal!==null&&!number(j.manualTotal))return fail();
+  if(j.vat!==undefined&&(!number(j.vat)||Number(j.vat)>100))return fail();
+  if(j.vatMode!==undefined&&!['exclusive','inclusive','none'].includes(String(j.vatMode)))return fail();
   ids.add(j.id);const positions=new Set();
   for(const p of j.positions){
    if(!record(p)||!strings(p,['id','name','color','notes','access','extraWork'])||![p.width,p.height,p.quantity].every(draftNumber)||!number(p.extraCost)||!(p.manualPrice===null||number(p.manualPrice))||!['PVC','ALU'].includes(String(p.material))||!['Dvoslojno','Troslojno','Sigurnosno'].includes(String(p.glass))||!['Standardni','Sigurnosni'].includes(String(p.hardware))||!['Prozori','Vrata','Klizni sistemi','Ulazna vrata','Roletne','Komarnici','Klupice','Usluge'].includes(String(p.category))||!['shutter','mosquito','sill','installation','removal'].every(k=>typeof p[k]==='boolean')||!Array.isArray(p.segments)||p.segments.length<1||p.segments.length>4||positions.has(p.id))return fail();

@@ -12,7 +12,7 @@ for(const width of [390,768,1024,1280]){
  test(`Trajna navigacija, katalog i povratak na posao: ${width}`,async({page})=>{
   await page.setViewportSize({width,height:width===390?844:900});await page.goto('/');
   await (await globalLink(page,'Poslovi')).click();await expect(page.getByRole('heading',{name:'Svi poslovi'})).toBeVisible();
-  await page.locator('.job-card').filter({hasText:'Porodica Petrović'}).locator('.job-card-open').click();await expect(page.getByRole('heading',{name:'Posao: Porodica Petrović'})).toBeVisible();
+  await page.locator('.job-card').filter({hasText:'Porodica Petrović'}).locator('.job-card-info').click();await expect(page.getByRole('heading',{name:'Posao: Porodica Petrović'})).toBeVisible();
   await (await globalLink(page,'Katalog')).click();await expect(page.locator('.quick-catalog-tile')).toHaveCount(9);await page.getByRole('link',{name:'Pregled posla',exact:true}).count().then(async count=>{if(count)await page.getByRole('link',{name:'Pregled posla',exact:true}).click();else await page.locator('.resume-strip').getByRole('link',{name:/Nastavi merenje/}).click();});
   await expect(page.getByRole('heading',{name:'Posao: Porodica Petrović'})).toBeVisible();
   await (await globalLink(page,'Katalog')).click();await page.getByRole('button',{name:'Prozor',exact:true}).click();await expect(page.getByLabel('Širina (mm)',{exact:true})).toHaveValue('1600');await expect(page.getByRole('button',{name:'Dodaj u posao'})).toBeVisible();

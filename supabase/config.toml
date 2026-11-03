@@ -1,0 +1,6 @@
+project_id = "alu-tim-012-teren"
+
+[functions.submit-field-specification]
+# Intentionally public submission endpoint. No login or PIN is required.
+# Storage and database reads remain private; validation and quotas run on the server.
+verify_jwt = false

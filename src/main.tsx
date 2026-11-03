@@ -9,5 +9,6 @@ import './shell.css';
 import './refinements.css';
 import './custom/custom.css';
 import './brand.css';
+import './workflow.css';
 import './offline';
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><BrowserRouter><App/></BrowserRouter></React.StrictMode>);

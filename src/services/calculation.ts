@@ -30,13 +30,20 @@ export function positionCost(p:Position,s:Settings,tier:Package='Standard') {
  const calculated=lines.reduce((a,b)=>a+b.amount,0), unit=p.manualPrice??calculated;
  return {area,perimeter,lines,calculated,unit,total:unit*p.quantity,requiresReview:false};
 }
+export function jobTax(job:Job,s:Settings){return {vat:job.vat??s.vat,vatMode:job.vatMode??s.vatMode};}
 export function calculate(job:Job,s:Settings) {
  const positions=job.positions.map(p=>positionCost(p,s,job.package));
  const elements=positions.reduce((sum,p)=>sum+p.total,0),services=job.transport+job.extraCost;
- const subtotal=elements+services,discount=subtotal*job.discount/100,after=subtotal-discount;
- const net=s.vatMode==='inclusive'?after/(1+s.vat/100):after;
- const tax=s.vatMode==='none'?0:s.vatMode==='inclusive'?after-net:net*s.vat/100;
- return {positions,elements,services,subtotal,discount,net,tax,total:net+tax,hasUnpriced:positions.some(p=>p.requiresReview)};
+ const subtotal=elements+services,manual=job.manualTotal!=null;
+ // Discounts apply to the original subtotal; increases apply after the discount.
+ // A manual total is the final payable amount, including tax when applicable.
+ const discount=manual?0:Math.min(subtotal,job.discountMode==='amount'?job.discount:subtotal*job.discount/100);
+ const discounted=subtotal-discount;
+ const surcharge=manual?0:job.surchargeMode==='amount'?(job.surcharge??0):discounted*(job.surcharge??0)/100;
+ const after=discounted+surcharge,{vat,vatMode}=jobTax(job,s);
+ const net=manual?(vatMode==='none'?job.manualTotal!:job.manualTotal!/(1+vat/100)):vatMode==='inclusive'?after/(1+vat/100):after;
+ const tax=vatMode==='none'?0:manual?job.manualTotal!-net:vatMode==='inclusive'?after-net:net*vat/100;
+ return {positions,elements,services,subtotal,discount,surcharge,net,tax,total:manual?job.manualTotal!:net+tax,manual,vat,vatMode,hasUnpriced:!manual&&positions.some(p=>p.requiresReview)};
 }
 export function validatePosition(p:Position):string[] {
  const errors:string[]=[];

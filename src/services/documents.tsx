@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { jsPDF as PDF } from 'jspdf';
 import type { Job, Position, Settings } from '../models';
 import { Drawing } from '../components/Drawing';
-import { calculate, euro, positionCost, validatePosition, reviewPrice } from './calculation';
+import { calculate, jobTax, euro, positionCost, validatePosition, reviewPrice } from './calculation';
 const base64=(bytes:Uint8Array)=>{let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(s);};
 let fonts:Promise<string[]>|undefined;
 function loadImage(src:string){return new Promise<HTMLImageElement>((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(Error('Slika nije dostupna. Proverite podatke o fotografijama.'));i.src=src;});}
@@ -13,7 +13,7 @@ async function logoImage(){const img=await loadImage('/assets/reference.png');co
 export async function makeDocument(job:Job,settings:Settings,kind:'kupac'|'kancelarija'):Promise<File> {
  if(!job.positions.length)throw Error('Dodajte najmanje jednu poziciju.');
  if(job.positions.some(p=>validatePosition(p).length))throw Error('Proverite mere i zbir segmenata u specifikaciji pre izvoza.');
- const {jsPDF}=await import('jspdf');const doc:PDF=new jsPDF({unit:'mm',format:'a4',compress:true,putOnlyUsedFonts:true});
+ const taxSettings=jobTax(job,settings);const {jsPDF}=await import('jspdf');const doc:PDF=new jsPDF({unit:'mm',format:'a4',compress:true,putOnlyUsedFonts:true});
  fonts??=Promise.all(['/assets/arial.ttf','/assets/arial-bold.ttf'].map(async path=>{const response=await fetch(path);if(!response.ok)throw Error('Font za PDF nije dostupan.');return base64(new Uint8Array(await response.arrayBuffer()));}));
  try{const [normal,bold]=await fonts;doc.addFileToVFS('Arial.ttf',normal);doc.addFont('Arial.ttf','Arial','normal');doc.addFileToVFS('ArialBold.ttf',bold);doc.addFont('ArialBold.ttf','Arial','bold');}catch(err){fonts=undefined;throw err;}
  const logo=await logoImage();doc.setProperties({title:`${kind==='kupac'?'Ponuda':'Specifikacija'} ${job.id}`,author:'ALU TIM 012',subject:'Demonstraciona terenska specifikacija'});
@@ -22,9 +22,9 @@ export async function makeDocument(job:Job,settings:Settings,kind:'kupac'|'kance
  const ensure=(height:number)=>{if(y+height>276){doc.addPage();header();}};
  function text(value:string,size=9,bold=false,indent=16,width=178){doc.setFont('Arial',bold?'bold':'normal');doc.setFontSize(size);const lines=doc.splitTextToSize(String(value||'-'),width) as string[];for(const line of lines){ensure(size*.5+2);doc.text(line,indent,y);y+=size*.44+1.8;}}
  function rule(){ensure(5);doc.setDrawColor('#e0e4e6');doc.line(16,y,194,y);y+=6;}
- header();text(title,21,true);text(`${job.id}  |  Datum merenja: ${new Date(job.date+'T12:00:00').toLocaleDateString('sr-Latn-RS')}`,9);y+=3;
+ header();text(title,21,true);text(`${job.id}  |  Datum merenja: ${job.date?new Date(job.date+'T12:00:00').toLocaleDateString('sr-Latn-RS'):'Nije naveden'}`,9);y+=3;
  text(job.customer.name,12,true);text(job.customer.address);text(`Telefon: ${job.customer.phone||'-'}  |  Email: ${job.customer.email||'-'}`);text(`Objekat: ${job.customer.building}  |  Majstor: ${job.technician}`);
- text(`Demo paket: ${job.package}. Cene su ${settings.vatMode==='inclusive'?'sa uključenim PDV-om':settings.vatMode==='exclusive'?'bez PDV-a; porez se dodaje u pregledu':'bez obračuna PDV-a'}.`,8);rule();
+ text(`Demo paket: ${job.package}. Cene su ${taxSettings.vatMode==='inclusive'?'sa uključenim PDV-om':taxSettings.vatMode==='exclusive'?'bez PDV-a; porez se dodaje u pregledu':'bez obračuna PDV-a'}.`,8);rule();
  const c=calculate(job,settings);
  for(let i=0;i<job.positions.length;i++){
   const p=job.positions[i],price=positionCost(p,settings,job.package);ensure(88);text(`${String(i+1).padStart(2,'0')}  ${p.name}`,11,true);const start=y;
@@ -46,7 +46,7 @@ export async function makeDocument(job:Job,settings:Settings,kind:'kupac'|'kance
   }
   rule();
  }
- ensure(88);if(c.hasUnpriced)text(reviewPrice+'. Elementi bez ručne cene nisu uključeni u zbir.',10,true);text(c.hasUnpriced?'Zbir poznatih stavki':'Okvirna cena',15,true);text(`Elementi sa odabranom opremom i radovima: ${euro(c.elements)}`);text(`Transport: ${euro(job.transport)}`);if(job.extraCost||job.extraWork)text(`Dodatni radovi: ${job.extraWork||'-'} - ${euro(job.extraCost)}`);text(`Popust ${job.discount}%: -${euro(c.discount)}`);text(`Osnovica: ${euro(c.net)}`);text(settings.vatMode==='none'?'PDV: bez obračuna':`PDV ${settings.vat}%${settings.vatMode==='inclusive'?' (uključen)':''}: ${euro(c.tax)}`);text(`${c.hasUnpriced?'Nepotpun zbir poznatih stavki':'Ukupan okvirni iznos'}: ${euro(c.total)}`,13,true);y+=4;
+ ensure(88);if(c.hasUnpriced)text(reviewPrice+'. Elementi bez ručne cene nisu uključeni u zbir.',10,true);text(c.hasUnpriced?'Zbir poznatih stavki':'Okvirna cena',15,true);text(`Elementi sa odabranom opremom i radovima: ${euro(c.elements)}`);text(`Transport: ${euro(job.transport)}`);if(job.extraCost||job.extraWork)text(`Dodatni radovi: ${job.extraWork||'-'} - ${euro(job.extraCost)}`);if(c.manual)text('Ručna ukupna cena (konačan iznos); popust i uvećanje se ne primenjuju.',9,true);else {text(`Popust ${job.discountMode==='amount'?'':job.discount+'%'}: -${euro(c.discount)}`);if(c.surcharge)text(`Uvećanje: ${euro(c.surcharge)}`);}text(`Osnovica: ${euro(c.net)}`);text(taxSettings.vatMode==='none'?'PDV: bez obračuna':`PDV ${taxSettings.vat}%${taxSettings.vatMode==='inclusive'?' (uključen)':''}: ${euro(c.tax)}`);text(`${c.hasUnpriced?'Nepotpun zbir poznatih stavki':'Ukupan okvirni iznos'}: ${euro(c.total)}`,13,true);y+=4;
  if(job.notes)text('Napomena za posao: '+job.notes);
  if(kind==='kupac'){text(`Važenje ponude: ${job.validity}`);text(`Rok isporuke: ${job.delivery}`);text(`Plaćanje: ${job.payment}`);}else{text('Status: ZA DALJU TEHNIČKU PROVERU',10,true);text(`Evidentirani status posla: ${job.status}`);text('Potrebno je potvrditi završne mere, profile, raspored krila i uslove proizvodnje i montaže.');}
  y+=3;text('DEMONSTRACIONI DOKUMENT. Cene nisu zvanične cene firme. Ovo je okvirna procena, a ne proizvodna kalkulacija. Crteži služe za terensku specifikaciju i nisu proizvodno verifikovani.',8);
