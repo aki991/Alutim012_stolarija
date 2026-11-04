@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { BriefcaseBusiness, ChevronRight, Copy, FileText, LayoutGrid, MoreVertical, Plus, Search, Trash2 } from 'lucide-react';
 import { useStore } from './store';
-import { isActiveJob, jobStatuses, type Job, type Status } from './models';
+import { isActiveJob, jobStatuses, type Job } from './models';
 import { useNavigation } from './navigation';
 import { JobStatus } from './components/JobStatus';
 import { Empty, Modal } from './components/UI';
 import { ModuleHeader } from './components/ModuleHeader';
 import { catalog } from './catalog';
-import { fieldTypes, typeOfPosition } from './field-types';
+import { selectableFieldTypes, typeOfPosition } from './field-types';
 import { calculate, euro, jobPriceLabel } from './services/calculation';
 import { Drawing } from './components/Drawing';
 import { ElementGlyph } from './components/ElementGlyph';
@@ -17,11 +17,10 @@ export type CatalogChoice={type:string;template?:number};
 export function Jobs({onNew,offers=false}:{onNew:()=>void;offers?:boolean}){
  const {jobs,settings,deleteJob,duplicateJob,updateJob}=useStore(),navigate=useNavigate(),[params]=useSearchParams();
  const [search,setSearch]=useState(''),[filter,setFilter]=useState(params.get('status')||'Sve'),[deleting,setDeleting]=useState<Job|null>(null);
- const statuses: readonly Status[] = offers ? ['Ponuda'] : jobStatuses;
- const selectedFilter = statuses.some(status=>status===filter) ? filter : 'Sve';
- const filtered=jobs.filter(j=>statuses.includes(j.status)&&(selectedFilter==='Sve'||selectedFilter===j.status)&&`${j.customer.name} ${j.customer.address} ${j.id}`.toLowerCase().includes(search.toLowerCase()));
+ const selectedFilter = jobStatuses.some(status=>status===filter) ? filter : 'Sve';
+ const filtered=jobs.filter(j=>(offers?j.status==='Ponuda':selectedFilter==='Sve'||selectedFilter===j.status)&&`${j.customer.name} ${j.customer.address} ${j.id}`.toLowerCase().includes(search.toLowerCase()));
  return <div className="module-page"><ModuleHeader title={offers?'Ponude':'Svi poslovi'} subtitle={offers?'Pregled pripremljenih ponuda.':'Pregled, pretraga i nastavak rada na poslovima.'} icon={offers?FileText:BriefcaseBusiness}><button className="field-button field-button-yellow module-new-job" onClick={onNew}><Plus/>Novi posao</button></ModuleHeader>
-  <main className="module-content"><div className="jobs-controls"><label className="jobs-search"><Search/><input aria-label="Pretraži poslove" placeholder="Pretraži posao…" value={search} onChange={e=>setSearch(e.target.value)}/></label><div className="jobs-status-filters" role="group" aria-label="Status posla">{[['Sve','Svi'],...statuses.map(status=>[status,status])].map(([value,label])=><button key={value} className={selectedFilter===value?'selected':''} aria-pressed={selectedFilter===value} onClick={()=>setFilter(value)}>{label}</button>)}</div></div>
+  <main className="module-content"><div className="jobs-controls"><label className="jobs-search"><Search/><input aria-label="Pretraži poslove" placeholder="Pretraži posao…" value={search} onChange={e=>setSearch(e.target.value)}/></label>{!offers&&<div className="jobs-status-filters" role="group" aria-label="Status posla">{[['Sve','Svi'],...jobStatuses.map(status=>[status,status])].map(([value,label])=><button key={value} className={selectedFilter===value?'selected':''} aria-pressed={selectedFilter===value} onClick={()=>setFilter(value)}>{label}</button>)}</div>}</div>
    <div className="job-cards">{filtered.map(job=><article className="job-card" key={job.id}><div className="job-card-open"><Link to={`/posao/${job.id}`} className="job-card-sketch">{job.positions[0]?<Drawing position={job.positions[0]} compact/>:<BriefcaseBusiness/>}</Link><Link to={`/posao/${job.id}${offers?'/ponuda':''}`} className="job-card-info"><h2>{job.customer.name}</h2><p>{job.positions.length} {job.positions.length===1?'pozicija':'pozicije'} · {job.positions.reduce((n,p)=>n+p.quantity,0)} elemenata</p></Link><span className="job-card-status"><JobStatus value={job.status} name={job.customer.name} onChange={status=>{updateJob(job.id,{status});useStore.getState().retrySave();}}/></span><span className="job-card-value">{settings.showPrices!==false&&<strong>{jobPriceLabel(job,settings)}</strong>}<small>{job.date?new Date(job.date+'T12:00:00').toLocaleDateString('sr-Latn-RS'):'Datum nije naveden'}</small></span><Link to={`/posao/${job.id}`} aria-label={`Otvori ${job.customer.name}`}><ChevronRight className="job-card-arrow"/></Link>
     </div><details className="job-card-menu"><summary className="field-icon-button" aria-label={`Meni posla ${job.customer.name}`}><MoreVertical/></summary><div><button aria-label={`Dupliraj ${job.customer.name}`} onClick={()=>navigate(`/posao/${duplicateJob(job.id)}`)}><Copy/>Dupliraj</button><button aria-label={`Obriši ${job.customer.name}`} onClick={e=>{setDeleting(job);e.currentTarget.closest('details')?.removeAttribute('open');}}><Trash2/>Obriši</button></div></details>
    </article>)}</div>
@@ -33,7 +32,7 @@ export function Jobs({onNew,offers=false}:{onNew:()=>void;offers?:boolean}){
 
 export function Catalog({onUse}:{onUse:(choice:CatalogChoice)=>void}){
  const navigate=useNavigate(),jobs=useStore(s=>s.jobs),activeId=useNavigation(s=>s.jobId),active=jobs.find(j=>j.id===activeId&&isActiveJob(j)),[selected,setSelected]=useState('');
- const quick=[...fieldTypes.filter(t=>t.id!=='ostalo').map(t=>({type:t.id,label:t.label,template:undefined as number|undefined})),{type:'balkonska',label:'Kombinacija',template:6}];
+ const quick=[...selectableFieldTypes.map(t=>({type:t.id,label:t.label,template:undefined as number|undefined})),{type:'balkonska',label:'Kombinacija',template:6}];
  function choose(choice:CatalogChoice){setSelected(choice.template===6?'kombinacija':choice.type);if(active)navigate(`/posao/${active.id}/nov/${choice.type}${choice.template===undefined?'':`?template=${choice.template}`}`);else onUse(choice);}
  return <div className="module-page catalog-page"><ModuleHeader title="Katalog elemenata" icon={LayoutGrid}/><main className="module-content">
   <div className="quick-catalog-grid">{quick.map(choice=><button key={choice.label} className={`quick-catalog-tile ${selected===(choice.template===6?'kombinacija':choice.type)?'selected':''}`} onClick={()=>choose(choice)}><ElementGlyph type={choice.template===6?'kombinacija':choice.type} wings={['prozor','klizni'].includes(choice.type)?2:1}/><span>{choice.label}</span></button>)}</div>

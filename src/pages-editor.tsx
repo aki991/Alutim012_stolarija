@@ -7,7 +7,7 @@ import type { Opening, Position } from './models';
 import { uid } from './catalog';
 import { calculate, euro, positionCost, validatePosition, positionPriceLabel, reviewPrice } from './services/calculation';
 import { parseBackup } from './services/storage';
-import { fieldTypes, makeFieldPosition, typeOfPosition } from './field-types';
+import { fieldTypes, makeFieldPosition, selectableFieldTypes, typeOfPosition } from './field-types';
 import { Empty, Modal, Saved } from './components/UI';
 import { centralWidth } from './fixed-panels';
 import { FixedPanelPicker } from './components/FixedPanelPicker';
@@ -22,7 +22,7 @@ export function TypeChooser(){
  const {id}=useParams(),job=useStore(s=>s.jobs.find(j=>j.id===id));
  if(!job)return <MissingJob/>;
  return <div className="field-page"><FieldHeader title={`Novi posao: ${job.customer.name}`} back={`/posao/${job.id}`}/><main className="type-chooser"><div className="type-grid">
- {fieldTypes.map(type=><Link key={type.id} className="type-tile" to={`/posao/${job.id}/nov/${type.id}`}><ElementGlyph type={type.id} wings={['prozor','klizni'].includes(type.id)?2:1}/><span>{type.label}</span></Link>)}
+ {selectableFieldTypes.map(type=><Link key={type.id} className="type-tile" to={`/posao/${job.id}/nov/${type.id}`}><ElementGlyph type={type.id} wings={['prozor','klizni'].includes(type.id)?2:1}/><span>{type.label}</span></Link>)}
  </div></main></div>;
 }
 export function MissingJob(){return <Empty title="Posao nije pronađen" action={<Link className="field-button field-button-yellow" to="/poslovi">Svi poslovi</Link>}/>;}

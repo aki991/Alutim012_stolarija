@@ -12,6 +12,8 @@ export const fieldTypes = [
  {id:'ostalo',label:'Ostalo',template:16},
  {id:'nacrtaj',label:'Nacrtaj',template:3},
 ] as const;
+export const selectableFieldTypes = fieldTypes.filter(type=>type.id!=='ostalo');
+
 export function makeFieldPosition(type:string,template?:number):Position {
  const entry=fieldTypes.find(t=>t.id===type)||fieldTypes[0];
  const p=makePosition(catalog[template??entry.template]||catalog[1]);
