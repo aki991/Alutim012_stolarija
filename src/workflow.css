@@ -34,7 +34,7 @@
 .summary-customer>.job-status-select{flex:0 0 142px}
 .unified-shell .job-quick-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .unified-shell .job-quick-actions>.field-button{font-size:20px;min-width:0;padding:10px;gap:8px}
-.summary-more-offer{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:32px;font-size:17px;color:#a00015}
+.summary-more-offer{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:32px;font-size:17px}
 .document-download-message{grid-column:1/-1;font-size:16px;text-align:center}
 .customer-section{background:#fafbfc;border:1px solid #dddfe6;border-radius:12px;padding:16px;margin-bottom:14px}
 .customer-form h3{margin:0 0 14px!important;font-size:23px!important}.customer-contacts{display:grid;grid-template-columns:1fr 1fr;gap:14px}.customer-contacts>div{min-width:0}.contact-link{display:inline-flex;align-items:center;gap:8px;color:#9d0013;font-size:18px;min-height:44px;margin-bottom:8px}
@@ -64,7 +64,7 @@
 
 /* Job summary leads to the document screen; downloads stay on that screen. */
 .unified-shell .job-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
-.unified-shell .job-quick-actions>.summary-more-offer{grid-column:1/-1;min-height:54px;color:#281900;font-size:20px}
+.unified-shell .job-quick-actions>.summary-more-offer{grid-column:1/-1;min-height:54px;font-size:20px}
 
 .share-company-logo{display:block;width:38px;height:38px;object-fit:contain;justify-self:end}
 
@@ -88,7 +88,7 @@
 .document-preview-zoom.field-button{justify-self:end;min-height:40px;padding:6px 10px;font-size:16px}
 
 /* The same surface is used by status controls and actions with a trailing arrow. */
-.unified-shell :is(button,a,summary):has(>svg:last-child:is(.lucide-arrow-right,.lucide-chevron-right,.lucide-chevron-down)),
+.unified-shell :is(button,a,summary):not(.summary-more-offer):has(>svg:last-child:is(.lucide-arrow-right,.lucide-chevron-right,.lucide-chevron-down)),
 .unified-shell select{
  border:1px solid var(--control-border,#92c9bc);
  border-radius:15px;
@@ -104,8 +104,8 @@
  background-position:right 10px center,center;
  background-repeat:no-repeat;
 }
-.unified-shell :is(button,a,summary)>svg:last-child:is(.lucide-arrow-right,.lucide-chevron-right,.lucide-chevron-down){color:var(--control-accent,#498d7d)}
-.unified-shell .field-button-yellow:has(>svg.lucide-arrow-right:last-child){--control-bg:#ffe6a5;--control-border:#d9ae58;--control-text:#593d08;--control-accent:#916617}
+.unified-shell :is(button,a,summary):not(.summary-more-offer)>svg:last-child:is(.lucide-arrow-right,.lucide-chevron-right,.lucide-chevron-down){color:var(--control-accent,#498d7d)}
+.unified-shell .field-button-yellow:not(.summary-more-offer):has(>svg.lucide-arrow-right:last-child){--control-bg:#ffe6a5;--control-border:#d9ae58;--control-text:#593d08;--control-accent:#916617}
 .unified-shell .reference-active header a:has(>svg.lucide-chevron-right),
 .unified-shell .reference-local-state>a:has(>svg.lucide-chevron-right){padding:4px 8px}
 .unified-shell .job-card-open>a:last-child:has(>svg.lucide-chevron-right){display:grid;place-items:center;min-height:32px}
