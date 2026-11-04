@@ -108,6 +108,16 @@ export function isArchWidth(g:Geometry,id:string){
  return id==='e3'&&hasArchBase(g)||g.preset==='arch'&&id==='e1'&&g.edges.length===2&&g.edges[0].kind==='arc'&&isClosed(g);
 }
 
+export function hasLinkedArch(g:Geometry){
+ if(g.preset==='arch')return true;
+ if(g.preset!=='free'||!hasArchBase(g))return false;
+ const [leftBottom,leftTop]=ends(g,g.edges[0]),[rightTop,rightBottom]=ends(g,g.edges[2]);
+ const via=g.edges[1].via!;
+ return Math.abs(leftBottom.x-leftTop.x)<EPS&&Math.abs(rightBottom.x-rightTop.x)<EPS&&
+  Math.abs(leftTop.y-rightTop.y)<EPS&&Math.abs(leftBottom.y-rightBottom.y)<EPS&&
+  Math.abs(via.x-(leftTop.x+rightTop.x)/2)<EPS&&via.y<leftTop.y&&leftTop.y-via.y<=(rightTop.x-leftTop.x)/2+EPS;
+}
+
 export function resizeArchWidth(g:Geometry,id:string,width:number,fixed:'from'|'to'){
  if(!isArchWidth(g,id)||!Number.isFinite(width)||width<200||width>20000)throw Error('Širina mora biti između 200 i 20000 mm.');
  const next=structuredClone(g);
@@ -118,12 +128,13 @@ export function resizeArchWidth(g:Geometry,id:string,width:number,fixed:'from'|'
  if(oldWidth<=0)throw Error('Luk mora imati pozitivnu širinu.');
  const spring=(leftTop.y+rightTop.y)/2;
  const bottom=anchor.y,left=fixed==='from'?anchor.x-width:anchor.x;
+ const scale=width/oldWidth;
+ const rise=hasLinkedArch(g)?(spring-arc.via!.y)*scale:width/2;
  leftBottom.x=leftTop.x=left;
  rightBottom.x=rightTop.x=left+width;
  leftTop.y=rightTop.y=spring;
  leftBottom.y=rightBottom.y=bottom;
- arc.via={x:left+width/2,y:spring-width/2};
- const scale=width/oldWidth;
+ arc.via={x:left+width/2,y:spring-rise};
  for(const bar of next.bars)for(const point of [bar.a,bar.b]){
   point.x=left+(point.x-oldLeft)*scale;
   if(point.y<spring)point.y=spring+(point.y-spring)*scale;
@@ -150,7 +161,8 @@ export function resizeArchSide(g:Geometry,id:string,length:number,fixed:'from'|'
  rightBottom.x=rightTop.x=rightX;
  leftTop.y=rightTop.y=springY;
  leftBottom.y=rightBottom.y=bottomY;
- next.edges[1].via={x:leftX+radius,y:springY-radius};
+ const rise=hasLinkedArch(g)?oldSpring-next.edges[1].via!.y:radius;
+ next.edges[1].via={x:leftX+radius,y:springY-rise};
  for(const bar of next.bars)for(const point of [bar.a,bar.b]){
   point.y=springY+(point.y-oldSpring)*(point.y>oldSpring?length/(oldBottom-oldSpring):1);
  }
@@ -163,11 +175,11 @@ export function resizeArchSide(g:Geometry,id:string,length:number,fixed:'from'|'
 export function resizeLine(g:Geometry,id:string,length:number,fixed:'from'|'to'='from'){
  if(!Number.isFinite(length)||length<=0||length>20000)throw Error('Dužina mora biti veća od 0 i najviše 20000 mm.');
  if(g.preset==='rectangle'&&g.edges.length===4&&isClosed(g))return resizeRectangle(g,id,length,fixed);
- if(g.preset==='arch'&&isArchSide(g,id))return resizeArchSide(g,id,length,fixed);
- if(g.preset==='arch'&&isArchWidth(g,id))return resizeArchWidth(g,id,length,fixed);
+ if(hasLinkedArch(g)&&isArchSide(g,id))return resizeArchSide(g,id,length,fixed);
+ if(hasLinkedArch(g)&&isArchWidth(g,id))return resizeArchWidth(g,id,length,fixed);
  const next=structuredClone(g),edge=next.edges.find(e=>e.id===id);if(!edge||edge.kind!=='line')throw Error('Izaberite pravu liniju.');if(edge.locked)throw Error('Otključajte liniju pre promene mere.');const[a,b]=ends(next,edge),anchor=fixed==='from'?a:b,moving=fixed==='from'?b:a,v=sub(moving,anchor),old=distance(a,b);if(old<.01)throw Error('Početne tačke su iste. Pomerite čvor.');moving.x=anchor.x+v.x*length/old;moving.y=anchor.y+v.y*length/old;next.preset='free';const solved=solveLockedGeometry(g,next,[anchor.id],{id,length});const errors=validateGeometry(solved,isClosed(g));if(errors.length)throw Error(errors[0]);return solved;
 }
-export function resizeRadius(g:Geometry,id:string,radius:number){const next=structuredClone(g),e=next.edges.find(e=>e.id===id);if(!e||e.kind!=='arc')throw Error('Izaberite luk.');if(e.locked)throw Error('Otključajte luk pre promene radijusa.');const[a,b]=ends(next,e),chord=distance(a,b),old=edgeArc(next,e);if(!Number.isFinite(radius)||radius<chord/2||radius>20000)throw Error(`Radijus mora biti najmanje ${fmt(chord/2)} mm (polovina tetive), a najviše 20000 mm.`);const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},normal={x:-(b.y-a.y)/chord,y:(b.x-a.x)/chord},side=Math.sign(dot(sub(e.via!,mid),normal))||1,sag=radius+(Math.abs(old.delta)>Math.PI+1e-6?1:-1)*Math.sqrt(Math.max(0,radius**2-(chord/2)**2));e.via={x:mid.x+normal.x*sag*side,y:mid.y+normal.y*sag*side};next.preset='free';const errors=validateGeometry(next,isClosed(g));if(errors.length)throw Error(errors[0]);return next;}
+export function resizeRadius(g:Geometry,id:string,radius:number){const next=structuredClone(g),e=next.edges.find(e=>e.id===id);if(!e||e.kind!=='arc')throw Error('Izaberite luk.');if(e.locked)throw Error('Otključajte luk pre promene radijusa.');const[a,b]=ends(next,e),chord=distance(a,b),old=edgeArc(next,e);if(!Number.isFinite(radius)||radius<chord/2||radius>20000)throw Error(`Radijus mora biti najmanje ${fmt(chord/2)} mm (polovina tetive), a najviše 20000 mm.`);const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},normal={x:-(b.y-a.y)/chord,y:(b.x-a.x)/chord},side=Math.sign(dot(sub(e.via!,mid),normal))||1,sag=radius+(Math.abs(old.delta)>Math.PI+1e-6?1:-1)*Math.sqrt(Math.max(0,radius**2-(chord/2)**2));e.via={x:mid.x+normal.x*sag*side,y:mid.y+normal.y*sag*side};next.preset=hasLinkedArch(g)?'arch':'free';const errors=validateGeometry(next,isClosed(g));if(errors.length)throw Error(errors[0]);return next;}
 export function presetGeometry(shape:Exclude<Shape,'free'>,width=2400,height=1600):Geometry{
  if(!Number.isFinite(width)||!Number.isFinite(height)||width<200||height<200||width>20000||height>20000)throw Error('Mere moraju biti između 200 i 20000 mm.');
  if(shape==='arch'&&height<width/2)throw Error('Visina polukružnog prozora mora biti najmanje polovina širine.');
@@ -212,7 +224,7 @@ export function moveArcControl(g:Geometry,id:string,q:Point){
  const next=structuredClone(g),e=next.edges.find(e=>e.id===id);if(!e||e.kind!=='arc')throw Error('Izaberite luk.');if(e.locked)throw Error('Otključajte luk da biste promenili zakrivljenost.');
  const[a,b]=ends(next,e),chord=distance(a,b),mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},normal={x:-(b.y-a.y)/chord,y:(b.x-a.x)/chord},sag=dot(sub(q,mid),normal);
  if(Math.abs(sag)<1)throw Error('Pomerite žuti čvor dalje od tetive luka.');
- e.via={x:mid.x+normal.x*sag,y:mid.y+normal.y*sag};arcThrough(a,b,e.via);next.preset='free';return next;
+ e.via={x:mid.x+normal.x*sag,y:mid.y+normal.y*sag};arcThrough(a,b,e.via);next.preset=hasLinkedArch(g)&&e.via.y<mid.y&&Math.abs(sag)<=chord/2?'arch':'free';return next;
 }
 
 /** Align a segment exactly to an axis. Both endpoints are pinned during constraint solving. */

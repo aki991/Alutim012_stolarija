@@ -76,6 +76,21 @@ test('Donja mera sužava ceo polukružni prozor i čuva prečku',async({page})=>
  expect(g.bars[0]).toEqual({id:'layout-top',a:{x:900,y:1200},b:{x:2400,y:1200}});
  await expect(page.locator('[data-dimension="e1"]')).toContainText('R 750 mm');
  await expect(page.getByRole('button',{name:'Dodaj u posao',exact:true})).toBeEnabled();
+ await page.locator('[data-dimension="e1"]').click();
+ await page.getByLabel('Radijus R (mm)',{exact:true}).fill('1000');
+ await page.getByRole('button',{name:'Potvrdi meru'}).click();
+ await expect(page.locator('[data-dimension="e1"]')).toContainText('R 1000 mm');
+ await page.getByRole('button',{name:'Zatvori meru'}).click();
+ await page.locator('[data-dimension="e3"]').click();
+ await page.getByLabel('Dužina (mm)',{exact:true}).fill('1700');
+ await page.getByRole('button',{name:'Potvrdi meru'}).click();
+ const resized=(await draft(page)).customGeometry;
+ expect(resized.points).toEqual([
+  {id:'p0',x:700,y:2000},{id:'p1',x:700,y:1200},
+  {id:'p2',x:2400,y:1200},{id:'p3',x:2400,y:2000},
+ ]);
+ await expect(page.locator('[data-dimension="e1"]')).toContainText('R 1133 mm');
+ await expect(page.getByRole('button',{name:'Dodaj u posao',exact:true})).toBeEnabled();
 });
 test('Lučni prozor na telefonu zadržava fiksni luk i otvaranje donjeg polja',async({page},testInfo)=>{
  await page.setViewportSize({width:390,height:844});
