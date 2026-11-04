@@ -48,3 +48,11 @@
 @media(max-width:700px){.custom-dimension-editor{max-height:calc(100% - 54px)}}
 
 .custom-alignment{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.custom-alignment button{min-height:44px;min-width:0;border:1px solid #cdd7e3;border-radius:8px;background:#f4f6f9;color:#30445a;font:700 17px/1.1 AluNarrow,Arial,sans-serif;padding:7px 5px}.custom-alignment button:hover{background:#fff3d4;border-color:#e1b54c}
+.custom-canvas-status .custom-opening-tool{padding:6px 10px;border:1px solid #bfd8ce;background:#eff8f3;color:#164e43;font-weight:700}
+.custom-canvas-status .custom-opening-tool[aria-pressed=true]{background:#17604d;color:white}
+.custom-opening-controls{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:6px 10px;border-bottom:1px solid #d7e0eb;background:#f7faf9;flex-shrink:0;font-size:16px}
+.custom-opening-controls label{display:flex;align-items:center;gap:6px}
+.custom-opening-controls select{min-height:40px;padding:4px 32px 4px 8px;font:inherit}
+.custom-opening-controls small{color:#53616a}
+.custom-canvas.tool-opening{cursor:crosshair}
+.custom-fullscreen .custom-opening-controls small{display:none}

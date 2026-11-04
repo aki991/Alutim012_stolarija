@@ -1,3 +1,4 @@
+import { hingeLabel, openingRegions } from '../custom/openings';
 import { customKindLabel, customInfillOf } from '../models';
 import { edgeArc, edgeLength, ends, fmt } from '../custom/geometry';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -37,6 +38,14 @@ export async function makeDocument(job:Job,settings:Settings,kind:'kupac'|'kance
   const extras=[p.shutter?'roletna':'',p.mosquito?'komarnik':'',p.sill?'klupica':'',p.installation?'montaža':'',p.removal?'demontaža':''].filter(Boolean).join(', ');
   if(extras)text(`Uključeno: ${extras}`,8,false,88,104);
   if(showPrices){if(price.requiresReview)text(reviewPrice,10,true,88,104);else{text(`${p.customGeometry?'Ručno / kom':'Jedinično'}: ${euro(price.unit)}`,9,false,88,104);text(`Ukupno: ${euro(price.total)}`,10,true,88,104);}}y=Math.max(y,start+58);
+  if(p.customGeometry?.openings?.length){
+   const marks=p.customGeometry.openings;
+   const openings=openingRegions(p.customGeometry).map((region,index)=>{
+    const mark=marks.find(mark=>mark.region===region.id);
+    return mark?`Polje ${index+1}: ${hingeLabel(mark.side)}`:'';
+   }).filter(Boolean);
+   if(openings.length)text(`Otvaranje (pogled kao na crtežu): ${openings.join(', ')}.`,9,true);
+  }
   if(p.customGeometry)text('Terenska skica — potrebna tehnička provera',9,true);
   if(p.extraWork)text(`Dodatni radovi: ${p.extraWork}${showPrices?` (${euro(p.extraCost)} / kom)`:''}`);
   if(kind==='kancelarija'){

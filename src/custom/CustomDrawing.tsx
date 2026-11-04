@@ -1,7 +1,31 @@
 import { useId } from 'react';
 import { bounds, contourPath, edgeArc, edgePath, ends, fmt, isClosed, pointAt, type Geometry } from './geometry';
 import { dimensionLabels, type LabelBox } from './labels';
-export function GeometryArtwork({geometry:g,selected,unit=4,editable=false,dimensions=true,viewport,onDimensionSelect,frameMm=70,frameColor='Bela',infill='glass'}:{geometry:Geometry;selected?:string|null;unit?:number;editable?:boolean;dimensions?:boolean;viewport?:LabelBox;frameMm?:number;frameColor?:string;infill?:'glass'|'panel';onDimensionSelect?:(id:string)=>void}){
+import { hingeLabel, openingRegions, type OpeningRegion } from './openings';
+
+function OpeningMarks({g, regions, active, unit, frame}: {
+ g: Geometry; regions: OpeningRegion[]; active?: string; unit: number; frame: number;
+}) {
+ const id = useId().replace(/[^a-zA-Z0-9]/g,'');
+ return <g pointerEvents="none">{regions.map((region,index) => {
+  const mark = g.openings?.find(value=>value.region===region.id);
+  if (!mark && active !== region.id) return null;
+  const xs = region.points.map(p=>p.x), ys = region.points.map(p=>p.y);
+  const left = Math.min(...xs), right = Math.max(...xs), top = Math.min(...ys), bottom = Math.max(...ys);
+  const width = right-left, height = bottom-top;
+  const inset = Math.min(frame, width*.15, height*.15);
+  const hinge = mark?.side==='left' ? left+inset : right-inset;
+  const handle = mark?.side==='left' ? right-inset : left+inset;
+  const clip = `opening-${id}-${index}`;
+  const points = region.points.map(p=>`${p.x},${p.y}`).join(' ');
+  return <g key={region.id}>
+   <defs><clipPath id={clip}><polygon points={points}/></clipPath></defs>
+   {active===region.id&&<polygon points={points} fill="#008b66" fillOpacity=".14" stroke="#008b66" strokeWidth={2*unit}/>}
+   {mark&&<path data-opening-side={mark.side} d={`M${hinge} ${top+inset}L${handle} ${top+height/2}L${hinge} ${bottom-inset}`} clipPath={`url(#${clip})`} fill="none" stroke="#253d50" strokeWidth={2*unit} strokeDasharray={`${7*unit} ${5*unit}`}><title>{hingeLabel(mark.side)}</title></path>}
+  </g>;
+ })}</g>;
+}
+export function GeometryArtwork({geometry:g,selected,unit=4,editable=false,dimensions=true,viewport,onDimensionSelect,frameMm=70,frameColor='Bela',infill='glass',regions,activeOpeningRegion}:{geometry:Geometry;regions?:OpeningRegion[];activeOpeningRegion?:string;selected?:string|null;unit?:number;editable?:boolean;dimensions?:boolean;viewport?:LabelBox;frameMm?:number;frameColor?:string;infill?:'glass'|'panel';onDimensionSelect?:(id:string)=>void}){
  const clipId='frame-'+useId().replace(/[^a-zA-Z0-9]/g,'');const frame=Math.max(20,Math.min(150,Number.isFinite(frameMm)?frameMm:70)),tone=frameColor==='Antracit'?'#42484d':frameColor==='Bela'?'#f1f2ee':'#9b7049';
  let path='';try{path=contourPath(g);}catch{path=g.edges.map(e=>{const[a,b]=ends(g,e);return `M${a.x} ${a.y}L${b.x} ${b.y}`;}).join(' ');}
  const labels=dimensions?dimensionLabels(g,unit,viewport):[];
@@ -13,6 +37,7 @@ export function GeometryArtwork({geometry:g,selected,unit=4,editable=false,dimen
    {selected===e.id&&<path d={d} stroke="#be0018" fill="none" strokeWidth="3" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
   </g>;})}
   {g.bars.map(bar=><g key={bar.id}><path d={`M${bar.a.x} ${bar.a.y}L${bar.b.x} ${bar.b.y}`} stroke="#525a60" strokeWidth="7" vectorEffect="non-scaling-stroke"/><path d={`M${bar.a.x} ${bar.a.y}L${bar.b.x} ${bar.b.y}`} stroke="#f7f7f5" strokeWidth="3" vectorEffect="non-scaling-stroke"/>{editable&&<path data-bar={bar.id} d={`M${bar.a.x} ${bar.a.y}L${bar.b.x} ${bar.b.y}`} stroke="transparent" strokeWidth="28" vectorEffect="non-scaling-stroke"/>}</g>)}
+  {(regions||g.openings?.length)&&<OpeningMarks g={g} regions={regions??openingRegions(g)} active={activeOpeningRegion} unit={unit} frame={frame}/>}
   {labels.map(label=><g key={label.id+'label'}>
    {label.leader&&<path d={`M${label.anchor.x} ${label.anchor.y}L${label.center.x} ${label.center.y}`} fill="none" stroke="#8d9aa8" strokeWidth="1" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
    <g transform={`translate(${label.center.x} ${label.center.y}) rotate(${label.angle})`} data-dimension={editable?label.id:undefined} className={editable?'custom-dimension-label':undefined} role={editable?'button':undefined} tabIndex={editable?0:undefined} aria-label={editable?`${label.text}${label.locked?', zaključano':''}`:undefined} onKeyDown={e=>{if(editable&&(e.key==='Enter'||e.key===' ')){e.preventDefault();onDimensionSelect?.(label.id);}}}>

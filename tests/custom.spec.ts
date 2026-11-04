@@ -6,6 +6,32 @@ async function draft(page:Page){return page.evaluate(()=>{const match=location.p
 async function xy(page:Page,x:number,y:number){return page.locator('.custom-canvas').evaluate((el,p)=>{const q=new DOMPoint(p.x,p.y).matrixTransform((el as SVGSVGElement).getScreenCTM()!);return{x:q.x,y:q.y};},{x,y});}
 async function drag(page:Page,a:[number,number],b:[number,number]){const from=await xy(page,...a),to=await xy(page,...b);await page.mouse.move(from.x,from.y);await page.mouse.down();await page.mouse.move(to.x,to.y,{steps:8});await page.mouse.up();}
 async function selectEdge(page:Page,n=1){const details=page.locator('.custom-measures');if(!await details.getAttribute('open'))await details.locator('summary').click();await details.getByRole('button',{name:new RegExp(`Stranica ${n}`)}).click();}
+test('Otvaranje se upisuje po poljima i ostaje u sačuvanom elementu',async({page},testInfo)=>{
+ await page.goto(route);
+ await shape(page,'Trapezni prozor');
+ await page.getByRole('button',{name:'Dodaj prečku',exact:true}).click();
+ await drag(page,[1200,200],[1200,1600]);
+ await page.getByRole('button',{name:'Označi otvaranje',exact:true}).click();
+ const side=page.getByLabel('Strana otvaranja',{exact:true});
+ const left=await xy(page,600,900);
+ await page.mouse.click(left.x,left.y);
+ await side.selectOption('left');
+ const right=await xy(page,1800,900);
+ await page.mouse.click(right.x,right.y);
+ await side.selectOption('right');
+ await expect(page.locator('.custom-canvas [data-opening-side]')).toHaveCount(2);
+ await page.getByRole('button',{name:'Dodaj u posao',exact:true}).click();
+ await page.getByRole('link',{name:'Izmeni element 4',exact:true}).click();
+ await expect(page.locator('.custom-canvas [data-opening-side="left"]')).toHaveCount(1);
+ await expect(page.locator('.custom-canvas [data-opening-side="right"]')).toHaveCount(1);
+ await page.screenshot({path:testInfo.outputPath('otvaranje.png')});
+ await page.getByRole('link',{name:'Nazad',exact:true}).click();
+ await page.getByRole('link',{name:/Podeli dokument/i}).click();
+ await page.getByRole('button',{name:'Specifikacija za kancelariju',exact:true}).click();
+ const download=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Preuzmi PDF',exact:true}).click();
+ await (await download).saveAs(testInfo.outputPath('otvaranje-specifikacija.pdf'));
+});
 for(const size of [{width:390,height:844},{width:1024,height:768},{width:768,height:1024},{width:1440,height:900}]){
  test(`Nacrtaj po meri: stvarna izmena, nacrt i čuvanje ${size.width}`,async({page})=>{
   await page.setViewportSize(size);await page.goto(route);await expect(page.getByRole('heading',{name:'Nacrtaj element',exact:true})).toBeVisible();await shape(page,'Trouglasti prozor');const before=await draft(page);await selectEdge(page);await page.getByLabel('Dužina (mm)',{exact:true}).fill('1900');await page.getByRole('button',{name:'Potvrdi meru'}).click();const after=await draft(page);expect(after.customGeometry.points[0]).toEqual(before.customGeometry.points[0]);expect(after.customGeometry.points[1].y).toBeCloseTo(-300);expect(after.height).toBeCloseTo(1900);await page.getByRole('button',{name:'Undo',exact:true}).click();expect((await draft(page)).height).toBeCloseTo(1600);await page.getByRole('button',{name:'Redo',exact:true}).click();expect((await draft(page)).height).toBeCloseTo(1900);await page.reload();expect((await draft(page)).height).toBeCloseTo(1900);
