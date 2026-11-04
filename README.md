@@ -171,7 +171,7 @@ U editoru mere dugme Zaključaj meru čuva tačnu dužinu, a za luk i radijus. Z
 
 ## Instalacija kao PWA
 
-Aplikacija koristi React/Vite i `vite-plugin-pwa`. `public/manifest.json` je povezan u HTML zaglavlju: naziv ALU TIM 012, `id`, početna putanja i scope `/`, standalone režim, boje i PNG ikone 192×192 / 512×512 sa `purpose: any maskable`. Ikone imaju neprovidnu pozadinu i sadržaj u bezbednoj maskable zoni; SVG izvor i Apple ikona 180×180 su u `public/icons`.
+Aplikacija koristi React/Vite i `vite-plugin-pwa`. `public/manifest.json` je povezan u HTML zaglavlju: naziv ALU TIM 012, `id`, početna putanja i scope `/`, standalone režim, boje i PNG ikone sa logotipom firme u veličinama 192×192 i 512×512. Zasebna maskable ikona ima neprovidnu pozadinu i logo u bezbednoj zoni. Apple ikona 180×180 koristi isti logo.
 
 Za kompletnu proveru instalacije i offline rada:
 
