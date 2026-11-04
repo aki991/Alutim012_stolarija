@@ -95,9 +95,43 @@ export function canRestoreRectangle(g:Geometry){
   edge.kind==='line'&&edge.id===`e${i}`&&edge.from===`p${i}`&&edge.to===`p${(i+1)%4}`);
 }
 
-export function isArchSide(g:Geometry,id:string){
- return (id==='e0'||id==='e2')&&g.edges.length===4&&g.points.length===4&&g.edges.every((edge,i)=>
+function hasArchBase(g:Geometry){
+ return g.edges.length===4&&g.points.length===4&&g.edges.every((edge,i)=>
   edge.id===`e${i}`&&edge.kind===(i===1?'arc':'line')&&edge.from===`p${i}`&&edge.to===`p${(i+1)%4}`);
+}
+
+export function isArchSide(g:Geometry,id:string){
+ return (id==='e0'||id==='e2')&&hasArchBase(g);
+}
+
+export function isArchWidth(g:Geometry,id:string){
+ return id==='e3'&&hasArchBase(g)||g.preset==='arch'&&id==='e1'&&g.edges.length===2&&g.edges[0].kind==='arc'&&isClosed(g);
+}
+
+export function resizeArchWidth(g:Geometry,id:string,width:number,fixed:'from'|'to'){
+ if(!isArchWidth(g,id)||!Number.isFinite(width)||width<200||width>20000)throw Error('Širina mora biti između 200 i 20000 mm.');
+ const next=structuredClone(g);
+ const arc=next.edges[next.edges.length===4?1:0],base=next.edges.at(-1)!;
+ const [leftTop,rightTop]=ends(next,arc),[rightBottom,leftBottom]=ends(next,base);
+ const anchor=fixed==='from'?rightBottom:leftBottom;
+ const oldLeft=leftTop.x,oldWidth=rightTop.x-oldLeft;
+ if(oldWidth<=0)throw Error('Luk mora imati pozitivnu širinu.');
+ const spring=(leftTop.y+rightTop.y)/2;
+ const bottom=anchor.y,left=fixed==='from'?anchor.x-width:anchor.x;
+ leftBottom.x=leftTop.x=left;
+ rightBottom.x=rightTop.x=left+width;
+ leftTop.y=rightTop.y=spring;
+ leftBottom.y=rightBottom.y=bottom;
+ arc.via={x:left+width/2,y:spring-width/2};
+ const scale=width/oldWidth;
+ for(const bar of next.bars)for(const point of [bar.a,bar.b]){
+  point.x=left+(point.x-oldLeft)*scale;
+  if(point.y<spring)point.y=spring+(point.y-spring)*scale;
+ }
+ next.preset='arch';
+ const errors=validateGeometry(next);
+ if(errors.length)throw Error(errors[0]);
+ return next;
 }
 
 export function resizeArchSide(g:Geometry,id:string,length:number,fixed:'from'|'to'){
@@ -130,6 +164,7 @@ export function resizeLine(g:Geometry,id:string,length:number,fixed:'from'|'to'=
  if(!Number.isFinite(length)||length<=0||length>20000)throw Error('Dužina mora biti veća od 0 i najviše 20000 mm.');
  if(g.preset==='rectangle'&&g.edges.length===4&&isClosed(g))return resizeRectangle(g,id,length,fixed);
  if(g.preset==='arch'&&isArchSide(g,id))return resizeArchSide(g,id,length,fixed);
+ if(g.preset==='arch'&&isArchWidth(g,id))return resizeArchWidth(g,id,length,fixed);
  const next=structuredClone(g),edge=next.edges.find(e=>e.id===id);if(!edge||edge.kind!=='line')throw Error('Izaberite pravu liniju.');if(edge.locked)throw Error('Otključajte liniju pre promene mere.');const[a,b]=ends(next,edge),anchor=fixed==='from'?a:b,moving=fixed==='from'?b:a,v=sub(moving,anchor),old=distance(a,b);if(old<.01)throw Error('Početne tačke su iste. Pomerite čvor.');moving.x=anchor.x+v.x*length/old;moving.y=anchor.y+v.y*length/old;next.preset='free';const solved=solveLockedGeometry(g,next,[anchor.id],{id,length});const errors=validateGeometry(solved,isClosed(g));if(errors.length)throw Error(errors[0]);return solved;
 }
 export function resizeRadius(g:Geometry,id:string,radius:number){const next=structuredClone(g),e=next.edges.find(e=>e.id===id);if(!e||e.kind!=='arc')throw Error('Izaberite luk.');if(e.locked)throw Error('Otključajte luk pre promene radijusa.');const[a,b]=ends(next,e),chord=distance(a,b),old=edgeArc(next,e);if(!Number.isFinite(radius)||radius<chord/2||radius>20000)throw Error(`Radijus mora biti najmanje ${fmt(chord/2)} mm (polovina tetive), a najviše 20000 mm.`);const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},normal={x:-(b.y-a.y)/chord,y:(b.x-a.x)/chord},side=Math.sign(dot(sub(e.via!,mid),normal))||1,sag=radius+(Math.abs(old.delta)>Math.PI+1e-6?1:-1)*Math.sqrt(Math.max(0,radius**2-(chord/2)**2));e.via={x:mid.x+normal.x*sag*side,y:mid.y+normal.y*sag*side};next.preset='free';const errors=validateGeometry(next,isClosed(g));if(errors.length)throw Error(errors[0]);return next;}

@@ -57,6 +57,26 @@ test('Polukružni šablon menja obe uspravne mere i omogućava izbor pomične ta
  expect(g.bars[0].a.y).toBe(1300);
  expect(g.bars[0].b.y).toBe(1300);
 });
+test('Donja mera sužava ceo polukružni prozor i čuva prečku',async({page})=>{
+ await page.goto(route);
+ await shape(page,'Polukružni prozor');
+ await page.getByLabel('Visina oblika (mm)',{exact:true}).fill('2000');
+ await page.getByRole('button',{name:'Primeni mere oblika'}).click();
+ await page.getByRole('button',{name:'Podeli prozor',exact:true}).click();
+ await page.getByRole('button',{name:'Primeni raspored',exact:true}).click();
+ await page.getByRole('button',{name:'Označi otvaranje',exact:true}).click();
+ await page.locator('[data-dimension="e3"]').click();
+ await page.getByLabel('Dužina (mm)',{exact:true}).fill('1500');
+ await page.getByRole('button',{name:'Potvrdi meru'}).click();
+ const g=(await draft(page)).customGeometry;
+ expect(g.points).toEqual([
+  {id:'p0',x:900,y:2000},{id:'p1',x:900,y:1200},
+  {id:'p2',x:2400,y:1200},{id:'p3',x:2400,y:2000},
+ ]);
+ expect(g.bars[0]).toEqual({id:'layout-top',a:{x:900,y:1200},b:{x:2400,y:1200}});
+ await expect(page.locator('[data-dimension="e1"]')).toContainText('R 750 mm');
+ await expect(page.getByRole('button',{name:'Dodaj u posao',exact:true})).toBeEnabled();
+});
 test('Lučni prozor na telefonu zadržava fiksni luk i otvaranje donjeg polja',async({page},testInfo)=>{
  await page.setViewportSize({width:390,height:844});
  await page.goto(route);
