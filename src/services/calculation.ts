@@ -10,7 +10,7 @@ export const defaults: Settings = {technician:'Aleksandar Marković',vat:20,vatM
 export const euro = (n:number) => new Intl.NumberFormat('sr-Latn-RS',{style:'currency',currency:'EUR',maximumFractionDigits:2}).format(n);
 export function positionCost(p:Position,s:Settings,tier:Package='Standard') {
  if(p.customGeometry){const unit=p.manualPrice??0;return {area:0,perimeter:0,lines:[] as {name:string;basis:string;amount:number}[],calculated:0,unit,total:unit*p.quantity,requiresReview:p.manualPrice===null};}
- const area=p.width*p.height/1e6, perimeter=2*(p.width+p.height)/1000, pr=s.prices;
+ const area=(p.combination?p.segments[0].width*p.height+p.segments[1].width*p.combination.windowHeight:p.width*p.height)/1e6, perimeter=2*(p.width+p.height)/1000, pr=s.prices;
  const lines: {name:string;basis:string;amount:number}[]=[];
  if (['Roletne','Komarnici','Klupice','Usluge'].includes(p.category)) {
   const rate=p.category==='Roletne'?pr.shutter:p.category==='Komarnici'?pr.mosquito:pr.sill;
@@ -51,6 +51,7 @@ export function validatePosition(p:Position):string[] {
  if(p.customGeometry){const frame=p.customFrameMm??70;if(!Number.isFinite(frame)||frame<20||frame>150)errors.push('Širina rama mora biti između 20 i 150 mm.');if(Math.min(p.width,p.height)<=2*frame)errors.push('Ram je preširok za zadate mere elementa.');errors.push(...validateGeometry(p.customGeometry));const b=bounds(p.customGeometry);if(b.width<200||b.height<200||b.width>20000||b.height>20000)errors.push('Širina i visina oblika moraju biti između 200 i 20000 mm.');if(Math.abs(p.width-b.width)>.001||Math.abs(p.height-b.height)>.001)errors.push('Sačuvane mere ne odgovaraju geometriji.');if(!Number.isInteger(p.quantity)||p.quantity<1||p.quantity>100)errors.push('Količina mora biti ceo broj od 1 do 100.');if(p.segments.some(s=>s.opening!=='Fiksno'))errors.push('Nepravilni elementi podržavaju samo fiksno zastakljenje.');return errors;}
  if(!Number.isFinite(p.width)||p.width<200||p.width>6000)errors.push('Širina mora biti između 200 i 6000 mm.');
  if(!Number.isFinite(p.height)||p.height<200||p.height>3500)errors.push('Visina mora biti između 200 i 3500 mm.');
+ if(p.combination&&(!Number.isInteger(p.combination.windowHeight)||p.combination.windowHeight<200||p.combination.windowHeight>p.height))errors.push('Visina prozora mora biti najmanje 200 mm i najviše koliko i visina vrata.');
  if(!Number.isInteger(p.quantity)||p.quantity<1||p.quantity>100)errors.push('Količina mora biti ceo broj od 1 do 100.');
  const panels=p.fixedPanels;
  if(panels&&Object.values(panels).some(value=>!Number.isInteger(value)||value<0||value>0&&value<100))errors.push('Fiksno polje mora imati najmanje 100 mm.');

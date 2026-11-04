@@ -5,7 +5,7 @@ async function createJob(page:Page,name='Petrović'){
  await page.goto('/');await page.getByRole('button',{name:'Novi posao',exact:true}).first().click();
  const dialog=page.getByRole('dialog',{name:'Novi posao'});await expect(dialog.locator('input')).toHaveCount(1);
  await dialog.getByLabel('Naziv posla ili prezime kupca').fill(name);await dialog.getByRole('button',{name:'Započni merenje'}).click();
- await expect(page.locator('.type-tile')).toHaveCount(8);await expect(page.getByRole('link',{name:'Ostalo',exact:true})).toHaveCount(0);return page.url().replace('/dodaj','');
+ await expect(page.locator('.type-tile')).toHaveCount(9);await expect(page.getByRole('link',{name:'Ostalo',exact:true})).toHaveCount(0);return page.url().replace('/dodaj','');
 }
 async function openFirstElement(page:Page){await page.goto(jobPath);await page.getByRole('link',{name:'Izmeni element 1',exact:true}).click();}
 async function addWindow(page:Page){await page.getByRole('link',{name:'Prozor',exact:true}).click();await page.getByRole('button',{name:'Dodaj u posao',exact:true}).click();}

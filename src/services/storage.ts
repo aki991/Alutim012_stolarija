@@ -27,6 +27,10 @@ export function parseBackup(data:unknown):{jobs:Job[];settings:Settings}{
   for(const p of j.positions){
    if(!record(p)||!strings(p,['id','name','color','notes','access','extraWork'])||![p.width,p.height,p.quantity].every(draftNumber)||!number(p.extraCost)||!(p.manualPrice===null||number(p.manualPrice))||!['PVC','ALU'].includes(String(p.material))||!['Dvoslojno','Troslojno','Sigurnosno'].includes(String(p.glass))||!['Standardni','Sigurnosni'].includes(String(p.hardware))||!['Prozori','Vrata','Klizni sistemi','Ulazna vrata','Roletne','Komarnici','Klupice','Usluge'].includes(String(p.category))||!['shutter','mosquito','sill','installation','removal'].every(k=>typeof p[k]==='boolean')||!Array.isArray(p.segments)||p.segments.length<1||p.segments.length>4||positions.has(p.id))return fail();
    positions.add(p.id);
+   if(p.elementType==='kombinacija'||p.combination!==undefined){
+    const c=p.combination;
+    if(p.elementType!=='kombinacija'||!record(c)||!draftNumber(c.windowHeight)||!['left','right'].includes(String(c.windowSide))||!['top','bottom'].includes(String(c.alignment))||p.segments.length!==2||p.customGeometry||p.fixedPanels)return fail();
+   }
    if(p.fixedPanels!==undefined&&(!record(p.fixedPanels)||p.customGeometry||!["top","bottom","left","right"].every(side=>number((p.fixedPanels as Record<string,unknown>)[side]))))return fail();
    if(p.customInfill!==undefined&&(!p.customGeometry||!['glass','panel'].includes(String(p.customInfill))))return fail();
    if(p.customKind!==undefined&&(!p.customGeometry||!['window','door','other'].includes(String(p.customKind))))return fail();
@@ -35,7 +39,7 @@ export function parseBackup(data:unknown):{jobs:Job[];settings:Settings}{
    if(p.elementType==='nacrtaj'&&!isGeometry(p.customGeometry))return fail();
    if(p.customGeometry&&((p.segments as {opening:string}[]).some(s=>s.opening!=='Fiksno')||p.elementType!=='nacrtaj'))return fail();
    if(p.profile!==undefined&&(typeof p.profile!=='string'||p.profile.length>200))return fail();
-   if(p.elementType!==undefined&&!['prozor','vrata','balkonska','klizni','fiksni','roletna','komarnik','ostalo','nacrtaj'].includes(String(p.elementType)))return fail();
+   if(p.elementType!==undefined&&!['prozor','vrata','balkonska','klizni','fiksni','roletna','komarnik','ostalo','nacrtaj','kombinacija'].includes(String(p.elementType)))return fail();
    if(p.segments.some(s=>!record(s)||!draftNumber(s.width)||!['Fiksno','Levo','Desno','Kip','Levo + kip','Desno + kip','Klizno'].includes(String(s.opening))))return fail();
    if(!Array.isArray(p.photos)||p.photos.length>4||p.photos.some(src=>typeof src!=='string'||!(src==='/assets/house.jpg'||/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(src))||src.length>650000))return fail();
   }

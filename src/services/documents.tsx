@@ -49,13 +49,18 @@ export async function makeDocument(job:Job,settings:Settings,kind:'kupac'|'kance
   }
   if(p.customGeometry)text('Terenska skica — potrebna tehnička provera',9,true);
   if(p.extraWork)text(`Dodatni radovi: ${p.extraWork}${showPrices?` (${euro(p.extraCost)} / kom)`:''}`);
+  if(p.combination){
+   text(`Vrata: ${fmt(p.segments[0].width)} × ${fmt(p.height)} mm / ${p.segments[0].opening}`,9);
+   text(`Prozor ${p.combination.windowSide==='left'?'levo':'desno'}: ${fmt(p.segments[1].width)} × ${fmt(p.combination.windowHeight)} mm / ${p.segments[1].opening}`,9);
+   text(`Poravnanje: ${p.combination.alignment==='top'?'gornja ivica':'donja ivica'}`,9);
+  }
   if(kind==='kancelarija'){
    if(p.fixedPanels){
     const panels=p.fixedPanels;
     const labels=(Object.keys(panelLabels) as PanelSide[]).filter(side=>panels[side]>0).map(side=>`${panelLabels[side]} ${panels[side]} mm`);
     if(labels.length)text(labels.join(' · '),9);
    }
-   if(!p.customGeometry)text(`Krila: ${p.segments.map((s,k)=>`${k+1}: ${Math.round(s.width)} mm / ${s.opening}`).join('; ')}`,9);
+   if(!p.customGeometry&&!p.combination)text(`Krila: ${p.segments.map((s,k)=>`${k+1}: ${Math.round(s.width)} mm / ${s.opening}`).join('; ')}`,9);
    if(p.customGeometry){const g=p.customGeometry;text(`Geometrija u mm. ${customKindLabel(p.customKind)}. Širina rama: ${p.customFrameMm??70} mm. Otvaranje za tehničku proveru.`,9,true);for(let k=0;k<g.edges.length;k++){const e=g.edges[k],[a,b]=ends(g,e);text(`${k+1}. ${e.kind==='arc'?'Luk':'Linija'}: (${fmt(a.x)}; ${fmt(a.y)}) → (${fmt(b.x)}; ${fmt(b.y)}), dužina ${fmt(edgeLength(g,e))} mm`,8);if(e.kind==='arc'){const arc=edgeArc(g,e);text(`R ${fmt(arc.radius)} mm; centar (${fmt(arc.center.x)}; ${fmt(arc.center.y)}); kontrolna tačka (${fmt(e.via!.x)}; ${fmt(e.via!.y)})`,8);}}for(let k=0;k<g.bars.length;k++){const b=g.bars[k];text(`Prečka ${k+1}: (${fmt(b.a.x)}; ${fmt(b.a.y)}) → (${fmt(b.b.x)}; ${fmt(b.b.y)}) mm`,8);}}
    if(p.notes)text('Napomena: '+p.notes);if(p.access)text('Pristup i uslovi: '+p.access);
    text(`Montaža: ${p.installation?'DA':'NE'}  |  Demontaža: ${p.removal?'DA':'NE'}`);

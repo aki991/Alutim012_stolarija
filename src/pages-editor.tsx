@@ -10,6 +10,7 @@ import { parseBackup } from './services/storage';
 import { fieldTypes, makeFieldPosition, selectableFieldTypes, typeOfPosition } from './field-types';
 import { Empty, Modal, Saved } from './components/UI';
 import { centralWidth } from './fixed-panels';
+import { CombinationControls } from './components/CombinationControls';
 import { FixedPanelPicker } from './components/FixedPanelPicker';
 import { Drawing } from './components/Drawing';
 import { ElementGlyph } from './components/ElementGlyph';
@@ -64,7 +65,7 @@ export function ElementEditor(){
  const {id,type,positionId}=useParams(),[params]=useSearchParams(),navigate=useNavigate();
  const {jobs,settings,updateJob}=useStore(),job=jobs.find(j=>j.id===id),original=job?.positions.find(p=>p.id===positionId);
  const template=params.has('template')?Number(params.get('template')):undefined;
- const draftKey=`alu-position-draft-v1:${id}:${positionId||type}:${template??''}`;
+ const draftKey=`alu-position-draft-v1:${id}:${positionId||(template===6?'kombinacija':type)}:${template===6?'':template??''}`;
  const [p,setPosition]=useState<Position>(()=>{
   const initial=original?structuredClone(original):{...makeFieldPosition(type||'prozor',template),...settings.elementDefaults};
   if(!job)return initial;
@@ -76,7 +77,8 @@ export function ElementEditor(){
  const positionRef=useRef(p);
  useEffect(()=>{try{sessionStorage.setItem(draftKey,JSON.stringify(p));setDraftError(false);}catch{setDraftError(true);}},[draftKey,p]);
  if(!job||positionId&&!original)return <MissingJob/>;
- const mode=type||typeOfPosition(p),special=['roletna','komarnik','ostalo'].includes(mode),isFixed=mode==='fiksni',isSliding=mode==='klizni',isDoor=['vrata','balkonska'].includes(mode);
+ const combination=p.combination;
+ const mode=combination?'kombinacija':type||typeOfPosition(p),special=['roletna','komarnik','ostalo'].includes(mode),isFixed=mode==='fiksni',isSliding=mode==='klizni',isDoor=['vrata','balkonska'].includes(mode);
  const errors=validatePosition(p),price=positionCost(p,settings,job.package);
  const persist=(next:Position)=>{positionRef.current=next;try{sessionStorage.setItem(draftKey,JSON.stringify(next));setDraftError(false);}catch{setDraftError(true);}setPosition(next);};
  const patch=(value:Partial<Position>)=>persist({...positionRef.current,...value});
@@ -102,15 +104,15 @@ export function ElementEditor(){
   try{sessionStorage.removeItem(draftKey);}catch{/* Store reports any persistent storage error separately. */}
   navigate(`/posao/${job.id}`);
  };
- const drawing=<><div className="field-canvas-toolbar"><span>{chosen===null?'Pogled iznutra':`Izabrano krilo ${chosen+1}`}</span><div><button className="field-icon-button" aria-label="Resetuj prikaz" onClick={()=>setZoom(1)}><RotateCcw/></button><button className="field-icon-button" aria-label="Proširi prikaz" onClick={()=>setExpanded(true)}><Expand/></button></div></div><div className="field-drawing"><Drawing position={p} selected={chosen??-1} onSelect={setChosen} zoom={zoom}/></div></>;
+ const drawing=<><div className="field-canvas-toolbar"><span>{chosen===null?'Pogled iznutra':`Izabrano krilo ${chosen+1}`}</span><div><button className="field-icon-button" aria-label="Resetuj prikaz" onClick={()=>setZoom(1)}><RotateCcw/></button><button className="field-icon-button" aria-label="Proširi prikaz" onClick={()=>setExpanded(true)}><Expand/></button></div></div><div className="field-drawing"><Drawing position={p} selected={chosen??-1} onSelect={combination?undefined:setChosen} zoom={zoom}/></div></>;
  return <div className="field-page measuring-page"><FieldHeader title={`${original?'Izmeni element':fieldTypes.find(t=>t.id===mode)?.label||'Element'} — ${job.customer.name}`} back={original?`/posao/${job.id}`:`/posao/${job.id}/dodaj`}/>
  <main className="measurement-workspace"><section className="measurement-canvas">{drawing}<p className="field-sketch-note">Terenska skica · potrebna tehnička provera</p></section>
- <section className="measurement-controls" aria-label="Podešavanja elementa"><div className="dimension-controls">
+ <section className="measurement-controls" aria-label="Podešavanja elementa">{combination?<CombinationControls position={p} combination={combination} onChange={patch}/>:<><div className="dimension-controls">
  {([['width','Širina (mm)'],['height','Visina (mm)']] as const).map(([key,label])=><div className="dimension-control" key={key}><label htmlFor={`measure-${key}`}>{label}</label><div><button aria-label={`Smanji ${key==='width'?'širinu':'visinu'}`} onClick={()=>dimension(key,Math.max(200,p[key]-10))} disabled={p[key]<=200}><Minus/></button><input id={`measure-${key}`} type="number" inputMode="numeric" min={200} max={key==='width'?6000:3500} step={1} value={p[key]} onChange={e=>dimension(key,+e.target.value)}/><button aria-label={`Povećaj ${key==='width'?'širinu':'visinu'}`} onClick={()=>dimension(key,Math.min(key==='width'?6000:3500,p[key]+10))}><Plus/></button></div></div>)}
  </div>
  {(mode==='prozor'||isDoor)&&<button className="field-options-button fixed-panel-trigger" onClick={()=>setLayout(true)}><Settings2/>Raspored fiksnih polja<ChevronRight/></button>}
  {!special&&<section className="visual-control"><h2>Broj krila</h2><div className="wing-count-options" role="group" aria-label="Broj krila">{(isDoor?[1,2]:p.segments.length===4?[1,2,3,4]:[1,2,3]).map(n=><button key={n} className={p.segments.length===n?'selected':''} aria-pressed={p.segments.length===n} aria-label={n===1?'Jedno krilo':n===2?'Dva krila':n===3?'Tri krila':'Četiri krila'} onClick={()=>count(n)}><ElementGlyph type="prozor" wings={n}/><span>{n===1?'Jedno':n===2?'Dva':n===3?'Tri':'Četiri'}</span></button>)}</div></section>}
- {!special&&<section className="visual-control"><div className="opening-heading"><h2>Otvaranje</h2>{chosen!==null&&<button className="field-text-button" onClick={()=>setChosen(null)}>Sva krila</button>}</div><div className="opening-options" role="group" aria-label="Otvaranje">{openingChoices.map(([value,label])=><button key={value} className={activeOpening===value?'selected':''} aria-pressed={activeOpening===value} onClick={()=>opening(value)}><ElementGlyph type={value==='Fiksno'?'fiksni':isSliding?'klizni':'prozor'} wings={value==='pair'?2:1} opening={value==='pair'?undefined:value}/><span>{label}</span></button>)}</div></section>}
+ {!special&&<section className="visual-control"><div className="opening-heading"><h2>Otvaranje</h2>{chosen!==null&&<button className="field-text-button" onClick={()=>setChosen(null)}>Sva krila</button>}</div><div className="opening-options" role="group" aria-label="Otvaranje">{openingChoices.map(([value,label])=><button key={value} className={activeOpening===value?'selected':''} aria-pressed={activeOpening===value} onClick={()=>opening(value)}><ElementGlyph type={value==='Fiksno'?'fiksni':isSliding?'klizni':'prozor'} wings={value==='pair'?2:1} opening={value==='pair'?undefined:value}/><span>{label}</span></button>)}</div></section>}</>}
  <section className="visual-control material-control"><h2>Materijal</h2><div role="group" aria-label="Materijal">{(['PVC','ALU'] as const).map(material=><button key={material} aria-pressed={p.material===material} className={p.material===material?'selected':''} onClick={()=>patch({material,profile:material==='PVC'?'PVC 70 mm':'ALU termo profil'})}>{material}</button>)}</div></section>
  <button className="field-options-button" onClick={()=>setOptions(true)}><Settings2/>Dodatne opcije<ChevronRight/></button>
  {(errors.length>0||message)&&<div className="field-error" role="alert">{message||errors[0]}</div>}
@@ -119,6 +121,6 @@ export function ElementEditor(){
  <footer className="measurement-footer">{settings.showPrices!==false&&<div className="measurement-amount"><span>Okvirno · {p.quantity} {p.quantity===1?'komad':'komada'}</span><strong>{euro(price.total)}</strong></div>}<button className="field-button field-button-yellow" onClick={save} disabled={errors.length>0}><Check/>{original?'Sačuvaj izmene':'Dodaj u posao'}</button></footer>
  {layout&&<FixedPanelPicker position={p} isDoor={isDoor} onClose={()=>setLayout(false)} onApply={next=>{persist(next);setChosen(null);setMessage('');setLayout(false);}}/>}
  {options&&<PositionOptions position={p} onChange={patch} onClose={()=>setOptions(false)}/>}
- {expanded&&<Modal title="Prošireni crtež" wide onClose={()=>setExpanded(false)}><div className="expanded-zoom" role="group" aria-label="Uvećanje crteža"><button className="field-icon-button" aria-label="Umanji crtež" disabled={zoom<=.7} onClick={()=>setZoom(Math.max(.7,zoom-.1))}><Minus/></button><button className="field-text-button" onClick={()=>setZoom(1)}>Resetuj prikaz</button><button className="field-icon-button" aria-label="Uvećaj crtež" disabled={zoom>=1.4} onClick={()=>setZoom(Math.min(1.4,zoom+.1))}><Plus/></button></div><div className="field-expanded-drawing"><Drawing position={p} selected={chosen??-1} onSelect={setChosen} zoom={zoom}/></div><div className="expanded-measures">{([['width','Širina (mm)'],['height','Visina (mm)']] as const).map(([key,label])=><label key={key}>{label}<input aria-label={label} type="number" inputMode="numeric" value={p[key]} onChange={e=>dimension(key,+e.target.value)}/></label>)}</div></Modal>}
+ {expanded&&<Modal title="Prošireni crtež" wide onClose={()=>setExpanded(false)}><div className="expanded-zoom" role="group" aria-label="Uvećanje crteža"><button className="field-icon-button" aria-label="Umanji crtež" disabled={zoom<=.7} onClick={()=>setZoom(Math.max(.7,zoom-.1))}><Minus/></button><button className="field-text-button" onClick={()=>setZoom(1)}>Resetuj prikaz</button><button className="field-icon-button" aria-label="Uvećaj crtež" disabled={zoom>=1.4} onClick={()=>setZoom(Math.min(1.4,zoom+.1))}><Plus/></button></div><div className="field-expanded-drawing"><Drawing position={p} selected={chosen??-1} onSelect={combination?undefined:setChosen} zoom={zoom}/></div>{!combination&&<div className="expanded-measures">{([['width','Širina (mm)'],['height','Visina (mm)']] as const).map(([key,label])=><label key={key}>{label}<input aria-label={label} type="number" inputMode="numeric" value={p[key]} onChange={e=>dimension(key,+e.target.value)}/></label>)}</div>}</Modal>}
  </div>;
 }

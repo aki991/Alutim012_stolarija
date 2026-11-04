@@ -14,6 +14,7 @@ export function Drawing({position:p,selected=-1,onSelect,zoom=1,compact=false}:{
  const x=(W-width)/2+12,y=(H-height)/2+12;
  const specialized=['Roletne','Komarnici','Klupice','Usluge'].includes(p.category);
  const safeId=(p.id+drawingId).replace(/[^a-zA-Z0-9-]/g,'');
+ const combination=p.combination;
  const panels=p.fixedPanels??noPanels;
  const top=panels.top*scale,bottom=panels.bottom*scale,leftPanel=panels.left*scale,rightPanel=panels.right*scale;
  const middleHeight=Math.max(1,height-top-bottom);
@@ -34,17 +35,23 @@ export function Drawing({position:p,selected=-1,onSelect,zoom=1,compact=false}:{
    <path d={`M${x-36} ${y}V${y+height}`} markerStart={`url(#arrow-${safeId})`} markerEnd={`url(#arrow-${safeId})`}/>
   </g>}
   {!compact&&<g fontFamily="Arial,sans-serif" fill="#15191b" fontSize="24" fontWeight="700"><text x={x+width/2} y={y-47} textAnchor="middle">{p.width} mm</text><text x={x-50} y={y+height/2} textAnchor="middle" transform={`rotate(-90 ${x-50} ${y+height/2})`}>{p.height} mm</text></g>}
-  <rect x={x} y={y} width={width} height={height} fill="#f5f5f3" stroke="#1f2529" strokeWidth="2.4"/>
+  {!combination&&<rect x={x} y={y} width={width} height={height} fill="#f5f5f3" stroke="#1f2529" strokeWidth="2.4"/>}
   {fixedPanes.filter(pane=>pane.w>0&&pane.h>0).map(pane=>{
    const inset=Math.min(5,pane.w/5,pane.h/5);
    return <rect key={pane.side} data-fixed-panel={pane.side} aria-label={panelLabels[pane.side]} x={pane.x+inset} y={pane.y+inset} width={pane.w-2*inset} height={pane.h-2*inset} fill={`url(#glass-${safeId})`} stroke="#222a2e" strokeWidth="1.5"/>;
   })}
   {p.segments.map((segment,i)=>{
-   const sw=Math.max(1,segment.width*scale),sx=x+offset;offset+=sw;
-   const sy=y+top,inset=Math.min(9,sw/5,middleHeight/5),l=sx+inset,r=Math.max(l+1,sx+sw-inset),t=sy+inset,b=Math.max(t+1,sy+middleHeight-inset),mid=(t+b)/2;
+   const sw=Math.max(1,segment.width*scale);
+   const sx=x+(combination?.windowSide==='left'?(i===0?Math.max(1,p.segments[1].width*scale):0):offset);
+   offset+=sw;
+   const isWindow=!!combination&&i===1;
+   const sh=isWindow?Math.max(1,Math.min(height,combination.windowHeight*scale)):middleHeight;
+   const sy=y+top+(isWindow&&combination.alignment==='bottom'?height-sh:0);
+   const inset=Math.min(9,sw/5,sh/5),l=sx+inset,r=Math.max(l+1,sx+sw-inset),t=sy+inset,b=Math.max(t+1,sy+sh-inset),mid=(t+b)/2;
    const left=segment.opening.includes('Levo'),right=segment.opening.includes('Desno');
    return <g key={i} onClick={()=>onSelect?.(i)} role={onSelect?'button':undefined} tabIndex={onSelect?0:undefined} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();onSelect?.(i);}}} aria-label={`Krilo ${i+1}, ${segment.opening}`} style={{cursor:onSelect?'pointer':undefined}}>
-    <rect x={sx+3} y={sy+3} width={Math.max(1,sw-6)} height={Math.max(1,middleHeight-6)} fill="#f5f5f3" stroke={selected===i?'#b00919':'#555e63'} strokeWidth={selected===i?3:1.2}/>
+    {combination&&<rect data-combination-part={isWindow?'window':'door'} x={sx} y={sy} width={sw} height={sh} fill="#f5f5f3" stroke="#1f2529" strokeWidth="2.4"/>}
+    <rect x={sx+3} y={sy+3} width={Math.max(1,sw-6)} height={Math.max(1,sh-6)} fill="#f5f5f3" stroke={selected===i?'#b00919':'#555e63'} strokeWidth={selected===i?3:1.2}/>
     <rect x={l} y={t} width={r-l} height={b-t} fill={`url(#glass-${safeId})`} stroke="#222a2e" strokeWidth="1.5"/>
     {!specialized&&<g stroke="#283a43" strokeWidth="1.7" strokeDasharray="7 5" fill="none">
      {left&&<path d={`M${l} ${t}L${r} ${mid}L${l} ${b}`}/>}

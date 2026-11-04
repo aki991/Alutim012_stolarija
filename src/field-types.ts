@@ -11,12 +11,19 @@ export const fieldTypes = [
  {id:'komarnik',label:'Komarnik',template:14},
  {id:'ostalo',label:'Ostalo',template:16},
  {id:'nacrtaj',label:'Nacrtaj',template:3},
+ {id:'kombinacija',label:'Kombinacija',template:6},
 ] as const;
 export const selectableFieldTypes = fieldTypes.filter(type=>type.id!=='ostalo');
 
 export function makeFieldPosition(type:string,template?:number):Position {
  const entry=fieldTypes.find(t=>t.id===type)||fieldTypes[0];
  const p=makePosition(catalog[template??entry.template]||catalog[1]);
+ if(type==='kombinacija'||template===6){
+  p.elementType='kombinacija';
+  p.combination={windowHeight:1400,windowSide:'right',alignment:'bottom'};
+  p.segments=[{width:p.width/2,opening:'Levo'},{width:p.width/2,opening:'Desno'}];
+  return p;
+ }
  p.elementType=template===undefined?entry.id:typeOfPosition(p);
  if(template===undefined){p.name=entry.label;if(type==='balkonska')p.height=2200;
   p.segments=p.segments.map((s,i)=>({...s,opening:type==='klizni'?'Klizno':['fiksni','roletna','komarnik','ostalo'].includes(type)?'Fiksno':i===0?'Levo':'Desno'}));
