@@ -45,11 +45,11 @@ test('Mobilni meni, kategorije, posao i obaveštenja ostaju funkcionalni', async
   await page.getByRole('navigation', { name: 'Donja navigacija' }).getByRole('button', { name: 'Više', exact: true }).click();
   await page.getByRole('dialog', { name: 'Više' }).getByRole('link', { name: 'Ponude', exact: true }).click();
   const filters = page.getByRole('group', { name: 'Status posla' });
-  await expect(filters.getByRole('button')).toHaveText(['Svi', 'Ponuda', 'Čeka proveru']);
+  await expect(filters.getByRole('button')).toHaveText(['Svi', 'Ponuda']);
   await filters.getByRole('button', { name: 'Ponuda', exact: true }).click();
-  await expect(page.locator('.job-card')).toHaveCount(1);
+  await expect(page.locator('.job-card')).toHaveCount(2);
   await page.getByRole('navigation', { name: 'Donja navigacija' }).getByRole('link', { name: 'Početna', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Brza ponuda na terenu' })).toBeVisible();
   await page.getByRole('button', { name: 'Obaveštenja' }).click();
-  await expect(page.getByRole('dialog', { name: 'Za tehničku proveru' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Obaveštenja' })).toBeVisible();
 });

@@ -17,7 +17,7 @@ export type CatalogChoice={type:string;template?:number};
 export function Jobs({onNew,offers=false}:{onNew:()=>void;offers?:boolean}){
  const {jobs,settings,deleteJob,duplicateJob,updateJob}=useStore(),navigate=useNavigate(),[params]=useSearchParams();
  const [search,setSearch]=useState(''),[filter,setFilter]=useState(params.get('status')||'Sve'),[deleting,setDeleting]=useState<Job|null>(null);
- const statuses: readonly Status[] = offers ? ['Ponuda','Čeka proveru'] : [...jobStatuses,'Čeka proveru'];
+ const statuses: readonly Status[] = offers ? ['Ponuda'] : jobStatuses;
  const selectedFilter = statuses.some(status=>status===filter) ? filter : 'Sve';
  const filtered=jobs.filter(j=>statuses.includes(j.status)&&(selectedFilter==='Sve'||selectedFilter===j.status)&&`${j.customer.name} ${j.customer.address} ${j.id}`.toLowerCase().includes(search.toLowerCase()));
  return <div className="module-page"><ModuleHeader title={offers?'Ponude':'Svi poslovi'} subtitle={offers?'Pregled pripremljenih ponuda.':'Pregled, pretraga i nastavak rada na poslovima.'} icon={offers?FileText:BriefcaseBusiness}><button className="field-button field-button-yellow module-new-job" onClick={onNew}><Plus/>Novi posao</button></ModuleHeader>

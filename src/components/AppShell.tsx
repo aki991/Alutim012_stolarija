@@ -37,7 +37,7 @@ export function AppShell({children,onNew,onSearch,onNotifications,onNavigation}:
    <button className="sidebar-toggle" onClick={()=>navigation.toggleSidebar(compact)} aria-label={compact?'Proširi navigaciju':'Skupi navigaciju'} title={compact?'Proširi navigaciju':'Skupi navigaciju'}>{compact?<PanelLeftOpen/>:<PanelLeftClose/>}</button>
   </aside>
   <div className="main-shell" ref={mainRef}>
-   {home&&<ReferenceHeader onSearch={onSearch} onNotifications={onNotifications} technician={settings.technician} hasNotifications={jobs.some(j=>j.status==='Čeka proveru')}/>}
+   {home&&<ReferenceHeader onSearch={onSearch} onNotifications={onNotifications} technician={settings.technician}/>}
    {!home&&!field&&resume&&<div className="resume-strip"><Link to={resume}><Play size={18}/>Nastavi merenje <strong>{activeJob!.customer.name}</strong><ArrowRight size={18}/></Link>{resume!==`/posao/${activeJob!.id}`&&<Link to={`/posao/${activeJob!.id}`}>Pregled posla</Link>}</div>}
    <div className={`main-content ${field?'work-content':''}`}>{children}</div>
   </div>

@@ -13,7 +13,7 @@ function demoJobs():Job[] {
  return [
  {...emptyJob(defaults.technician),id:'AT-2026-012',customer:{name:'Porodica Petrović',phone:'064 123 4567',email:'petrovic@example.com',address:'Vojvođanska 24, Pančevo',building:'Porodična kuća'},positions:[p,single,balcony],notes:'Zamena stare stolarije u prizemlju. Zaštititi podove pre demontaže.',status:'U izradi'},
  {...emptyJob(defaults.technician),id:'AT-2026-011',customer:{name:'Jovanović d.o.o.',phone:'063 456 7890',email:'office@example.com',address:'Cara Dušana 17, Pančevo',building:'Poslovni prostor'},positions:[{...makePosition(catalog[7]),material:'ALU',color:'Antracit'}],status:'Ponuda',discount:5},
- {...emptyJob(defaults.technician),id:'AT-2026-010',customer:{name:'Milan Zorić',phone:'065 222 3344',email:'',address:'Industrijska zona bb, Pančevo',building:'Poslovni prostor'},positions:[{...makePosition(catalog[3]),material:'ALU'}],status:'Čeka proveru'},
+ {...emptyJob(defaults.technician),id:'AT-2026-010',customer:{name:'Milan Zorić',phone:'065 222 3344',email:'',address:'Industrijska zona bb, Pančevo',building:'Poslovni prostor'},positions:[{...makePosition(catalog[3]),material:'ALU'}],status:'Ponuda'},
  {...emptyJob(defaults.technician),id:'AT-2026-009',customer:{name:'Ana Nikolić',phone:'064 333 5566',email:'',address:'Svetog Save 8, Starčevo',building:'Stan'},positions:[makePosition(catalog[0])],status:'Završeno'},
  ];
 }
