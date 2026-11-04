@@ -25,7 +25,7 @@ function OpeningMarks({g, regions, active, unit, frame}: {
   </g>;
  })}</g>;
 }
-export function GeometryArtwork({geometry:g,selected,unit=4,editable=false,dimensions=true,viewport,onDimensionSelect,frameMm=70,frameColor='Bela',infill='glass',regions,activeOpeningRegion}:{geometry:Geometry;regions?:OpeningRegion[];activeOpeningRegion?:string;selected?:string|null;unit?:number;editable?:boolean;dimensions?:boolean;viewport?:LabelBox;frameMm?:number;frameColor?:string;infill?:'glass'|'panel';onDimensionSelect?:(id:string)=>void}){
+export function GeometryArtwork({geometry:g,selected,unit=4,editable=false,dimensions=true,viewport,onDimensionSelect,frameMm=70,frameColor='Bela',infill='glass',regions,activeOpeningRegion,measureEnds}:{geometry:Geometry;regions?:OpeningRegion[];activeOpeningRegion?:string;selected?:string|null;unit?:number;editable?:boolean;dimensions?:boolean;viewport?:LabelBox;frameMm?:number;frameColor?:string;infill?:'glass'|'panel';onDimensionSelect?:(id:string)=>void;measureEnds?:{moving:string;fixed:string}}){
  const clipId='frame-'+useId().replace(/[^a-zA-Z0-9]/g,'');const frame=Math.max(20,Math.min(150,Number.isFinite(frameMm)?frameMm:70)),tone=frameColor==='Antracit'?'#42484d':frameColor==='Bela'?'#f1f2ee':'#9b7049';
  let path='';try{path=contourPath(g);}catch{path=g.edges.map(e=>{const[a,b]=ends(g,e);return `M${a.x} ${a.y}L${b.x} ${b.y}`;}).join(' ');}
  const labels=dimensions?dimensionLabels(g,unit,viewport):[];
@@ -36,8 +36,16 @@ export function GeometryArtwork({geometry:g,selected,unit=4,editable=false,dimen
    {editable&&<path data-edge={e.id} d={d} fill="none" stroke="transparent" strokeWidth="30" vectorEffect="non-scaling-stroke" className="custom-edge-hit"/>}
    {selected===e.id&&<path d={d} stroke="#be0018" fill="none" strokeWidth="3" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
   </g>;})}
-  {g.bars.map(bar=><g key={bar.id}><path d={`M${bar.a.x} ${bar.a.y}L${bar.b.x} ${bar.b.y}`} stroke="#525a60" strokeWidth="7" vectorEffect="non-scaling-stroke"/><path d={`M${bar.a.x} ${bar.a.y}L${bar.b.x} ${bar.b.y}`} stroke="#f7f7f5" strokeWidth="3" vectorEffect="non-scaling-stroke"/>{editable&&<path data-bar={bar.id} d={`M${bar.a.x} ${bar.a.y}L${bar.b.x} ${bar.b.y}`} stroke="transparent" strokeWidth="28" vectorEffect="non-scaling-stroke"/>}</g>)}
   {(regions||g.openings?.length)&&<OpeningMarks g={g} regions={regions??openingRegions(g)} active={activeOpeningRegion} unit={unit} frame={frame}/>}
+  {g.bars.map(bar=>{
+   const d=`M${bar.a.x} ${bar.a.y}L${bar.b.x} ${bar.b.y}`;
+   return <g key={bar.id} clipPath={`url(#${clipId})`}>
+    <path className="custom-bar-profile" d={d} stroke="#52595e" strokeWidth={frame} pointerEvents="none"/>
+    <path d={d} stroke={tone} strokeWidth={Math.max(1,frame-5)} pointerEvents="none"/>
+    {selected===bar.id&&<path d={d} stroke="#be0018" strokeWidth="2" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
+    {editable&&<path data-bar={bar.id} d={d} stroke="transparent" strokeWidth={Math.max(28,frame/unit)} vectorEffect="non-scaling-stroke"/>}
+   </g>;
+  })}
   {labels.map(label=><g key={label.id+'label'}>
    {label.leader&&<path d={`M${label.anchor.x} ${label.anchor.y}L${label.center.x} ${label.center.y}`} fill="none" stroke="#8d9aa8" strokeWidth="1" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
    <g transform={`translate(${label.center.x} ${label.center.y}) rotate(${label.angle})`} data-dimension={editable?label.id:undefined} className={editable?'custom-dimension-label':undefined} role={editable?'button':undefined} tabIndex={editable?0:undefined} aria-label={editable?`${label.text}${label.locked?', zaključano':''}`:undefined} onKeyDown={e=>{if(editable&&(e.key==='Enter'||e.key===' ')){e.preventDefault();onDimensionSelect?.(label.id);}}}>
@@ -46,7 +54,14 @@ export function GeometryArtwork({geometry:g,selected,unit=4,editable=false,dimen
     {label.locked&&<g transform={`translate(${label.width/2-21*unit} ${-8*unit}) scale(${unit})`} fill="none" stroke="#23658c" strokeWidth="1.7" pointerEvents="none"><rect x="1" y="7" width="12" height="10" rx="2"/><path d="M4 7V4a3 3 0 016 0v3"/></g>}
    </g>
   </g>)}
-  {editable&&g.points.map(p=><g key={p.id}><circle data-node={p.id} cx={p.x} cy={p.y} r={20*unit} fill="transparent"/><circle cx={p.x} cy={p.y} r={7*unit} fill="#fff" stroke="#24282c" strokeWidth="2.5" vectorEffect="non-scaling-stroke" pointerEvents="none"/></g>)}
+  {editable&&g.points.map(p=>{
+   const moving=measureEnds?.moving===p.id, fixed=measureEnds?.fixed===p.id;
+   return <g key={p.id}>
+    <circle data-node={p.id} cx={p.x} cy={p.y} r={20*unit} fill="transparent"/>
+    <circle data-measure-end={moving?'moving':fixed?'fixed':undefined} cx={p.x} cy={p.y} r={(moving||fixed?11:7)*unit} fill={moving?'#be0018':fixed?'#23658c':'#fff'} stroke={moving||fixed?'#fff':'#24282c'} strokeWidth="2.5" vectorEffect="non-scaling-stroke" pointerEvents="none"/>
+    {(moving||fixed)&&<text x={p.x} y={p.y} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize={13*unit} fontWeight="700" pointerEvents="none">{g.edges.find(edge=>edge.id===selected)?.from===p.id?'1':'2'}</text>}
+   </g>;
+  })}
   {editable&&g.edges.filter(e=>e.kind==='arc'&&!e.locked).map(e=>{try{const control=pointAt(g,e,.5),[a,b]=ends(g,e),mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};return <g key={e.id+'control'}>{selected===e.id&&<path d={`M${mid.x} ${mid.y}L${control.x} ${control.y}`} stroke="#b08a32" strokeDasharray="4 4" strokeWidth="1" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}<circle data-control={e.id} cx={control.x} cy={control.y} r={20*unit} fill="transparent" role="button" aria-label="Kontrolna tačka luka"><title>Povucite ka tetivi ili od nje da promenite radijus.</title></circle><circle cx={control.x} cy={control.y} r={7*unit} fill="#ffd46b" stroke="#9e6500" strokeWidth="2" vectorEffect="non-scaling-stroke" pointerEvents="none"/></g>;}catch{return null;}})}
  </>;
 }

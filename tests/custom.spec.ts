@@ -32,6 +32,31 @@ test('Otvaranje se upisuje po poljima i ostaje u sačuvanom elementu',async({pag
  await page.getByRole('button',{name:'Preuzmi PDF',exact:true}).click();
  await (await download).saveAs(testInfo.outputPath('otvaranje-specifikacija.pdf'));
 });
+test('Polukružni šablon menja obe uspravne mere i omogućava izbor pomične tačke',async({page})=>{
+ await page.goto(route);
+ await shape(page,'Polukružni prozor');
+ await page.getByRole('button',{name:'Podeli prozor',exact:true}).click();
+ await page.getByRole('button',{name:'Primeni raspored',exact:true}).click();
+ await expect(page.locator('.custom-canvas .custom-bar-profile')).toHaveAttribute('stroke-width','70');
+ await page.getByLabel('Širina rama (mm)',{exact:true}).fill('95');
+ await expect(page.locator('.custom-canvas .custom-bar-profile')).toHaveAttribute('stroke-width','95');
+ await page.getByRole('button',{name:'Označi otvaranje',exact:true}).click();
+ await page.locator('[data-dimension="e2"]').click();
+ await page.getByLabel('Dužina (mm)',{exact:true}).fill('500');
+ await page.getByRole('button',{name:'Potvrdi meru'}).click();
+ let g=(await draft(page)).customGeometry;
+ expect(g.points.map((point:{y:number})=>point.y)).toEqual([1700,1200,1200,1700]);
+ const node=await xy(page,2400,1200);
+ await page.mouse.click(node.x,node.y);
+ await expect(page.getByLabel('Pomeri tačku',{exact:true})).toHaveValue('to');
+ await page.getByLabel('Dužina (mm)',{exact:true}).fill('400');
+ await page.getByRole('button',{name:'Potvrdi meru'}).click();
+ g=(await draft(page)).customGeometry;
+ expect(g.points.map((point:{y:number})=>point.y)).toEqual([1700,1300,1300,1700]);
+ expect(g.edges[1].via.y).toBe(100);
+ expect(g.bars[0].a.y).toBe(1300);
+ expect(g.bars[0].b.y).toBe(1300);
+});
 test('Lučni prozor na telefonu zadržava fiksni luk i otvaranje donjeg polja',async({page},testInfo)=>{
  await page.setViewportSize({width:390,height:844});
  await page.goto(route);

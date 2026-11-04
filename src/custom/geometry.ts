@@ -95,9 +95,41 @@ export function canRestoreRectangle(g:Geometry){
   edge.kind==='line'&&edge.id===`e${i}`&&edge.from===`p${i}`&&edge.to===`p${(i+1)%4}`);
 }
 
+export function isArchSide(g:Geometry,id:string){
+ return (id==='e0'||id==='e2')&&g.edges.length===4&&g.points.length===4&&g.edges.every((edge,i)=>
+  edge.id===`e${i}`&&edge.kind===(i===1?'arc':'line')&&edge.from===`p${i}`&&edge.to===`p${(i+1)%4}`);
+}
+
+export function resizeArchSide(g:Geometry,id:string,length:number,fixed:'from'|'to'){
+ if(!isArchSide(g,id)||!Number.isFinite(length)||length<=0||length>20000)throw Error('Dužina uspravne stranice luka mora biti veća od 0 i najviše 20000 mm.');
+ const next=structuredClone(g);
+ const [leftBottom,leftTop]=ends(next,next.edges[0]),[rightTop,rightBottom]=ends(next,next.edges[2]);
+ const [a,b]=id==='e0'?[leftBottom,leftTop]:[rightTop,rightBottom];
+ const anchor=fixed==='from'?a:b;
+ const bottomFixed=anchor===leftBottom||anchor===rightBottom;
+ const springY=bottomFixed?anchor.y-length:anchor.y, bottomY=springY+length;
+ const oldSpring=(leftTop.y+rightTop.y)/2,oldBottom=(leftBottom.y+rightBottom.y)/2;
+ if(oldBottom<=oldSpring)throw Error('Donje tačke moraju biti ispod luka.');
+ const leftX=id==='e0'?anchor.x:leftTop.x,rightX=id==='e2'?anchor.x:rightTop.x;
+ const radius=(rightX-leftX)/2;
+ leftBottom.x=leftTop.x=leftX;
+ rightBottom.x=rightTop.x=rightX;
+ leftTop.y=rightTop.y=springY;
+ leftBottom.y=rightBottom.y=bottomY;
+ next.edges[1].via={x:leftX+radius,y:springY-radius};
+ for(const bar of next.bars)for(const point of [bar.a,bar.b]){
+  point.y=springY+(point.y-oldSpring)*(point.y>oldSpring?length/(oldBottom-oldSpring):1);
+ }
+ next.preset='arch';
+ const errors=validateGeometry(next);
+ if(errors.length)throw Error(errors[0]);
+ return next;
+}
+
 export function resizeLine(g:Geometry,id:string,length:number,fixed:'from'|'to'='from'){
  if(!Number.isFinite(length)||length<=0||length>20000)throw Error('Dužina mora biti veća od 0 i najviše 20000 mm.');
  if(g.preset==='rectangle'&&g.edges.length===4&&isClosed(g))return resizeRectangle(g,id,length,fixed);
+ if(g.preset==='arch'&&isArchSide(g,id))return resizeArchSide(g,id,length,fixed);
  const next=structuredClone(g),edge=next.edges.find(e=>e.id===id);if(!edge||edge.kind!=='line')throw Error('Izaberite pravu liniju.');if(edge.locked)throw Error('Otključajte liniju pre promene mere.');const[a,b]=ends(next,edge),anchor=fixed==='from'?a:b,moving=fixed==='from'?b:a,v=sub(moving,anchor),old=distance(a,b);if(old<.01)throw Error('Početne tačke su iste. Pomerite čvor.');moving.x=anchor.x+v.x*length/old;moving.y=anchor.y+v.y*length/old;next.preset='free';const solved=solveLockedGeometry(g,next,[anchor.id],{id,length});const errors=validateGeometry(solved,isClosed(g));if(errors.length)throw Error(errors[0]);return solved;
 }
 export function resizeRadius(g:Geometry,id:string,radius:number){const next=structuredClone(g),e=next.edges.find(e=>e.id===id);if(!e||e.kind!=='arc')throw Error('Izaberite luk.');if(e.locked)throw Error('Otključajte luk pre promene radijusa.');const[a,b]=ends(next,e),chord=distance(a,b),old=edgeArc(next,e);if(!Number.isFinite(radius)||radius<chord/2||radius>20000)throw Error(`Radijus mora biti najmanje ${fmt(chord/2)} mm (polovina tetive), a najviše 20000 mm.`);const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},normal={x:-(b.y-a.y)/chord,y:(b.x-a.x)/chord},side=Math.sign(dot(sub(e.via!,mid),normal))||1,sag=radius+(Math.abs(old.delta)>Math.PI+1e-6?1:-1)*Math.sqrt(Math.max(0,radius**2-(chord/2)**2));e.via={x:mid.x+normal.x*sag*side,y:mid.y+normal.y*sag*side};next.preset='free';const errors=validateGeometry(next,isClosed(g));if(errors.length)throw Error(errors[0]);return next;}
