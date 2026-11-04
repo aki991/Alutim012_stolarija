@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Calculator, ChevronRight, FileText, MapPin, Plus } from 'lucide-react';
+import { isActiveJob } from './models';
 import { useStore } from './store';
 import { Button, CategoryIcon, Empty, Saved } from './components/UI';
 import { categories } from './catalog';
@@ -8,7 +9,7 @@ import { categories } from './catalog';
 export function Dashboard({ onNew }: { onNew: () => void }) {
   const { jobs, saveState, settings } = useStore();
   const navigate = useNavigate();
-  const active = jobs.filter(job => !['Završeno','Odbijeno'].includes(job.status));
+  const active = jobs.filter(isActiveJob);
   const last = active[0];
 
   return <div className="reference-home">

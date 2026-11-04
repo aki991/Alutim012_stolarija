@@ -1,5 +1,31 @@
 import { test, expect, type Page } from '@playwright/test';
 const job='/posao/AT-2026-012';
+
+test('Završeni posao se ne nudi za nastavak merenja', async ({page}) => {
+ await page.goto(job);
+ await expect(page.locator('.sidebar-resume')).toHaveAttribute('href', job);
+ const status = page.getByRole('combobox', {name: /Status posla/});
+ await status.selectOption('Završeno');
+ await expect(page.locator('.sidebar-resume')).toHaveCount(0);
+ await page.reload();
+ await expect(status).toHaveValue('Završeno');
+ await expect(page.locator('.sidebar-resume')).toHaveCount(0);
+
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/poslovi');
+ await expect(page.locator('.resume-strip')).toHaveCount(0);
+ await page.getByRole('button', {name:'Više',exact:true}).click();
+ await expect(page.getByRole('dialog', {name:'Više'}).getByRole('link', {name:/Nastavi merenje/})).toHaveCount(0);
+ await page.goto('/katalog');
+ await page.getByRole('button', {name:'Prozor',exact:true}).click();
+ await expect(page.getByRole('dialog', {name:'Novi posao'})).toBeVisible();
+
+ await page.goto(job);
+ await status.selectOption('U izradi');
+ await page.goto('/poslovi');
+ await expect(page.locator('.resume-strip').getByRole('link', {name:/Nastavi merenje/})).toHaveAttribute('href', job);
+});
+
 async function globalLink(page:Page,label:string){
  const mobile=page.viewportSize()!.width<=700;
  if(mobile&&['Ponude','Cenovnik','Podešavanja'].includes(label)){
@@ -40,7 +66,7 @@ test('Sidebar može da se proširi i skupi unutar konfiguratora',async({page})=>
  await page.setViewportSize({width:1024,height:768});await page.goto(job+'/nov/prozor');await page.getByRole('button',{name:'Proširi navigaciju'}).click();await expect(page.getByRole('button',{name:'Skupi navigaciju'})).toBeVisible();expect(await page.getByLabel('Širina (mm)',{exact:true}).evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBeTruthy();await page.getByRole('button',{name:'Skupi navigaciju'}).click();await expect(page.getByRole('button',{name:'Proširi navigaciju'})).toBeVisible();await expect(page.getByLabel('Širina (mm)',{exact:true})).toHaveValue('1600');
 });
 test('Podešavanja su podeljena i cenovnik se trajno čuva',async({page})=>{
- await page.goto('/podesavanja');await expect(page.locator('.settings-categories>a')).toHaveCount(5);await expect(page.locator('input')).toHaveCount(0);await page.getByRole('link',{name:/Cenovnik Cene profila/}).click();const field=page.getByLabel('PVC profil (€/m²)',{exact:true});await expect(field).toHaveValue('110');await field.fill('123');await expect(page.locator('.settings-save')).toContainText('Sačuvano lokalno');await page.reload();await expect(page.getByLabel('PVC profil (€/m²)',{exact:true})).toHaveValue('123');
+ await page.goto('/podesavanja');await expect(page.locator('.settings-categories>a')).toHaveCount(5);await expect(page.getByRole('checkbox',{name:/Prikaži cene/})).toBeChecked();await page.getByRole('link',{name:/Cenovnik Cene profila/}).click();const field=page.getByLabel('PVC profil (€/m²)',{exact:true});await expect(field).toHaveValue('110');await field.fill('123');await expect(page.locator('.settings-save')).toContainText('Sačuvano lokalno');await page.reload();await expect(page.getByLabel('PVC profil (€/m²)',{exact:true})).toHaveValue('123');
 });
 test('Novi podrazumevani materijali i uslovi ne menjaju stare poslove',async({page})=>{
  await page.goto('/podesavanja/profili');const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('alu-tim-teren-v1')!).jobs);await page.getByLabel('Materijal',{exact:true}).selectOption('ALU');await page.getByLabel('Boja',{exact:true}).selectOption('Antracit');await page.goto('/podesavanja/dokumenti');await page.getByLabel('Važenje ponude',{exact:true}).fill('30 dana');await page.waitForTimeout(450);await page.goto('/');await page.getByRole('button',{name:'Novi posao',exact:true}).click();await page.getByLabel('Naziv posla ili prezime kupca').fill('Novi sa opcijama');await page.getByRole('button',{name:'Započni merenje'}).click();await page.getByRole('link',{name:'Prozor',exact:true}).click();await expect(page.getByRole('button',{name:'ALU',exact:true})).toHaveAttribute('aria-pressed','true');await page.getByRole('button',{name:'Dodatne opcije'}).click();await expect(page.getByRole('button',{name:'Antracit',exact:true})).toHaveAttribute('aria-pressed','true');await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('alu-tim-teren-v1')!).jobs[0].customer.name)).toBe('Novi sa opcijama');const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('alu-tim-teren-v1')!).jobs);expect(after.slice(1)).toEqual(before);expect(after[0].validity).toBe('30 dana');

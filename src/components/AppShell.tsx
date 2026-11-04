@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { ArrowRight, BriefcaseBusiness, Calculator, ChevronLeft, FileText, HardHat, House, LayoutGrid, Menu, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Play, Settings } from 'lucide-react';
+import { isActiveJob } from '../models';
 import { useStore } from '../store';
 import { useNavigation } from '../navigation';
 import { Logo, Modal, Saved } from './UI';
@@ -14,15 +15,19 @@ export function AppShell({children,onNew,onSearch,onNotifications,onNavigation}:
  const visibleLinks=links.filter(link=>settings.showPrices!==false||link.to!=='/cenovnik');
  const field=location.pathname.startsWith('/posao/'),home=location.pathname==='/';
  const compact=navigation.sidebar==='auto'?(width<1000||field):navigation.sidebar==='compact';
- const activeJob=jobs.find(j=>j.id===navigation.jobId);
+ const activeJob=jobs.find(j=>j.id===navigation.jobId&&isActiveJob(j));
  const resume=activeJob&&navigation.workPath?.startsWith(`/posao/${activeJob.id}`)?navigation.workPath:activeJob?`/posao/${activeJob.id}`:null;
  useEffect(()=>{const resize=()=>setWidth(window.innerWidth);window.addEventListener('resize',resize);return()=>window.removeEventListener('resize',resize);},[]);
  useEffect(()=>{
   setMore(false);window.scrollTo(0,0);mainRef.current?.scrollTo(0,0);
-  const match=location.pathname.match(/^\/posao\/([^/]+)/);
-  if(match&&jobs.some(j=>j.id===match[1]))navigation.remember(match[1],location.pathname+location.search);
  },[location.pathname,location.search]);
- useEffect(()=>{if(navigation.jobId&&!jobs.some(j=>j.id===navigation.jobId))navigation.clearJob();},[jobs,navigation.jobId]);
+ const routeJobId=location.pathname.match(/^\/posao\/([^/]+)/)?.[1];
+ const activeRouteJobId=jobs.find(j=>j.id===routeJobId&&isActiveJob(j))?.id;
+ const {jobId,clearJob,remember}=navigation;
+ useEffect(()=>{if(jobId&&!activeJob)clearJob();},[activeJob,jobId,clearJob]);
+ useEffect(()=>{
+  if(activeRouteJobId)remember(activeRouteJobId,location.pathname+location.search);
+ },[activeRouteJobId,location.pathname,location.search,remember]);
  return <div className={`app-shell reference-app unified-shell ${compact?'sidebar-compact':''} ${field?'field-flow':''} ${home?'reference-home-page':'work-modules'} ${navigation.fullscreen?'is-fullscreen':''}`}>
   <aside className="app-sidebar" aria-label="Glavna bočna navigacija">
    <Link to="/" className="app-brand" aria-label="ALU TIM 012 — Početna"><img className="brand-emblem" src="/assets/logo.png" alt="ALU TIM 012 — ALU i PVC profili"/></Link>

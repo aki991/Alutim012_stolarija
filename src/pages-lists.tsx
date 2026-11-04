@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { BriefcaseBusiness, ChevronRight, Copy, FileText, LayoutGrid, MoreVertical, Plus, Search, Trash2 } from 'lucide-react';
 import { useStore } from './store';
+import { isActiveJob } from './models';
 import { useNavigation } from './navigation';
 import { jobStatuses, type Job } from './models';
 import { JobStatus } from './components/JobStatus';
@@ -30,7 +31,7 @@ export function Jobs({onNew,offers=false}:{onNew:()=>void;offers?:boolean}){
 }
 
 export function Catalog({onUse}:{onUse:(choice:CatalogChoice)=>void}){
- const navigate=useNavigate(),jobs=useStore(s=>s.jobs),activeId=useNavigation(s=>s.jobId),active=jobs.find(j=>j.id===activeId),[selected,setSelected]=useState('');
+ const navigate=useNavigate(),jobs=useStore(s=>s.jobs),activeId=useNavigation(s=>s.jobId),active=jobs.find(j=>j.id===activeId&&isActiveJob(j)),[selected,setSelected]=useState('');
  const quick=[...fieldTypes.filter(t=>t.id!=='ostalo').map(t=>({type:t.id,label:t.label,template:undefined as number|undefined})),{type:'balkonska',label:'Kombinacija',template:6}];
  function choose(choice:CatalogChoice){setSelected(choice.template===6?'kombinacija':choice.type);if(active)navigate(`/posao/${active.id}/nov/${choice.type}${choice.template===undefined?'':`?template=${choice.template}`}`);else onUse(choice);}
  return <div className="module-page catalog-page"><ModuleHeader title="Katalog elemenata" icon={LayoutGrid}/><main className="module-content">

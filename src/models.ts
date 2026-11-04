@@ -3,6 +3,7 @@ export type Opening = 'Fiksno' | 'Levo' | 'Desno' | 'Kip' | 'Levo + kip' | 'Desn
 export type Category = 'Prozori' | 'Vrata' | 'Klizni sistemi' | 'Ulazna vrata' | 'Roletne' | 'Komarnici' | 'Klupice' | 'Usluge';
 export const jobStatuses = ['U izradi', 'Ponuda', 'Prihvaćeno', 'Odbijeno', 'Završeno'] as const;
 export type Status = typeof jobStatuses[number] | 'Čeka proveru';
+export const isActiveJob = (job: Pick<Job, 'status'>) => job.status !== 'Završeno' && job.status !== 'Odbijeno';
 export type Package = 'Standard' | 'Optimal' | 'Premium';
 export interface Segment { width: number; opening: Opening }
 export type CustomKind = 'window' | 'door' | 'other';
