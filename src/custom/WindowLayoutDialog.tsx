@@ -1,3 +1,4 @@
+import { NumberInput } from '../components/NumberInput';
 import { useState } from 'react';
 import { Field, Modal } from '../components/UI';
 import { bounds, type Geometry } from './geometry';
@@ -28,7 +29,7 @@ export function WindowLayoutDialog({geometry,onApply,onClose}: {
    {archOffset>0&&<button type="button" className="field-button field-button-light" onClick={()=>setFixed({...fixed,top:archOffset})}>Odvoji gornji luk</button>}
    <div className="form-grid">
     {([['top','Fiksno gore'],['bottom','Fiksno dole'],['left','Fiksno levo'],['right','Fiksno desno']] as const).map(([key,label])=>
-     <Field key={key} label={`${label} (mm)`}><input type="number" inputMode="decimal" min={0} step="any" value={fixed[key]} onChange={event=>setFixed({...fixed,[key]:Number(event.target.value)})}/></Field>)}
+     <Field key={key} label={`${label} (mm)`}><NumberInput clearToZero inputMode="decimal" min={0} step="any" value={fixed[key]} onChange={event=>setFixed({...fixed,[key]:Number(event.target.value)})}/></Field>)}
    </div>
    <Field label="Polja u srednjem delu"><select value={leaves} onChange={event=>setLeaves(event.target.value==='2'?2:1)}>
     <option value="1">Jedno polje</option><option value="2">Dva polja</option>

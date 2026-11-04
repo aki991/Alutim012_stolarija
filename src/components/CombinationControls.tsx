@@ -1,3 +1,4 @@
+import { NumberInput } from './NumberInput';
 import type { Opening, Position } from '../models';
 import { Field } from './UI';
 
@@ -11,11 +12,11 @@ export function CombinationControls({position,combination,onChange}:{
     const isWindow=index===1;
     return <section key={label} className="visual-control">
      <h2>{label}</h2>
-     <Field label={`Širina (${label.toLowerCase()}, mm)`}><input type="number" inputMode="numeric" min={100} value={segment.width} onChange={event=>{
+     <Field label={`Širina (${label.toLowerCase()}, mm)`}><NumberInput inputMode="numeric" min={100} value={segment.width} onChange={event=>{
       const width=Number(event.target.value);
       onChange({width:width+position.segments[1-index].width,segments:position.segments.map((part,i)=>i===index?{...part,width}:part)});
      }}/></Field>
-     <Field label={`Visina (${label.toLowerCase()}, mm)`}><input type="number" inputMode="numeric" min={200} value={isWindow?combination.windowHeight:position.height} onChange={event=>{
+     <Field label={`Visina (${label.toLowerCase()}, mm)`}><NumberInput inputMode="numeric" min={200} value={isWindow?combination.windowHeight:position.height} onChange={event=>{
       const height=Number(event.target.value);
       onChange(isWindow?{combination:{...combination,windowHeight:height}}:{height});
      }}/></Field>
