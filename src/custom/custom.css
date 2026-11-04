@@ -56,3 +56,9 @@
 .custom-opening-controls small{color:#53616a}
 .custom-canvas.tool-opening{cursor:crosshair}
 .custom-fullscreen .custom-opening-controls small{display:none}
+.window-layout-form{display:grid;gap:12px}
+.window-layout-form .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+.window-layout-form .field{margin:0;min-width:0}
+.window-layout-form .field input,.window-layout-form .field select{width:100%;min-width:0}
+.window-layout-form p{font-size:16px;line-height:1.35}
+@media(max-width:700px){.custom-canvas-status{flex-wrap:wrap;gap:4px}.custom-canvas-status>span{min-width:75px}.custom-canvas-status .custom-opening-tool{padding-inline:6px}}

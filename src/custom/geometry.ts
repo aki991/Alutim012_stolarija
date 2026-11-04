@@ -2,7 +2,7 @@ export type Point={x:number;y:number};
 export type Vertex=Point&{id:string};
 export type Edge={id:string;from:string;to:string;kind:'line'|'arc';via?:Point;locked?:{length:number;radius?:number}};
 export type Bar={id:string;a:Point;b:Point};
-export type Shape='free'|'triangle'|'trapezoid'|'arch'|'circle'|'polygon';
+export type Shape='free'|'rectangle'|'triangle'|'trapezoid'|'arch'|'circle'|'polygon';
 export type Geometry={version:1;points:Vertex[];edges:Edge[];bars:Bar[];preset:Shape;openings?:{region:string;side:'left'|'right'}[]};
 export const emptyGeometry=():Geometry=>({version:1,points:[],edges:[],bars:[],preset:'free'});
 const TAU=Math.PI*2,EPS=1e-6;
@@ -37,7 +37,7 @@ export function signedArea(g:Geometry){return g.edges.reduce((n,e)=>{const[a,b]=
 export function projectLine(p:Point,a:Point,b:Point){const v=sub(b,a),t=Math.max(0,Math.min(1,dot(sub(p,a),v)/(dot(v,v)||1)));return{x:a.x+t*v.x,y:a.y+t*v.y};}
 export function projectEdge(g:Geometry,e:Edge,p:Point){const[a,b]=ends(g,e);if(e.kind==='line')return projectLine(p,a,b);const arc=edgeArc(g,e),d=distance(p,arc.center);const q={x:arc.center.x+(p.x-arc.center.x)*arc.radius/(d||1),y:arc.center.y+(p.y-arc.center.y)*arc.radius/(d||1)};return onArc(arc,q)?q:distance(p,a)<distance(p,b)?a:b;}
 export function lineLine(a:Point,b:Point,c:Point,d:Point):{points:Point[];overlap:boolean}{const r=sub(b,a),s=sub(d,c),den=cross(r,s),q=sub(c,a);if(Math.abs(den)<EPS){if(Math.abs(cross(q,r))>EPS)return{points:[],overlap:false};const rr=dot(r,r);if(rr<EPS)return{points:[],overlap:false};const lo=Math.max(0,Math.min(dot(q,r)/rr,dot(sub(d,a),r)/rr)),hi=Math.min(1,Math.max(dot(q,r)/rr,dot(sub(d,a),r)/rr));return{points:hi>=lo-EPS?[{x:a.x+lo*r.x,y:a.y+lo*r.y}]:[],overlap:(hi-lo)*Math.sqrt(rr)>.001};}const t=cross(q,s)/den,u=cross(q,r)/den;return{points:t>=-EPS&&t<=1+EPS&&u>=-EPS&&u<=1+EPS?[{x:a.x+t*r.x,y:a.y+t*r.y}]:[],overlap:false};}
-function lineArc(a:Point,b:Point,arc:ReturnType<typeof arcThrough>){const v=sub(b,a),q=sub(a,arc.center),A=dot(v,v),B=2*dot(v,q),C=dot(q,q)-arc.radius**2,dis=B*B-4*A*C;if(A<EPS||dis<-EPS)return[];return [...new Set([(-B-Math.sqrt(Math.max(0,dis)))/(2*A),(-B+Math.sqrt(Math.max(0,dis)))/(2*A)])].filter(t=>t>=-EPS&&t<=1+EPS).map(t=>({x:a.x+t*v.x,y:a.y+t*v.y})).filter(p=>onArc(arc,p));}
+export function lineArc(a:Point,b:Point,arc:ReturnType<typeof arcThrough>){const v=sub(b,a),q=sub(a,arc.center),A=dot(v,v),B=2*dot(v,q),C=dot(q,q)-arc.radius**2,dis=B*B-4*A*C;if(A<EPS||dis<-EPS)return[];return [...new Set([(-B-Math.sqrt(Math.max(0,dis)))/(2*A),(-B+Math.sqrt(Math.max(0,dis)))/(2*A)])].filter(t=>t>=-EPS&&t<=1+EPS).map(t=>({x:a.x+t*v.x,y:a.y+t*v.y})).filter(p=>onArc(arc,p));}
 export function intersections(g:Geometry,e:Edge,f:Edge){const[a,b]=ends(g,e),[c,d]=ends(g,f);if(e.kind==='line'&&f.kind==='line')return lineLine(a,b,c,d);if(e.kind==='line')return{points:lineArc(a,b,edgeArc(g,f)),overlap:false};if(f.kind==='line')return{points:lineArc(c,d,edgeArc(g,e)),overlap:false};
  const u=edgeArc(g,e),v=edgeArc(g,f),dist=distance(u.center,v.center);
  if(dist<EPS&&Math.abs(u.radius-v.radius)<EPS){const inside=(arc:typeof u,p:Point)=>onArc(arc,p)&&distance(p,a)>.001&&distance(p,b)>.001&&distance(p,c)>.001&&distance(p,d)>.001;return{points:[a,b,c,d].filter(p=>onArc(u,p)&&onArc(v,p)),overlap:inside(v,pointAt(g,e,.5))||inside(u,pointAt(g,f,.5))};}
@@ -70,7 +70,7 @@ export function resizeRadius(g:Geometry,id:string,radius:number){const next=stru
 export function presetGeometry(shape:Exclude<Shape,'free'>,width=2400,height=1600):Geometry{
  if(!Number.isFinite(width)||!Number.isFinite(height)||width<200||height<200||width>20000||height>20000)throw Error('Mere moraju biti između 200 i 20000 mm.');
  if(shape==='arch'&&height<width/2)throw Error('Visina polukružnog prozora mora biti najmanje polovina širine.');
- const coords:Point[]=shape==='triangle'?[{x:0,y:height},{x:0,y:0},{x:width,y:height}]:shape==='trapezoid'?[{x:0,y:height},{x:0,y:height*.25},{x:width,y:0},{x:width,y:height}]:shape==='polygon'?[{x:0,y:height},{x:0,y:height*.4},{x:width/2,y:0},{x:width,y:height*.4},{x:width,y:height}]:shape==='arch'?[{x:0,y:height},{x:0,y:width/2},{x:width,y:width/2},{x:width,y:height}]:[{x:0,y:width/2},{x:width,y:width/2}];
+ const coords:Point[]=shape==='rectangle'?[{x:0,y:0},{x:width,y:0},{x:width,y:height},{x:0,y:height}]:shape==='triangle'?[{x:0,y:height},{x:0,y:0},{x:width,y:height}]:shape==='trapezoid'?[{x:0,y:height},{x:0,y:height*.25},{x:width,y:0},{x:width,y:height}]:shape==='polygon'?[{x:0,y:height},{x:0,y:height*.4},{x:width/2,y:0},{x:width,y:height*.4},{x:width,y:height}]:shape==='arch'?[{x:0,y:height},{x:0,y:width/2},{x:width,y:width/2},{x:width,y:height}]:[{x:0,y:width/2},{x:width,y:width/2}];
  // A zero-height rectangular base is represented by one semicircle and its diameter.
  if(shape==='arch'&&Math.abs(height-width/2)<EPS){coords.splice(0,coords.length,{x:0,y:height},{x:width,y:height});}
  const points=coords.map((p,i)=>({...p,id:`p${i}`})),edges:Edge[]=points.map((p,i)=>({id:`e${i}`,from:p.id,to:points[(i+1)%points.length].id,kind:'line'}));
@@ -79,7 +79,7 @@ export function presetGeometry(shape:Exclude<Shape,'free'>,width=2400,height=160
  return{version:1,points,edges,bars:[],preset:shape};
 }
 export function isGeometry(value:unknown):value is Geometry{
- const g=value as Geometry;if(!g||g.version!==1||!Array.isArray(g.points)||!Array.isArray(g.edges)||!Array.isArray(g.bars)||g.points.length>256||g.edges.length>256||g.bars.length>100||!['free','triangle','trapezoid','arch','circle','polygon'].includes(g.preset))return false;
+ const g=value as Geometry;if(!g||g.version!==1||!Array.isArray(g.points)||!Array.isArray(g.edges)||!Array.isArray(g.bars)||g.points.length>256||g.edges.length>256||g.bars.length>100||!['free','rectangle','triangle','trapezoid','arch','circle','polygon'].includes(g.preset))return false;
  if(g.openings!==undefined&&(!Array.isArray(g.openings)||g.openings.length>256||!g.openings.every(mark=>mark&&typeof mark.region==='string'&&mark.region.length<=80000&&(mark.side==='left'||mark.side==='right'))||new Set(g.openings.map(mark=>mark.region)).size!==g.openings.length))return false;
  const point=(p:Point)=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&Math.abs(p.x)<=1e6&&Math.abs(p.y)<=1e6,id=(s:string)=>typeof s==='string'&&s.length>0&&s.length<=100;
  return g.points.every(p=>point(p)&&id(p.id))&&new Set(g.points.map(p=>p.id)).size===g.points.length&&g.edges.every(e=>id(e.id)&&['line','arc'].includes(e.kind)&&g.points.some(p=>p.id===e.from)&&g.points.some(p=>p.id===e.to)&&(e.kind!=='arc'||point(e.via!))&&(e.locked===undefined||typeof e.locked==='object'&&e.locked!==null&&Number.isFinite(e.locked.length)&&e.locked.length>0&&e.locked.length<=1e8&&(e.locked.radius===undefined||e.kind==='arc'&&Number.isFinite(e.locked.radius)&&e.locked.radius>0&&e.locked.radius<=1e7)))&&new Set(g.edges.map(e=>e.id)).size===g.edges.length&&g.bars.every(b=>id(b.id)&&point(b.a)&&point(b.b))&&new Set(g.bars.map(b=>b.id)).size===g.bars.length;

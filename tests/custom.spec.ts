@@ -32,6 +32,27 @@ test('Otvaranje se upisuje po poljima i ostaje u sačuvanom elementu',async({pag
  await page.getByRole('button',{name:'Preuzmi PDF',exact:true}).click();
  await (await download).saveAs(testInfo.outputPath('otvaranje-specifikacija.pdf'));
 });
+test('Lučni prozor na telefonu zadržava fiksni luk i otvaranje donjeg polja',async({page},testInfo)=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto(route);
+ await shape(page,'Polukružni prozor');
+ await page.getByRole('button',{name:'Podeli prozor',exact:true}).click();
+ const layout=page.getByRole('dialog',{name:'Podeli prozor'});
+ await expect(layout.getByLabel('Fiksno gore (mm)')).toHaveValue('1200');
+ await layout.getByRole('button',{name:'Primeni raspored'}).click();
+ const lower=await xy(page,1200,1400);
+ await page.mouse.click(lower.x,lower.y);
+ await page.getByLabel('Strana otvaranja',{exact:true}).selectOption('right');
+ const marks=page.locator('.custom-canvas [data-opening-side]');
+ await expect(marks).toHaveCount(1);
+ expect((await draft(page)).customGeometry.openings[0].region).toContain('layout-top');
+ await page.getByRole('button',{name:'Dodaj u posao',exact:true}).click();
+ await page.getByRole('link',{name:'Izmeni element 4',exact:true}).click();
+ await expect(marks).toHaveCount(1);
+ await expect(marks).toHaveAttribute('data-opening-side','right');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+ await page.screenshot({path:testInfo.outputPath('lucni-raspored.png')});
+});
 for(const size of [{width:390,height:844},{width:1024,height:768},{width:768,height:1024},{width:1440,height:900}]){
  test(`Nacrtaj po meri: stvarna izmena, nacrt i čuvanje ${size.width}`,async({page})=>{
   await page.setViewportSize(size);await page.goto(route);await expect(page.getByRole('heading',{name:'Nacrtaj element',exact:true})).toBeVisible();await shape(page,'Trouglasti prozor');const before=await draft(page);await selectEdge(page);await page.getByLabel('Dužina (mm)',{exact:true}).fill('1900');await page.getByRole('button',{name:'Potvrdi meru'}).click();const after=await draft(page);expect(after.customGeometry.points[0]).toEqual(before.customGeometry.points[0]);expect(after.customGeometry.points[1].y).toBeCloseTo(-300);expect(after.height).toBeCloseTo(1900);await page.getByRole('button',{name:'Undo',exact:true}).click();expect((await draft(page)).height).toBeCloseTo(1600);await page.getByRole('button',{name:'Redo',exact:true}).click();expect((await draft(page)).height).toBeCloseTo(1900);await page.reload();expect((await draft(page)).height).toBeCloseTo(1900);
