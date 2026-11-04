@@ -1,6 +1,7 @@
 import { bounds, distance, edgeArc, ends, lineArc, lineLine, pointAt, validateGeometry, type Bar, type Geometry, type Point } from './geometry';
 
-export type FixedPanels = { top: number; bottom: number; left: number; right: number };
+import type { FixedPanels } from '../fixed-panels';
+export type { FixedPanels } from '../fixed-panels';
 
 export function archTopOffset(g: Geometry) {
  const {y, height} = bounds(g);

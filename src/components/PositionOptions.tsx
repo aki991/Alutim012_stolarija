@@ -1,3 +1,4 @@
+import { centralWidth } from '../fixed-panels';
 import { customInfillOf } from '../models';
 import { useState, type ReactNode } from 'react';
 import { Camera, Check, ChevronRight, Droplet, Layers, MessageSquare, Minus, Plus, Puzzle, RectangleHorizontal, Settings, SlidersHorizontal, Wrench, X } from 'lucide-react';
@@ -43,7 +44,7 @@ export function PositionOptions({position:p,onChange,onClose}:{position:Position
     <label className="field-button field-button-light upload-label"><Camera/>{loading?'Obrada fotografije…':'Dodaj fotografiju'}<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={p.photos.length>=4||loading} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;setLoading(true);try{const photo=await photoData(file);onChange({photos:[...p.photos,photo]});setError('');}catch(err){setError((err as Error).message);}finally{setLoading(false);e.target.value='';}}}/></label>
     {error&&<p className="field-error" role="alert">{error}</p>}
    </OptionsSection>
-   {!p.customGeometry&&p.segments.length>1&&<OptionsSection title="Raspored krila" icon={<SlidersHorizontal aria-hidden="true"/>}><div className="option-section-title"><h3>Širine pojedinačnih krila</h3><button className="field-text-button" onClick={()=>onChange({segments:p.segments.map(s=>({...s,width:p.width/p.segments.length}))})}>Izjednači</button></div><div className="field-options-grid">{p.segments.map((s,i)=><Field key={i} label={`Krilo ${i+1} (mm)`}><input type="number" inputMode="numeric" min={100} value={Math.round(s.width*100)/100} onChange={e=>onChange({segments:p.segments.map((seg,k)=>k===i?{...seg,width:+e.target.value}:seg)})}/></Field>)}</div></OptionsSection>}
+   {!p.customGeometry&&p.segments.length>1&&<OptionsSection title="Raspored krila" icon={<SlidersHorizontal aria-hidden="true"/>}><div className="option-section-title"><h3>Širine pojedinačnih krila</h3><button className="field-text-button" onClick={()=>onChange({segments:p.segments.map(s=>({...s,width:centralWidth(p.width,p.fixedPanels)/p.segments.length}))})}>Izjednači</button></div><div className="field-options-grid">{p.segments.map((s,i)=><Field key={i} label={`Krilo ${i+1} (mm)`}><input type="number" inputMode="numeric" min={100} value={Math.round(s.width*100)/100} onChange={e=>onChange({segments:p.segments.map((seg,k)=>k===i?{...seg,width:+e.target.value}:seg)})}/></Field>)}</div></OptionsSection>}
   </div>
  </div>
  {preview&&<div className="field-photo-preview"><button className="field-button field-button-light" onClick={()=>setPreview(null)}>Zatvori fotografiju <X/></button><img src={preview} alt="Uvećana fotografija objekta"/></div>}

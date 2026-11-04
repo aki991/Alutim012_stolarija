@@ -1,4 +1,5 @@
 import { bounds, validateGeometry } from '../custom/geometry';
+import { centralWidth } from '../fixed-panels';
 import type { Job, Package, Position, Settings } from '../models';
 export const packages: Record<Package,{factor:number;description:string}> = {
  Standard:{factor:1,description:'Osnovni profil • odabrano staklo i okov'},
@@ -51,7 +52,11 @@ export function validatePosition(p:Position):string[] {
  if(!Number.isFinite(p.width)||p.width<200||p.width>6000)errors.push('Širina mora biti između 200 i 6000 mm.');
  if(!Number.isFinite(p.height)||p.height<200||p.height>3500)errors.push('Visina mora biti između 200 i 3500 mm.');
  if(!Number.isInteger(p.quantity)||p.quantity<1||p.quantity>100)errors.push('Količina mora biti ceo broj od 1 do 100.');
- if(Math.abs(p.segments.reduce((sum,s)=>sum+s.width,0)-p.width)>1)errors.push('Zbir širina segmenata mora odgovarati ukupnoj širini.');
+ const panels=p.fixedPanels;
+ if(panels&&Object.values(panels).some(value=>!Number.isInteger(value)||value<0||value>0&&value<100))errors.push('Fiksno polje mora imati najmanje 100 mm.');
+ if(panels&&p.height-panels.top-panels.bottom<200)errors.push('Između gornjeg i donjeg polja mora ostati najmanje 200 mm.');
+ if(panels?.bottom&&(p.category==='Vrata'||p.category==='Ulazna vrata'||p.elementType==='balkonska'))errors.push('Vrata ne mogu imati donje fiksno polje.');
+ if(Math.abs(p.segments.reduce((sum,s)=>sum+s.width,0)-centralWidth(p.width,panels))>1)errors.push('Zbir širina segmenata mora odgovarati ukupnoj širini.');
  if(p.segments.some(s=>!Number.isFinite(s.width)||s.width<100))errors.push('Svaki segment mora biti širok najmanje 100 mm.');
  return errors;
 }

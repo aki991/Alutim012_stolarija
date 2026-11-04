@@ -62,8 +62,42 @@ export function validateGeometry(g:Geometry,requireClosed=true):string[]{
  }catch(err){errors.push((err as Error).message);}
  return [...new Set(errors)];
 }
+export function resizeRectangle(g:Geometry,id:string,length:number,fixed:'from'|'to'='from'){
+ const next=structuredClone(g),index=next.edges.findIndex(edge=>edge.id===id),edge=next.edges[index];
+ if(!edge||edge.kind!=='line')throw Error('Izaberite stranicu pravougaonika.');
+ const [a,b]=ends(next,edge),anchor=fixed==='from'?a:b;
+ const frame=bounds(g),horizontal=index%2===0;
+ const top=ends(g,g.edges[0]),width=horizontal?length:Math.abs(top[1].x-top[0].x),height=horizontal?frame.height:length;
+ if(![width,height].every(value=>Number.isFinite(value)&&value>=200&&value<=20000))throw Error('Mere moraju biti između 200 i 20000 mm.');
+ const corner=(index+(fixed==='to'?1:0))%4;
+ const x=anchor.x-([1,2].includes(corner)?width:0),y=anchor.y-(corner>=2?height:0);
+ for(const [i,side] of next.edges.entries()){
+  const [point]=ends(next,side);
+  point.x=x+([1,2].includes(i)?width:0);
+  point.y=y+(i>=2?height:0);
+ }
+ for(const bar of next.bars)for(const point of [bar.a,bar.b]){
+  point.x=x+(point.x-frame.x)*width/frame.width;
+  point.y=y+(point.y-frame.y)*height/frame.height;
+ }
+ next.preset='rectangle';
+ for(const previous of g.edges){
+  if(previous.locked&&Math.abs(edgeLength(next,next.edges.find(side=>side.id===previous.id)!)-edgeLength(g,previous))>.001)
+   throw Error('Otključajte stranicu čija mera mora da se promeni.');
+ }
+ const errors=validateGeometry(next);
+ if(errors.length)throw Error(errors[0]);
+ return next;
+}
+
+export function canRestoreRectangle(g:Geometry){
+ return g.preset==='free'&&g.edges.length===4&&g.points.length===4&&g.edges.every((edge,i)=>
+  edge.kind==='line'&&edge.id===`e${i}`&&edge.from===`p${i}`&&edge.to===`p${(i+1)%4}`);
+}
+
 export function resizeLine(g:Geometry,id:string,length:number,fixed:'from'|'to'='from'){
  if(!Number.isFinite(length)||length<=0||length>20000)throw Error('Dužina mora biti veća od 0 i najviše 20000 mm.');
+ if(g.preset==='rectangle'&&g.edges.length===4&&isClosed(g))return resizeRectangle(g,id,length,fixed);
  const next=structuredClone(g),edge=next.edges.find(e=>e.id===id);if(!edge||edge.kind!=='line')throw Error('Izaberite pravu liniju.');if(edge.locked)throw Error('Otključajte liniju pre promene mere.');const[a,b]=ends(next,edge),anchor=fixed==='from'?a:b,moving=fixed==='from'?b:a,v=sub(moving,anchor),old=distance(a,b);if(old<.01)throw Error('Početne tačke su iste. Pomerite čvor.');moving.x=anchor.x+v.x*length/old;moving.y=anchor.y+v.y*length/old;next.preset='free';const solved=solveLockedGeometry(g,next,[anchor.id],{id,length});const errors=validateGeometry(solved,isClosed(g));if(errors.length)throw Error(errors[0]);return solved;
 }
 export function resizeRadius(g:Geometry,id:string,radius:number){const next=structuredClone(g),e=next.edges.find(e=>e.id===id);if(!e||e.kind!=='arc')throw Error('Izaberite luk.');if(e.locked)throw Error('Otključajte luk pre promene radijusa.');const[a,b]=ends(next,e),chord=distance(a,b),old=edgeArc(next,e);if(!Number.isFinite(radius)||radius<chord/2||radius>20000)throw Error(`Radijus mora biti najmanje ${fmt(chord/2)} mm (polovina tetive), a najviše 20000 mm.`);const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},normal={x:-(b.y-a.y)/chord,y:(b.x-a.x)/chord},side=Math.sign(dot(sub(e.via!,mid),normal))||1,sag=radius+(Math.abs(old.delta)>Math.PI+1e-6?1:-1)*Math.sqrt(Math.max(0,radius**2-(chord/2)**2));e.via={x:mid.x+normal.x*sag*side,y:mid.y+normal.y*sag*side};next.preset='free';const errors=validateGeometry(next,isClosed(g));if(errors.length)throw Error(errors[0]);return next;}

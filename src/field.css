@@ -59,6 +59,7 @@
 .type-tile:hover{border-color:#b40015;box-shadow:0 3px 10px #6d000014}
 
 /* The sketch occupies 60% of a landscape tablet. */
+.measuring-page{height:100dvh;min-height:0;display:flex;flex-direction:column;overflow:hidden}.measuring-page>.field-header{flex-shrink:0}.measuring-page>.measurement-workspace{overflow-y:auto;flex:1;min-height:0}.measuring-page>.measurement-footer{position:static;flex-shrink:0}
 .measurement-workspace{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:18px;padding:14px 20px;min-height:calc(100dvh - 158px);align-items:stretch}
 .measurement-canvas{min-width:0;display:flex;flex-direction:column;background:#fff;border-radius:14px;border:1px solid #eeeeef;overflow:hidden}
 .field-canvas-toolbar{min-height:50px;display:flex;justify-content:space-between;gap:12px;align-items:center;padding:2px 12px;color:#62666b;font:400 16px AluNarrow,Arial,sans-serif}
@@ -231,9 +232,9 @@
  .work-modules .catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:999px){
- .measuring-page{height:100dvh;min-height:0;display:flex;flex-direction:column;overflow:hidden}.measuring-page>.field-header{flex-shrink:0}.measuring-page>.measurement-workspace{overflow-y:auto;flex:1;min-height:0;align-content:start}.measuring-page>.measurement-footer{position:static;flex-shrink:0}
+ .measuring-page>.measurement-workspace{align-content:start}
  .summary-grid{grid-template-columns:1fr}.summary-price{max-width:none;display:grid;grid-template-columns:1fr 1fr;gap:0 24px}.summary-price>section{grid-column:2;grid-row:1/4;margin:0;align-self:center}.summary-price>p{grid-column:1/-1;margin-top:16px}.summary-price>div{grid-column:1}
- .measurement-workspace{grid-template-columns:minmax(0,1fr);padding:16px}.measurement-canvas{min-height:440px}.field-drawing,.field-drawing>svg{min-height:350px;max-height:420px}.measurement-controls{display:grid;grid-template-columns:1fr 1fr;grid-template-areas:'dimensions dimensions' 'wings material' 'opening opening' 'extras extras';align-items:start;gap:14px}.dimension-controls{grid-area:dimensions}.measurement-controls>.visual-control:has(.wing-count-options){grid-area:wings}.measurement-controls>.visual-control:has(.opening-options){grid-area:opening}.measurement-controls>.material-control{grid-area:material}.measurement-controls>.field-options-button{grid-area:extras}.measurement-controls>.field-error{grid-column:1/-1}.dimension-control input{font-size:30px}.opening-options{grid-template-columns:repeat(5,minmax(0,1fr))}.material-control{min-height:123px;flex-direction:column;align-items:stretch;gap:8px}.material-control h2{margin:0}.material-control>div{flex:1}.material-control button{min-height:66px}.field-options-button{grid-column:1/-1}.measurement-amount{flex-direction:column;gap:1px;align-items:flex-start}
+ .measurement-workspace{grid-template-columns:minmax(0,1fr);padding:16px}.measurement-canvas{min-height:440px}.field-drawing,.field-drawing>svg{min-height:350px;max-height:420px}.measurement-controls{display:grid;grid-template-columns:1fr 1fr;grid-template-areas:'dimensions dimensions' 'layout layout' 'wings material' 'opening opening' 'extras extras';align-items:start;gap:14px}.dimension-controls{grid-area:dimensions}.measurement-controls>.visual-control:has(.wing-count-options){grid-area:wings}.measurement-controls>.visual-control:has(.opening-options){grid-area:opening}.measurement-controls>.material-control{grid-area:material}.measurement-controls>.field-options-button{grid-area:extras}.measurement-controls>.fixed-panel-trigger{grid-area:layout}.measurement-controls>.field-error{grid-column:1/-1}.dimension-control input{font-size:30px}.opening-options{grid-template-columns:repeat(5,minmax(0,1fr))}.material-control{min-height:123px;flex-direction:column;align-items:stretch;gap:8px}.material-control h2{margin:0}.material-control>div{flex:1}.material-control button{min-height:66px}.field-options-button{grid-column:1/-1}.measurement-amount{flex-direction:column;gap:1px;align-items:flex-start}
  .price-workspace{grid-template-columns:1fr}.price-total{position:static}.price-total>div{font-size:19px}.price-total>section>strong{font-size:38px}
  .work-modules .catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.work-modules .settings-grid{grid-template-columns:1fr}
 }
@@ -254,3 +255,11 @@
  .work-modules:not(.field-flow) .main-content{padding:20px 14px}.work-modules .catalog-grid{grid-template-columns:1fr 1fr;gap:12px}.work-modules .catalog-art{height:138px}.work-modules .catalog-art>svg{width:80px;height:80px}.work-modules .catalog-detail{padding:14px}.work-modules .catalog-detail h3{font-size:23px;min-height:60px}.work-modules .catalog-detail p{font-size:17px;line-height:1.3}.work-modules .catalog-detail .btn{font-size:18px;min-height:60px;padding:10px 8px}.work-modules .catalog-detail>small{font-size:16px}.work-modules .filter-tabs>button{font-size:18px;min-height:50px}.work-modules .page-heading h1{font-size:29px}.work-modules .page-heading p{font-size:18px}.work-modules .settings-panel{padding:20px 16px}.work-modules .settings-panel .form-grid{grid-template-columns:1fr}
 }
 @media(max-width:360px){.field-logo{width:65px}.field-header h1{font-size:23px}.dimension-controls{grid-template-columns:1fr}.dimension-control input{font-size:30px}.measurement-amount>strong{font-size:23px}.measurement-footer>.field-button{font-size:20px;padding:12px 10px}.field-checks{grid-template-columns:1fr}.work-modules .catalog-grid{grid-template-columns:1fr}.price-line,.price-line-head{grid-template-columns:minmax(0,1fr) 28px 82px}.price-sketch{display:none}.line-price{font-size:20px}}
+
+.fixed-panel-picker{display:grid;gap:12px}
+.fixed-panel-preview{height:200px;background:#f7f9fa;border:1px solid #dce1e7;border-radius:10px}
+.fixed-panel-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.fixed-panel-options>div{display:grid;gap:4px;align-content:start;padding:6px 8px;border:1px solid #dce1e7;border-radius:8px}
+.fixed-panel-options label,.fixed-panel-middle{display:flex;align-items:center;gap:8px;min-height:40px}
+.fixed-panel-picker input[type=checkbox]{width:18px;height:18px;flex:none}
+.fixed-panel-options input[type=number]{width:100%;min-width:0;padding:6px;min-height:40px}
