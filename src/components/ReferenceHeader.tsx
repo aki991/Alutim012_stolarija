@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Bell, CloudDownload, Search } from 'lucide-react';
+import { Bell, Search } from 'lucide-react';
 import { Logo } from './UI';
 
 export function ReferenceHeader({ onNotifications, onSearch, technician, hasNotifications }: {
@@ -19,7 +19,6 @@ export function ReferenceHeader({ onNotifications, onSearch, technician, hasNoti
     <div className="reference-header-stripes" aria-hidden="true"><i /><i /><i /></div>
     <div className="reference-header-controls">
       <button className="reference-search" onClick={onSearch} aria-label="Pretraži poslove"><Search aria-hidden="true" /></button>
-      <Link className="reference-backup" to="/podesavanja" aria-label="Lokalne rezervne kopije"><CloudDownload aria-hidden="true" /></Link>
       <button className="reference-bell" onClick={onNotifications} aria-label="Obaveštenja"><Bell aria-hidden="true" />{hasNotifications && <i />}</button>
       <Link className="reference-profile" to="/podesavanja" aria-label="Podešavanja profila">{initials}</Link>
     </div>
