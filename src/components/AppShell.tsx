@@ -11,6 +11,7 @@ export function AppShell({children,onNew,onSearch,onNotifications,onNavigation}:
  const location=useLocation(),{jobs,settings,saveState}=useStore(),navigation=useNavigation();
  const [width,setWidth]=useState(window.innerWidth),[more,setMore]=useState(false);
  const mainRef=useRef<HTMLDivElement>(null);
+ const visibleLinks=links.filter(link=>settings.showPrices!==false||link.to!=='/cenovnik');
  const field=location.pathname.startsWith('/posao/'),home=location.pathname==='/';
  const compact=navigation.sidebar==='auto'?(width<1000||field):navigation.sidebar==='compact';
  const activeJob=jobs.find(j=>j.id===navigation.jobId);
@@ -25,7 +26,7 @@ export function AppShell({children,onNew,onSearch,onNotifications,onNavigation}:
  return <div className={`app-shell reference-app unified-shell ${compact?'sidebar-compact':''} ${field?'field-flow':''} ${home?'reference-home-page':'work-modules'} ${navigation.fullscreen?'is-fullscreen':''}`}>
   <aside className="app-sidebar" aria-label="Glavna bočna navigacija">
    <Link to="/" className="app-brand" aria-label="ALU TIM 012 — Početna"><img className="brand-emblem" src="/assets/logo.png" alt="ALU TIM 012 — ALU i PVC profili"/></Link>
-   <nav className="app-primary-nav" aria-label="Glavna navigacija">{links.map(({to,label,Icon})=><Link key={to} to={to} className={activeSection(location.pathname,to)?'active':''} aria-current={activeSection(location.pathname,to)?'page':undefined} title={label} onClick={onNavigation}><Icon aria-hidden="true"/><span>{label}</span></Link>)}</nav>
+   <nav className="app-primary-nav" aria-label="Glavna navigacija">{visibleLinks.map(({to,label,Icon})=><Link key={to} to={to} className={activeSection(location.pathname,to)?'active':''} aria-current={activeSection(location.pathname,to)?'page':undefined} title={label} onClick={onNavigation}><Icon aria-hidden="true"/><span>{label}</span></Link>)}</nav>
    {resume&&<Link className="sidebar-resume" to={resume} title={`Nastavi merenje: ${activeJob!.customer.name}`}><Play/><span>Nastavi merenje<small>{activeJob!.customer.name}</small></span></Link>}
    <div className="sidebar-local"><HardHat/><div><strong>Terenski rad</strong><span><i/>Lokalno</span></div></div>
    <button className="sidebar-toggle" onClick={()=>navigation.toggleSidebar(compact)} aria-label={compact?'Proširi navigaciju':'Skupi navigaciju'} title={compact?'Proširi navigaciju':'Skupi navigaciju'}>{compact?<PanelLeftOpen/>:<PanelLeftClose/>}</button>
@@ -39,6 +40,6 @@ export function AppShell({children,onNew,onSearch,onNotifications,onNavigation}:
    {links.slice(0,3).map(({to,label,Icon})=><Link key={to} to={to} className={!more&&activeSection(location.pathname,to)?'active':''} aria-current={activeSection(location.pathname,to)?'page':undefined} onClick={onNavigation}><Icon aria-hidden="true"/><span>{label}</span></Link>)}
    <button className={more||['/ponude','/podesavanja','/cenovnik'].some(p=>location.pathname.startsWith(p))?'active':''} aria-expanded={more} aria-label="Više" onClick={()=>{onNavigation();setMore(!more);}}><MoreHorizontal aria-hidden="true"/><span>Više</span></button>
   </nav>
-  {more&&<Modal title="Više" sheet onClose={()=>setMore(false)}><nav className="more-navigation" aria-label="Dodatna navigacija">{links.slice(3).map(({to,label,Icon})=><Link key={to} to={to} onClick={()=>setMore(false)}><Icon/>{label}<ArrowRight/></Link>)}{resume&&<Link to={resume} onClick={()=>setMore(false)}><Play/>Nastavi merenje<ArrowRight/></Link>}<button onClick={()=>{setMore(false);onNew();}}><BriefcaseBusiness/>Novi posao<ArrowRight/></button></nav></Modal>}
+  {more&&<Modal title="Više" sheet onClose={()=>setMore(false)}><nav className="more-navigation" aria-label="Dodatna navigacija">{visibleLinks.slice(3).map(({to,label,Icon})=><Link key={to} to={to} onClick={()=>setMore(false)}><Icon/>{label}<ArrowRight/></Link>)}{resume&&<Link to={resume} onClick={()=>setMore(false)}><Play/>Nastavi merenje<ArrowRight/></Link>}<button onClick={()=>{setMore(false);onNew();}}><BriefcaseBusiness/>Novi posao<ArrowRight/></button></nav></Modal>}
  </div>;
 }

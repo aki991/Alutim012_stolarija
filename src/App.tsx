@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowRight, ClipboardList, FolderOpen, Search } from 'lucide-react';
 import { emptyJob, useStore } from './store';
 import type { Job } from './models';
@@ -34,7 +34,7 @@ export default function App(){
    <Route path="/posao/:id/dodaj" element={<TypeChooser/>}/>
    <Route path="/posao/:id/nov/:type" element={<PositionEditor key={location.pathname+location.search}/>}/>
    <Route path="/posao/:id/element/:positionId" element={<PositionEditor key={location.pathname+location.search}/>}/>
-   <Route path="/posao/:id/korekcija" element={<Correction/>}/>
+   <Route path="/posao/:id/korekcija" element={settings.showPrices===false?<Navigate to="../ponuda" relative="path" replace/>:<Correction/>}/>
    <Route path="/posao/:id/ponuda" element={<Quote/>}/>
    <Route path="*" element={<Empty title="Stranica nije pronađena" action={<Link to="/" className="field-button field-button-yellow">Vrati se na početnu</Link>}/>}/>
   </Routes>

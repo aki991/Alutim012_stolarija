@@ -9,8 +9,8 @@ export interface OfficeSubmission {
 }
 export function submissionSignature(job:Job,settings:Settings){return JSON.stringify({job,settings});}
 export async function prepareOfficeSubmission(job:Job,settings:Settings):Promise<OfficeSubmission>{
- const c=calculate(job,settings);
- return {signature:submissionSignature(job,settings),file:await makeDocument(job,settings,'kancelarija'),metadata:{id:crypto.randomUUID(),job_id:job.id,job_updated_at:job.updated,customer_name:job.customer.name,technician:job.technician,position_count:job.positions.length,total_amount:Number(c.total.toFixed(2)),has_unpriced:c.hasUnpriced}};
+ const c=settings.showPrices===false?null:calculate(job,settings);
+ return {signature:submissionSignature(job,settings),file:await makeDocument(job,settings,'kancelarija'),metadata:{id:crypto.randomUUID(),job_id:job.id,job_updated_at:job.updated,customer_name:job.customer.name,technician:job.technician,position_count:job.positions.length,total_amount:c?Number(c.total.toFixed(2)):0,has_unpriced:c?.hasUnpriced??true}};
 }
 export async function sendOfficeSubmission(submission:OfficeSubmission){
  if(!navigator.onLine)throw Error('Za slanje u app potreban je internet. Posao ostaje sačuvan na ovom uređaju.');

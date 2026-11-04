@@ -6,7 +6,7 @@ import { categories } from './catalog';
 
 /** Reference composition, with real job data and accessible controls. */
 export function Dashboard({ onNew }: { onNew: () => void }) {
-  const { jobs, saveState } = useStore();
+  const { jobs, saveState, settings } = useStore();
   const navigate = useNavigate();
   const active = jobs.filter(job => !['Završeno','Odbijeno'].includes(job.status));
   const last = active[0];
@@ -20,7 +20,7 @@ export function Dashboard({ onNew }: { onNew: () => void }) {
       </div>
       <div className="reference-hero-content">
         <h1 id="reference-title">Brza ponuda<br /><em>na terenu</em></h1>
-        <p>Merenje <span>•</span> Specifikacija <span>•</span><br />Kalkulacija <span>•</span> Ponuda</p>
+        <p>Merenje <span>•</span> Specifikacija <span>•</span><br />{settings.showPrices!==false&&<>Kalkulacija <span>•</span> </>}Ponuda</p>
         <Button className="reference-new-job" onClick={onNew}><Plus aria-hidden="true" />Novi posao</Button>
       </div>
     </section>

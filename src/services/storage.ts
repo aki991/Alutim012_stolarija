@@ -8,6 +8,7 @@ export function parseBackup(data:unknown):{jobs:Job[];settings:Settings}{
  const fail=()=>{throw Error('Datoteka nije podržana ili je rezervna kopija oštećena.');};
  if(!record(data)||!Array.isArray(data.jobs)||!record(data.settings))return fail();
  const {settings}=data;
+ if(settings.showPrices!==undefined&&typeof settings.showPrices!=='boolean')return fail();
  if(!record(settings.prices)||!strings(settings,['technician'])||!number(settings.vat)||Number(settings.vat)>100||!['exclusive','inclusive','none'].includes(String(settings.vatMode)))return fail();
  const priceKeys=['PVC','ALU','Dvoslojno','Troslojno','Sigurnosno','hardware','secureHardware','shutter','mosquito','sill','installation','removal','transport'];
  if(!priceKeys.every(k=>number((settings.prices as Record<string,unknown>)[k])))return fail();
