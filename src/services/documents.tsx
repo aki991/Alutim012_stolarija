@@ -18,8 +18,11 @@ export async function makeDocument(job:Job,settings:Settings,kind:'kupac'|'kance
  fonts??=Promise.all(['/assets/arial.ttf','/assets/arial-bold.ttf'].map(async path=>{const response=await fetch(path);if(!response.ok)throw Error('Font za PDF nije dostupan.');return base64(new Uint8Array(await response.arrayBuffer()));}));
  try{const [normal,bold]=await fonts;doc.addFileToVFS('Arial.ttf',normal);doc.addFont('Arial.ttf','Arial','normal');doc.addFileToVFS('ArialBold.ttf',bold);doc.addFont('ArialBold.ttf','Arial','bold');}catch(err){fonts=undefined;throw err;}
  const logo=await logoImage();doc.setProperties({title:`${kind==='kupac'?'Ponuda':'Specifikacija'} ${job.id}`,author:'ALU TIM 012',subject:'Demonstraciona terenska specifikacija'});
+ const emblemResponse = await fetch('/assets/logo.png');
+ if (!emblemResponse.ok) throw Error('Logo za PDF nije dostupan.');
+ const emblem = new Uint8Array(await emblemResponse.arrayBuffer());
  const title=kind==='kupac'?'Ponuda za kupca':'Specifikacija za kancelariju';let y=0;
- function header(){doc.setFillColor('#590c14');doc.rect(0,0,210,33,'F');doc.addImage(logo,'PNG',16,7,55,17.5);doc.setFont('Arial','normal');doc.setTextColor('#ffffff');doc.setFontSize(9);doc.text('ALU & PVC STOLARIJA',194,15,{align:'right'});doc.setFontSize(8);doc.text('TERENSKA SPECIFIKACIJA',194,22,{align:'right'});y=45;doc.setTextColor('#243039');}
+ function header(){doc.setFillColor('#590c14');doc.rect(0,0,210,33,'F');doc.addImage(emblem,'PNG',16,4.5,24,24);doc.addImage(logo,'PNG',45,7,55,17.5);doc.setFont('Arial','normal');doc.setTextColor('#ffffff');doc.setFontSize(9);doc.text('ALU & PVC STOLARIJA',194,15,{align:'right'});doc.setFontSize(8);doc.text('TERENSKA SPECIFIKACIJA',194,22,{align:'right'});y=45;doc.setTextColor('#243039');}
  const ensure=(height:number)=>{if(y+height>276){doc.addPage();header();}};
  function text(value:string,size=9,bold=false,indent=16,width=178){doc.setFont('Arial',bold?'bold':'normal');doc.setFontSize(size);const lines=doc.splitTextToSize(String(value||'-'),width) as string[];for(const line of lines){ensure(size*.5+2);doc.text(line,indent,y);y+=size*.44+1.8;}}
  function rule(){ensure(5);doc.setDrawColor('#e0e4e6');doc.line(16,y,194,y);y+=6;}
