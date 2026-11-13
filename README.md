@@ -189,7 +189,7 @@ Aplikacija koristi React/Vite i `vite-plugin-pwa`. `public/manifest.json` je pov
 
 Za kompletnu proveru instalacije i offline rada:
 
-1. Pokrenuti `npm install`, `npm run build`, zatim `npm run preview`.
+1. Pokrenuti `npm install`, `npm run build -- --mode test`, zatim `npm run preview` za lokalnu proveru rada bez naloga.
 2. U običnom Chrome prozoru otvoriti `http://localhost:4187/` ili `http://127.0.0.1:4187/`, sačekati učitavanje i izabrati instalaciju aplikacije.
 3. Za telefon ili javni server koristiti HTTPS. Obična HTTP adresa računara u lokalnoj mreži nije bezbedan origin za Service Worker. Incognito režim ne podržava instalaciju aplikacije.
 4. Server mora da posluži aplikaciju iz korena domena, sa SPA fallback-om na `index.html` za rute `/posao/...`. Manifest, ikone, `sw.js` i `workbox-*.js` moraju biti javno dostupni. Za `sw.js` i HTML preporučeno je `Cache-Control: no-cache`; za hashirane `assets/` datoteke može dugotrajni immutable cache.

@@ -20,7 +20,7 @@
    ```
 
 4. Za lokalni test pokrenite `npm run dev` i otvorite [stranicu za prijavu](http://127.0.0.1:5187/prijava). U običnom prozoru prijavite se kao `sef`, a u privatnom kao `milos`, da biste imali dve odvojene sesije.
-5. Za objavljenu verziju postavite novu verziju aplikacije na Vercel sa istim javnim `VITE_SUPABASE_URL` i `VITE_SUPABASE_ANON_KEY`. Za prikaz prijave pri otvaranju početne strane postavite `VITE_TEAM_LOGIN_REQUIRED=true` u okruženju koje testirate, pa pokrenite novi build ili redeploy. Bez te postavke zaposleni otvaraju **Prijava zaposlenih** u navigaciji. U režimu za goste bez veze dostupni su lokalni poslovi sa uređaja.
+5. Za objavljenu verziju postavite aplikaciju na Vercel sa istim javnim `VITE_SUPABASE_URL` i `VITE_SUPABASE_ANON_KEY`. Produkcijska verzija traži prijavu pri otvaranju bilo koje stranice. Na lokalnom razvojnom serveru postavite `VITE_TEAM_LOGIN_REQUIRED=true` ako želite da proverite isti način ulaska.
 
 Deaktiviranje zaposlenog postavljanjem `active = false` odmah ukida pristup zajedničkim podacima na serveru. U aplikaciji ne postoji samostalno otvaranje naloga. Lozinke čuvajte kroz Supabase Auth.
 

@@ -177,7 +177,6 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await mobile.getByRole('button', { name: 'Odjavi se' }).click();
   await expect(mobile.getByRole('heading', { name: 'Prijava', exact: true })).toBeVisible();
   await workerContext.setOffline(true);
-  await mobile.getByRole('button', { name: 'Nastavi bez interneta (gost)' }).click();
-  await expect(mobile.getByRole('heading', { name: 'Brza ponuda na terenu' })).toBeVisible();
+  await expect(mobile.getByRole('button', { name: 'Nastavi bez interneta (gost)' })).toHaveCount(0);
  } finally { await workerContext.close(); }
 });

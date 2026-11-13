@@ -25,13 +25,9 @@
 .team-login-password input { padding-inline-end: 44px; }
 .team-login-password button { position: absolute; inset: 2px 2px 2px auto; width: 38px; display: grid; place-items: center; color: #64748b; border-radius: 6px; }
 .team-login-password button:hover { color: #1a1a1a; }
-.team-login-submit, .team-login-guest-button { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 47px; padding: 10px; border-radius: 10px; font-weight: 600; }
-.team-login-submit { color: #fff; background: #d71920; }
+.team-login-submit { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 47px; padding: 10px; border-radius: 10px; font-weight: 600; color: #fff; background: #d71920; }
 .team-login-submit:hover:not(:disabled) { background: #7a0d14; }
-.team-login-guest { border-top: 1px solid #e2e8f0; margin-top: 16px; padding-top: 16px; }
-.team-login-guest-button { border: 1px solid #e2e8f0; }
-.team-login-guest-button:hover { background: #f1f5f9; }
-.team-login-note, .team-login-guest p { color: #64748b; font-size: 12px; text-align: center; margin-top: 16px; }
+.team-login-note { color: #64748b; font-size: 12px; text-align: center; margin-top: 16px; }
 .team-login-alert { color: #b42318; background: #fef3f2; border: 1px solid #fecdca; border-radius: 6px; padding: 8px 12px; font-size: 13px; margin-bottom: 16px; }
 .team-login-back { position: absolute; top: calc(100% + 12px); left: 50%; transform: translateX(-50%); color: #fff; text-decoration: underline; white-space: nowrap; font-size: 12px; }
 .team-login-spinner { animation: team-login-spin 1s linear infinite; }
