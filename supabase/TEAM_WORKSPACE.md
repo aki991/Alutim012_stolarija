@@ -26,7 +26,8 @@ Deaktiviranje zaposlenog postavljanjem `active = false` odmah ukida pristup zaje
 
 ## Rad u aplikaciji
 
-- Šef u **Tim i obaveštenja → Dodeli merenje** bira majstora, unosi kupca, adresu, kontakt, datum i poruku. Dodela kreira posao u statusu **Merenje** i obaveštenje za izabranog majstora. Dodela postojećeg posla dostupna je u njegovom pregledu.
+- Šef na stranici **Dodeli merenje** bira majstora i unosi podatke o poslu. Majstor dobija obaveštenje o dodeli, a uputstvo može da otvori kroz **Poruke**. Za promenu majstora otvorite posao i izaberite **Promeni majstora**.
+- Ikonice **Obaveštenja** i **Poruke** otvaraju zasebne stranice. U razgovoru je samo poslednja primljena poruka nepročitana dok je korisnik ne vidi, ne označi kao pročitanu ili ne pošalje odgovor. Baza pamti pročitanost po nalogu. Za ovo je potrebna [migracija za pročitanost poruka](migrations/202611130002_team_message_reads.sql).
 - Dok je dodeljeni posao u statusu **Merenje**, šef vidi podatke o poslu i razgovor. Baza prikazuje elemente i mere samo dodeljenom majstoru. Kada majstor klikne **Merenje završeno**, posao prelazi u **Poslati ponudu** i šefu se otvaraju svi elementi i ponuda. Vraćanje u **Merenje** ponovo skriva elemente dok majstor ne preda ispravke.
 - Poslovi, elementi, poruke i obaveštenja čuvaju se u zajedničkoj bazi. Obaveštenja se osvežavaju u otvorenoj aplikaciji na svakih pet sekundi i odmah po povratku fokusa ili veze. Podešavanja i cenovnik i dalje se čuvaju na uređaju. Raniji lokalni poslovi ostaju dostupni u lokalnom režimu.
 

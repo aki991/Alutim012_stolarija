@@ -15,7 +15,7 @@ import { Quote } from './pages-quote';
 import { Correction } from './pages-correction';
 import { findCatalogModel } from './catalog-models';
 import { PortaCatalog, PortaEditor } from './pages-porta-royal';
-import { TeamPage } from './pages-team';
+import { AccountPage, AssignmentPage, MessagesPage, NotificationsPage } from './pages-team';
 import type { ReactNode } from 'react';
 
 export default function App(){
@@ -23,11 +23,17 @@ export default function App(){
  const [draft,setDraft]=useState<{job:Job;choice?:CatalogChoice}|null>(null),[searchOpen,setSearchOpen]=useState(false),[search,setSearch]=useState(''),[notifications,setNotifications]=useState(false);
  const newJob=(choice?:CatalogChoice)=>setDraft({job:{...jobFromSettings(settings),...(teamMember?{status:'Merenje' as const}:{})},choice});
  useEffect(()=>{setDraft(null);setSearchOpen(false);setNotifications(false);},[location.pathname]);
- return <AppShell onNavigation={()=>{setDraft(null);setSearchOpen(false);setNotifications(false);}} onNew={()=>newJob()} onSearch={()=>setSearchOpen(true)} onNotifications={()=>teamMember?navigate('/tim'):setNotifications(true)}>
+ return <AppShell onNavigation={()=>{setDraft(null);setSearchOpen(false);setNotifications(false);}} onNew={()=>newJob()} onSearch={()=>setSearchOpen(true)} onNotifications={()=>setNotifications(true)}>
   {storageError&&<div className="storage-error" role="alert"><span>{storageError}</span>{teamConflict?<button className="field-button field-button-light" onClick={()=>{if(confirm('Odbaciti neposlate izmene ovog posla i preuzeti verziju iz baze?'))discardConflictingTeamChange();}}>Preuzmi verziju iz baze</button>:<button className="field-button field-button-light" onClick={retrySave}>Pokušaj ponovo</button>}{!teamMember&&<Link to="/podesavanja/podaci">Rezervna kopija</Link>}</div>}
   <Routes>
    <Route path="/" element={<Dashboard onNew={()=>newJob()}/>}/>
-   <Route path="/tim" element={<TeamPage/>}/>
+   <Route path="/tim" element={<Navigate to="/obavestenja" replace/>}/>
+   <Route path="/obavestenja" element={<NotificationsPage/>}/>
+   <Route path="/poruke" element={<MessagesPage/>}/>
+   <Route path="/poruke/:id" element={<MessagesPage/>}/>
+   <Route path="/dodeli-merenje" element={<AssignmentPage/>}/>
+   <Route path="/dodeli-merenje/:id" element={<AssignmentPage/>}/>
+   <Route path="/nalog" element={<AccountPage/>}/>
    <Route path="/poslovi" element={<Jobs onNew={()=>newJob()}/>}/>
    <Route path="/ponude" element={<Jobs offers onNew={()=>newJob()}/>}/>
    <Route path="/katalog" element={<Catalog onUse={newJob}/>}/>

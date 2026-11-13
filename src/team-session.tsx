@@ -1,13 +1,14 @@
-import { createContext, useContext, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, LogIn } from 'lucide-react';
 import { beginTeamWorkspace, endTeamWorkspace, refreshTeamWorkspace, useStore } from './store';
-import { fetchTeamMember, fetchTeamNotifications, markTeamNotificationRead, type TeamNotification } from './services/team-api';
+import { fetchTeamConversations, fetchTeamMember, fetchTeamNotifications, markTeamMessagesRead, markTeamNotificationRead, type TeamConversation, type TeamNotification } from './services/team-api';
 import { getSupabase, isSupabaseConfigured } from './services/supabase';
 
 const teamLoginRequired = (import.meta.env.PROD && import.meta.env.MODE !== 'test') ||
  import.meta.env.VITE_TEAM_LOGIN_REQUIRED === 'true';
-const TeamInbox = createContext({ items: [] as TeamNotification[], error: '', markRead: async (_id: string) => {} });
+const TeamInbox = createContext({ items: [] as TeamNotification[], error: '', markRead: async (_id: string) => {},
+ conversations: [] as TeamConversation[], messagesError: '', readMessages: async (_jobId: string, _messageId: string) => {}, refreshMessages: () => {} });
 export const useTeamInbox = () => useContext(TeamInbox);
 
 export function pollTeam(refresh: (isCurrent: () => boolean) => Promise<void>) {
@@ -33,6 +34,9 @@ export function pollTeam(refresh: (isCurrent: () => boolean) => Promise<void>) {
 function TeamInboxProvider({ children }: { children: ReactNode }) {
  const [items, setItems] = useState<TeamNotification[]>([]);
  const [error, setError] = useState('');
+ const [conversations, setConversations] = useState<TeamConversation[]>([]);
+ const [messagesError, setMessagesError] = useState('');
+ const [messagesRevision, setMessagesRevision] = useState(0);
  useEffect(() => pollTeam(async isCurrent => {
   void refreshTeamWorkspace();
   try {
@@ -45,11 +49,27 @@ function TeamInboxProvider({ children }: { children: ReactNode }) {
    setError('');
   } catch { if (isCurrent()) setError('Obaveštenja trenutno nisu dostupna.'); }
  }), []);
+ useEffect(() => pollTeam(async isCurrent => {
+  try {
+   const next = await fetchTeamConversations();
+   if (!isCurrent()) return;
+   setConversations(previous => {
+    const read = new Set(previous.filter(item => !item.unread).map(item => item.id));
+    return next.map(item => read.has(item.id) ? { ...item, unread: false } : item);
+   });
+   setMessagesError('');
+  } catch { if (isCurrent()) setMessagesError('Razgovori trenutno nisu dostupni.'); }
+ }), [messagesRevision]);
  async function markRead(id: string) {
   await markTeamNotificationRead(id);
   setItems(previous => previous.map(item => item.id === id ? { ...item, read_at: new Date().toISOString() } : item));
  }
- return <TeamInbox.Provider value={{ items, error, markRead }}>{children}</TeamInbox.Provider>;
+ const readMessages = useCallback(async (jobId: string, messageId: string) => {
+  await markTeamMessagesRead(jobId, messageId);
+  setConversations(previous => previous.map(item => item.job_id === jobId && item.id === messageId ? { ...item, unread: false } : item));
+ }, []);
+ const refreshMessages = useCallback(() => setMessagesRevision(revision => revision + 1), []);
+ return <TeamInbox.Provider value={{ items, error, markRead, conversations, messagesError, readMessages, refreshMessages }}>{children}</TeamInbox.Provider>;
 }
 
 export function TeamGate({ children }: { children: ReactNode }) {
@@ -98,11 +118,11 @@ export function TeamGate({ children }: { children: ReactNode }) {
  if (userId && profile?.error) return <AccountError message={profile.error} onRetry={() => { setProfile(null); setRetry(n => n + 1); }}/>;
  if (userId && member?.id === userId) {
   const requested = location.state?.from;
-  const destination = typeof requested === 'string' && requested.startsWith('/') && !requested.startsWith('//') ? requested : '/tim';
+  const destination = typeof requested === 'string' && requested.startsWith('/') && !requested.startsWith('//') ? requested : '/obavestenja';
   return <TeamInboxProvider key={userId}>{loginPath ? <Navigate to={destination} replace/> : children}</TeamInboxProvider>;
  }
  if (loginPath) return <Login/>;
- if (teamLoginRequired || location.pathname === '/tim') return <Navigate to="/prijava" state={{ from: location.pathname + location.search + location.hash }} replace/>;
+ if (teamLoginRequired || /^\/(tim|nalog|poruke|obavestenja|dodeli-merenje)(\/|$)/.test(location.pathname)) return <Navigate to="/prijava" state={{ from: location.pathname + location.search + location.hash }} replace/>;
  return children;
 }
 

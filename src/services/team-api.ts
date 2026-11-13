@@ -4,8 +4,9 @@ import { getSupabase } from './supabase';
 export type TeamMember={id:string;name:string;role:'manager'|'worker';active:boolean};
 export type TeamJob={id:string;data:Job;assigned_to:string|null;assigned_by:string|null;revision:number};
 export type TeamMessage={id:string;job_id:string;sender_id:string|null;sender_name:string;body:string;created_at:string};
+export type TeamConversation=TeamMessage&{job_name:string;unread:boolean};
 export type TeamNotification={
- id:string;job_id:string;kind:'assignment'|'message'|'status';actor_name:string;job_name:string;
+ id:string;job_id:string;kind:'assignment'|'status';actor_name:string;job_name:string;
  body:string;created_at:string;read_at:string|null;
 };
 
@@ -75,9 +76,18 @@ export async function sendTeamMessage(id:string,messageId:string,body:string){
 
 export async function fetchTeamNotifications():Promise<TeamNotification[]>{
  return check(await getSupabase().from('field_team_notifications').select('id,job_id,kind,actor_name,job_name,body,created_at,read_at')
-  .order('created_at',{ascending:false}).limit(100))??[];
+  .neq('kind','message').order('created_at',{ascending:false}).limit(100))??[];
 }
 
 export async function markTeamNotificationRead(id:string){
  check(await getSupabase().rpc('field_team_read_notification',{p_id:id}));
+}
+
+export async function fetchTeamConversations():Promise<TeamConversation[]> {
+ return check(await getSupabase().from('field_team_message_inbox').select('id,job_id,sender_id,sender_name,body,created_at,job_name,unread')
+  .order('created_at',{ascending:false}).order('id',{ascending:false}).limit(100))??[];
+}
+
+export async function markTeamMessagesRead(jobId:string,messageId:string) {
+ check(await getSupabase().rpc('field_team_read_messages',{p_job_id:jobId,p_message_id:messageId}));
 }
