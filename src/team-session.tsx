@@ -4,6 +4,7 @@ import { Eye, EyeOff, Loader2, LogIn } from 'lucide-react';
 import { beginTeamWorkspace, endTeamWorkspace, refreshTeamWorkspace, useStore } from './store';
 import { fetchTeamConversations, fetchTeamMember, fetchTeamNotifications, markTeamMessagesRead, markTeamNotificationRead, type TeamConversation, type TeamNotification } from './services/team-api';
 import { getSupabase, isSupabaseConfigured } from './services/supabase';
+import { removeDeviceNotifications } from './components/DeviceNotifications';
 
 const teamLoginRequired = (import.meta.env.PROD && import.meta.env.MODE !== 'test') ||
  import.meta.env.VITE_TEAM_LOGIN_REQUIRED === 'true';
@@ -192,6 +193,7 @@ function Login() {
 }
 
 export async function signOutTeam() {
+ await removeDeviceNotifications().catch(() => {});
  const { error } = await getSupabase().auth.signOut({ scope: 'local' });
  if (error) throw error;
 }

@@ -4,3 +4,7 @@ project_id = "alu-tim-012-teren"
 # Intentionally public submission endpoint. No login or PIN is required.
 # Storage and database reads remain private; validation and quotas run on the server.
 verify_jwt = false
+
+[functions.field-team-push]
+# Internal database webhook authenticated with a dedicated shared secret.
+verify_jwt = false

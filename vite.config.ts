@@ -8,6 +8,8 @@ export default defineConfig({
   manifest:false,injectRegister:false,registerType:'prompt',
   includeAssets:['manifest.json','icons/*.png','icons/*.svg'],
   workbox:{
+   importScripts:['/push-worker.js'],
+   globIgnores:['push-worker.js'],
    globPatterns:['**/*.{js,mjs,css,html,png,jpg,ttf,svg,json}'],
    maximumFileSizeToCacheInBytes:4*1024*1024,
    // Fetch current HTML online and use the precached shell when the network is unavailable.

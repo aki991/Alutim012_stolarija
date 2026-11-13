@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Check, LogOut, MessageSquare, Send } from 'lucide-react';
 import { FieldHeader } from './components/FieldHeader';
+import { DeviceNotifications } from './components/DeviceNotifications';
 import { uid } from './catalog';
 import { acceptTeamJob, jobFromSettings, useStore } from './store';
 import type { Job } from './models';
@@ -50,6 +51,7 @@ export function AccountPage() {
     }}><LogOut size={18}/>Odjavi se</button>
    </div>
    {actionError && <p className="team-error" role="alert">{actionError}</p>}
+   <DeviceNotifications/>
   </main>
  </div>;
 }
