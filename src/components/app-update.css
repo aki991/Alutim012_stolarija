@@ -1,0 +1,30 @@
+.app-update {
+ position: fixed;
+ z-index: 120;
+ inset: auto 16px max(16px, env(safe-area-inset-bottom)) auto;
+ display: flex;
+ align-items: center;
+ gap: 12px;
+ max-width: calc(100vw - 32px);
+ padding: 12px;
+ border: 1px solid #d7d9df;
+ border-radius: 12px;
+ background: #fff;
+ color: #242a32;
+ box-shadow: 0 6px 20px #10182826;
+ font: 400 14px/1.45 system-ui, sans-serif;
+}
+.app-update-apply, .app-update-dismiss {
+ display: inline-flex;
+ align-items: center;
+ justify-content: center;
+ gap: 6px;
+ min-height: 44px;
+ border-radius: 8px;
+}
+.app-update-apply { padding-inline: 10px; background: #ae0010; color: #fff; font-weight: 600; }
+.app-update-dismiss { min-width: 44px; color: #48505e; }
+.app-update-dismiss:hover { background: #f0f1f3; }
+@media (max-width: 700px) {
+ .app-update { bottom: calc(76px + env(safe-area-inset-bottom)); gap: 8px; }
+}

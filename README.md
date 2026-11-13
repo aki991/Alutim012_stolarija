@@ -194,7 +194,7 @@ Za kompletnu proveru instalacije i offline rada:
 3. Za telefon ili javni server koristiti HTTPS. Obična HTTP adresa računara u lokalnoj mreži nije bezbedan origin za Service Worker. Incognito režim ne podržava instalaciju aplikacije.
 4. Server mora da posluži aplikaciju iz korena domena, sa SPA fallback-om na `index.html` za rute `/posao/...`. Manifest, ikone, `sw.js` i `workbox-*.js` moraju biti javno dostupni. Za `sw.js` i HTML preporučeno je `Cache-Control: no-cache`; za hashirane `assets/` datoteke može dugotrajni immutable cache.
 
-Produkcioni build generiše `dist/sw.js` i Workbox runtime. Precache uključuje aplikaciju, PDF module, fontove, ikone i manifest. Jedina registracija je u `src/offline.ts`. Novi worker čeka zatvaranje starih tabova, umesto da automatski osveži formular usred merenja. Vite razvojni server ne kešira razvojne module; manifest i ikone su dostupni i na njemu. Za testiranje stvarnog offline režima koristiti produkcioni preview.
+Produkcioni build generiše `dist/sw.js` i Workbox runtime. Precache uključuje aplikaciju, PDF module, fontove, ikone i manifest. Otvaranje stranice prvo traži aktuelni HTML od servera, a bez veze koristi sačuvanu kopiju. Kada je nova verzija spremna u otvorenom tabu, dugme **Ažuriraj** aktivira je i osvežava taj tab. Registracija i provera ažuriranja su u `src/offline.ts`. Vite razvojni server ne kešira razvojne module. Za testiranje rada bez interneta koristiti produkcioni preview.
 
 `tests/pwa.spec.ts` proverava manifest, dimenzije ikona, offline ponovno otvaranje i PDF, kao i Chrome-ovu proveru instalabilnosti u odvojenom običnom profilu.
 

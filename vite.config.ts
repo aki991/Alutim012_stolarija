@@ -10,7 +10,12 @@ export default defineConfig({
   workbox:{
    globPatterns:['**/*.{js,mjs,css,html,png,jpg,ttf,svg,json}'],
    maximumFileSizeToCacheInBytes:4*1024*1024,
-   navigateFallback:'/index.html',cleanupOutdatedCaches:true,
+   // Fetch current HTML online and use the precached shell when the network is unavailable.
+   directoryIndex:null,navigateFallback:null,cleanupOutdatedCaches:true,
+   runtimeCaching:[{
+    urlPattern:({request,sameOrigin})=>sameOrigin&&request.mode==='navigate',
+    handler:'NetworkOnly',options:{precacheFallback:{fallbackURL:'/index.html'}},
+   }],
    clientsClaim:true,skipWaiting:false,
   },
  })],
