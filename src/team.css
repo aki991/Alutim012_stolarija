@@ -1,0 +1,91 @@
+@import '@fontsource-variable/inter';
+
+.team-login {
+ min-height: 100dvh;
+ display: grid;
+ place-items: center;
+ padding: 40px 16px;
+ color: #1a1a1a;
+ font: 14px/1.5 'Inter Variable', Inter, system-ui, sans-serif;
+ background:
+  linear-gradient(115deg, transparent 0 58%, #d719208c 58% 66%, transparent 66% 72%, #d71920e6 72% 76%, transparent 76%),
+  linear-gradient(135deg, #7a0d14 0%, #4a0810 55%, #1a1a1a 100%);
+}
+.team-login-layout { position: relative; width: min(100%, 420px); }
+.team-login-logo { display: block; margin: 0 auto 28px; }
+.team-login-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 28px; box-shadow: 0 20px 40px #0002; }
+.team-login-card h1 { font-size: 22px; letter-spacing: normal; line-height: 1.5; }
+.team-login-subtitle { margin: 4px 0 20px; color: #64748b; }
+.team-login-form label { display: block; color: #64748b; font-size: 13px; margin-bottom: 4px; }
+.team-login-form input { display: block; width: 100%; min-height: 43px; color: #1a1a1a; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; }
+.team-login-form input:focus { border-color: #d71920; outline: none; box-shadow: 0 0 0 3px #d7192029; }
+.team-login-form input[aria-invalid='true'] { border-color: #f04438; background: #fffbfa; }
+.team-login-form > input { margin-bottom: 12px; }
+.team-login-password { position: relative; margin-bottom: 16px; }
+.team-login-password input { padding-inline-end: 44px; }
+.team-login-password button { position: absolute; inset: 2px 2px 2px auto; width: 38px; display: grid; place-items: center; color: #64748b; border-radius: 6px; }
+.team-login-password button:hover { color: #1a1a1a; }
+.team-login-submit, .team-login-guest-button { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 47px; padding: 10px; border-radius: 10px; font-weight: 600; }
+.team-login-submit { color: #fff; background: #d71920; }
+.team-login-submit:hover:not(:disabled) { background: #7a0d14; }
+.team-login-guest { border-top: 1px solid #e2e8f0; margin-top: 16px; padding-top: 16px; }
+.team-login-guest-button { border: 1px solid #e2e8f0; }
+.team-login-guest-button:hover { background: #f1f5f9; }
+.team-login-note, .team-login-guest p { color: #64748b; font-size: 12px; text-align: center; margin-top: 16px; }
+.team-login-alert { color: #b42318; background: #fef3f2; border: 1px solid #fecdca; border-radius: 6px; padding: 8px 12px; font-size: 13px; margin-bottom: 16px; }
+.team-login-back { position: absolute; top: calc(100% + 12px); left: 50%; transform: translateX(-50%); color: #fff; text-decoration: underline; white-space: nowrap; font-size: 12px; }
+.team-login-spinner { animation: team-login-spin 1s linear infinite; }
+@keyframes team-login-spin { to { transform: rotate(360deg); } }
+@media (max-width: 380px) {
+ .team-login-card { padding: 22px; }
+ .team-login-form input { font-size: 16px; }
+}
+.team-card, .team-account {
+ background: #fff;
+ border: 1px solid #d8dade;
+ border-radius: 16px;
+ padding: clamp(16px, 3vw, 28px);
+ min-width: 0;
+}
+.team-login-card .team-actions { margin-top: 16px; }
+.team-content { width: min(100%, 1180px); margin: auto; padding: clamp(12px, 3vw, 32px); }
+.team-account, .team-job-link, .team-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.team-account, .team-job-link { justify-content: space-between; }
+.team-account strong, .team-account small, .team-job-link small { display: block; }
+.team-account small, .team-job-link small, .team-list small { color: #545b65; }
+.team-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
+.team-card h2 { display: flex; gap: 8px; align-items: center; font-size: 1.3rem; margin: 0 0 14px; }
+.team-form, .team-form fieldset { display: grid; gap: 12px; }
+.team-form fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+.team-form label { display: grid; gap: 5px; min-width: 0; font-weight: 600; }
+.team-form input, .team-form select, .team-form textarea {
+ width: 100%; min-height: 44px; padding: 9px 12px;
+ color: inherit; background: #fff; border: 1px solid #c7cbd1; border-radius: 8px; font: inherit; font-weight: 400;
+}
+.team-form textarea { resize: vertical; }
+.team-form-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.team-error { color: #940014; margin: 8px 0; }
+.team-list { list-style: none; margin: 0; padding: 0; overflow-wrap: anywhere; }
+.team-list li + li { margin-top: 8px; }
+.team-job-link, .team-notice > a { padding: 12px; border: 1px solid #d8dade; border-radius: 9px; }
+.team-notice > a { display: grid; gap: 4px; }
+.team-notice.unread > a { border-inline-start: 4px solid #b60018; background: #fff8ee; }
+.team-conversation { margin-top: 20px; }
+.team-conversation details { margin-bottom: 12px; }
+.team-conversation summary { cursor: pointer; font-weight: 600; }
+.team-conversation details .team-form { margin-top: 12px; }
+.team-measure-action { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.team-messages { display: grid; gap: 8px; margin: 0 0 14px; }
+.team-messages li, .team-messages li + li { justify-self: start; background: #f3f4f6; border-radius: 9px; padding: 8px 12px; margin: 0; max-width: 85%; }
+.team-messages li.mine { justify-self: end; background: #fff1d2; }
+.team-messages p { margin: 4px 0 0; white-space: pre-wrap; }
+.team-sidebar-link { position: relative; text-decoration: none; }
+.team-sidebar-link:hover, .team-sidebar-link.active { background: #fff2; }
+.team-bell { position: relative; }
+.team-badge { position: absolute; inset: 0 0 auto auto; min-width: 19px; padding: 1px 4px; border-radius: 12px; background: #ffd25e; color: #241700; font-size: 12px; line-height: 17px; text-align: center; }
+@media (max-width: 730px) {
+ .team-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 380px) {
+ .team-form-columns { grid-template-columns: minmax(0, 1fr); }
+}

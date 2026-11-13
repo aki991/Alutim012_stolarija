@@ -1,11 +1,37 @@
-import { bounds, edgeArc, edgeLength, ends, fmt, pointAt, signedArea, type Geometry, type Point } from './geometry';
+import { bounds, contourAngles, edgeArc, edgeLength, ends, fmt, formatAngle, pointAt, signedArea, type Geometry, type Point } from './geometry';
 export type LabelBox={x:number;y:number;width:number;height:number};
 export type DimensionLabel={id:string;text:string;center:Point;anchor:Point;angle:number;box:LabelBox;width:number;height:number;leader:boolean;locked:boolean};
 export const boxesOverlap=(a:LabelBox,b:LabelBox,gap=0)=>a.x<b.x+b.width+gap&&a.x+a.width+gap>b.x&&a.y<b.y+b.height+gap&&a.y+a.height+gap>b.y;
+
+export function angleLabels(g:Geometry,unit:number,dimensions:DimensionLabel[],viewport?:LabelBox){
+ const occupied=dimensions.map(label=>label.box);
+ for(const {x,y} of g.points)occupied.push({x:x-9*unit,y:y-9*unit,width:18*unit,height:18*unit});
+ return contourAngles(g).map(({vertex,degrees,start,sweep,shorterSide})=>{
+  const radius=Math.min(30*unit,shorterSide*.24);
+  const onRay=(heading:number,length:number):Point=>({x:vertex.x+Math.cos(heading)*length,y:vertex.y+Math.sin(heading)*length});
+  const first=onRay(start,radius),last=onRay(start+sweep,radius);
+  const arc=`M${first.x} ${first.y}A${radius} ${radius} 0 ${degrees>180?1:0} ${sweep>0?1:0} ${last.x} ${last.y}`;
+  const middle=start+sweep/2;
+  const text=formatAngle(degrees),width=(text.length*8+12)*unit,height=24*unit;
+  let bestCost=Infinity;
+  let box:LabelBox={x:vertex.x,y:vertex.y,width,height};
+  let leader=false;
+  for(const direction of [middle,middle+Math.PI])for(const offset of [52,70,90,116]){
+   const center=onRay(direction,offset*unit);
+   const candidate={x:center.x-width/2,y:center.y-height/2,width,height};
+   const outside=viewport&&(candidate.x<viewport.x||candidate.y<viewport.y||candidate.x+width>viewport.x+viewport.width||candidate.y+height>viewport.y+viewport.height);
+   const overlaps=occupied.filter(other=>boxesOverlap(candidate,other,3*unit)).length;
+   const cost=overlaps*1000+(outside?10000:0)+(direction===middle?0:120)+offset;
+   if(cost<bestCost){bestCost=cost;box=candidate;leader=direction!==middle||offset>70;}
+  }
+  occupied.push(box);
+  return {id:vertex.id,text,arc,anchor:onRay(middle,radius),box,leader};
+ });
+}
 /** Lay out in CSS-pixel units before converting back to model millimetres. */
-export function dimensionLabels(g:Geometry,unit:number,viewport?:LabelBox):DimensionLabel[]{
+export function dimensionLabels(g:Geometry,unit:number,viewport?:LabelBox,obstacles:LabelBox[]=[]):DimensionLabel[]{
  const b=bounds(g),view=viewport||{x:b.x-115*unit,y:b.y-115*unit,width:b.width+230*unit,height:b.height+230*unit};let orientation=1;try{orientation=Math.sign(signedArea(g))||1;}catch{/* Open sketches use the natural drawing direction. */}
- const placed:DimensionLabel[]=[],nodes=g.points.map(p=>({x:p.x-11*unit,y:p.y-11*unit,width:22*unit,height:22*unit}));
+ const placed:DimensionLabel[]=[],nodes=[...obstacles,...g.points.map(p=>({x:p.x-11*unit,y:p.y-11*unit,width:22*unit,height:22*unit}))];
  for(const edge of g.edges)try{for(let i=0;i<=20;i++){const p=pointAt(g,edge,i/20),r=(edge.kind==='arc'&&i===10?21:3)*unit;nodes.push({x:p.x-r,y:p.y-r,width:2*r,height:2*r});}}catch{}
  for(const e of g.edges){try{
   const anchor=pointAt(g,e,.5),[a,z]=ends(g,e),tangent=e.kind==='line'?{x:z.x-a.x,y:z.y-a.y}:(()=>{const arc=edgeArc(g,e),angle=arc.start+arc.delta/2;return{x:-Math.sin(angle)*Math.sign(arc.delta),y:Math.cos(angle)*Math.sign(arc.delta)};})(),len=Math.hypot(tangent.x,tangent.y)||1,n={x:tangent.y/len*orientation,y:-tangent.x/len*orientation},text=e.kind==='arc'?`R ${fmt(edgeArc(g,e).radius)} mm`:`${fmt(edgeLength(g,e))} mm`,width=(text.length*7.8+16+(e.locked?20:0))*unit,height=32*unit,baseAngle=e.kind==='line'?((Math.atan2(tangent.y,tangent.x)*180/Math.PI+270)%180)-90:0;

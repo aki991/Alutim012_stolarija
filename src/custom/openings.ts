@@ -1,7 +1,8 @@
-import { distance, edgeArc, ends, isClosed, lineLine, pointAt, projectEdge, projectLine, type Geometry, type Point } from './geometry';
+import { distance, edgeArc, ends, isClosed, lineLine, pointAt, projectEdge, projectLine, type CustomOpening, type Geometry, type Point } from './geometry';
 
 export type HingeSide = 'left' | 'right';
 export const hingeLabel = (side: HingeSide) => side === 'left' ? 'Šarke levo' : 'Šarke desno';
+export const customOpeningLabel=(mark:CustomOpening)=>mark.side==='bottom'?'Kip, šarke dole':`${hingeLabel(mark.side)}${mark.tilt?' + kip':''}`;
 export type OpeningRegion = { id: string; points: Point[]; center: Point };
 
 type Segment = { id: string; points: Point[] };

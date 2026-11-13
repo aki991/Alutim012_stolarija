@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { arcThrough, bounds, distance, edgeArc, edgeLength, emptyGeometry, isClosed, isGeometry, pointInside, presetGeometry, resizeLine, resizeRadius, signedArea, validBar, validateGeometry, type Geometry } from './geometry';
+import { arcThrough, bounds, contourAngles, distance, edgeArc, edgeLength, emptyGeometry, formatAngle, isClosed, isGeometry, pointInside, presetGeometry, resizeLine, resizeRadius, signedArea, validBar, validateGeometry, type Geometry } from './geometry';
 import { makeFieldPosition } from '../field-types';
+import { openingRegions } from './openings';
 import { calculate, defaults, positionCost, validatePosition } from '../services/calculation';
 import { parseBackup } from '../services/storage';
 import type { Job } from '../models';
@@ -11,6 +12,14 @@ describe('Stvarna geometrija u milimetrima',()=>{
  it('računa neokruglu dužinu bez promene stvarnih koordinata',()=>{expect(distance({x:0,y:0},{x:3,y:4})).toBe(5);const g=polygon([[0,0],[1234.56789,0],[0,750]]);expect(edgeLength(g,g.edges[0])).toBe(1234.56789);});
  for(const shape of ['triangle','trapezoid','arch','circle','polygon'] as const)it(`generiše validan početni oblik: ${shape}`,()=>{const g=presetGeometry(shape);expect(isClosed(g)).toBe(true);expect(validateGeometry(g)).toEqual([]);expect(isGeometry(g)).toBe(true);expect(validatePosition(position(g))).toEqual([]);});
  it('trapez ima dve paralelne uspravne stranice',()=>{const g=presetGeometry('trapezoid',2400,1600);expect(g.points[0].x).toBe(g.points[1].x);expect(g.points[2].x).toBe(g.points[3].x);expect(validateGeometry(g)).toEqual([]);});
+ it('računa unutrašnje uglove bez oznaka na pravim i glatkim spojevima',()=>{
+  const trapezoid=presetGeometry('trapezoid',2400,1600);
+  expect(contourAngles(trapezoid).map(({vertex,degrees})=>[vertex.id,formatAngle(degrees)])).toEqual([['p1','99,46°'],['p2','80,54°']]);
+  const concave:[number,number][]=[[0,0],[600,0],[600,300],[300,300],[300,600],[0,600]];
+  for(const points of [concave,[...concave].reverse()])expect(contourAngles(polygon(points)).map(angle=>angle.degrees)).toEqual([270]);
+  expect(contourAngles(presetGeometry('arch',1000,850))).toEqual([]);
+  expect(contourAngles(presetGeometry('circle',1000))).toEqual([]);
+ });
  it('prepoznaje otvorenu i nepovezanu konturu',()=>{const g=presetGeometry('triangle');g.edges.pop();expect(isClosed(g)).toBe(false);expect(validateGeometry(g).join()).toContain('nije zatvorena');g.edges[1].from='p2';expect(validateGeometry(g).join()).toContain('nepovezane');expect(validateGeometry(emptyGeometry()).length).toBeGreaterThan(0);});
  it('odbija samopresecanje i preklapanje pravih segmenata',()=>{expect(validateGeometry(polygon([[0,0],[2000,1600],[0,1600],[2000,0]])).join()).toContain('preseca');expect(validateGeometry(polygon([[0,0],[1000,0],[500,0],[0,700]])).join()).toContain('preseca');});
  it('izračunava pravi centar, radijus i dužinu kružnog luka',()=>{const a=arcThrough({x:0,y:500},{x:1000,y:500},{x:500,y:0});expect(a.center.x).toBeCloseTo(500);expect(a.center.y).toBeCloseTo(500);expect(a.radius).toBeCloseTo(500);expect(Math.abs(a.delta)).toBeCloseTo(Math.PI);const g=presetGeometry('circle',1000);expect(edgeLength(g,g.edges[0])).toBeCloseTo(500*Math.PI);expect(signedArea(g)).toBeCloseTo(Math.PI*500**2);});
@@ -27,5 +36,24 @@ describe('Stvarna geometrija u milimetrima',()=>{
  it('serijalizuje i ponovo učitava geometriju i prečke kroz postojeću rezervnu kopiju',()=>{const g=presetGeometry('arch',1600,2000);g.bars=[{id:'b',a:{x:0,y:1600},b:{x:1600,y:1600}}];const data={settings:defaults,jobs:[job(g)]};expect(parseBackup(JSON.parse(JSON.stringify(data))).jobs[0].positions[0].customGeometry).toEqual(g);const bad=structuredClone(data);bad.jobs[0].positions[0].customGeometry!.points[0].x=NaN;expect(()=>parseBackup(bad)).toThrow();});
  it('čuva namenu, ram i puni panel kroz rezervnu kopiju',()=>{const j=job(presetGeometry('arch'));Object.assign(j.positions[0],{customKind:'door',customFrameMm:85,customInfill:'panel'});const loaded=parseBackup(JSON.parse(JSON.stringify({settings:defaults,jobs:[j]}))).jobs[0].positions[0];expect(loaded.customKind).toBe('door');expect(loaded.customFrameMm).toBe(85);expect(loaded.customInfill).toBe('panel');expect(loaded.customGeometry).toEqual(j.positions[0].customGeometry);loaded.customFrameMm=10;expect(()=>parseBackup({settings:defaults,jobs:[{...j,positions:[loaded]}]})).toThrow();});
  it('proverava strukturu ID-jeva i numeričke mere sačuvanog crteža',()=>{const g=presetGeometry('triangle');g.edges[0].from='missing';expect(isGeometry(g)).toBe(false);const p=position(presetGeometry('triangle'));p.width+=20;expect(validatePosition(p).join()).toContain('ne odgovaraju');});
- it('ne obračunava standardne profile, staklo ili okov za nepravilne oblike',()=>{const p=position(presetGeometry('triangle'));p.shutter=true;p.extraCost=900;const result=positionCost(p,defaults);expect(result.requiresReview).toBe(true);expect(result.lines).toEqual([]);expect(calculate(job(p.customGeometry!),defaults).hasUnpriced).toBe(true);p.manualPrice=123;p.quantity=2;expect(positionCost(p,defaults).total).toBe(246);expect(positionCost(p,defaults).requiresReview).toBe(false);p.manualPrice=0;expect(positionCost(p,defaults).total).toBe(0);expect(positionCost(p,defaults).requiresReview).toBe(false);});
+ it('obračunava čisti polukrug po stvarnoj površini, obimu i dužini luka',()=>{
+  const g=presetGeometry('arch',1000,500);
+  const p={...position(g),installation:true};
+  const price=positionCost(p,defaults);
+  const area=Math.PI*.5**2/2,arc=Math.PI*.5;
+  expect(price.area).toBeCloseTo(area);
+  expect(price.perimeter).toBeCloseTo(1+arc);
+  expect(price.unit).toBeCloseTo(area*(110+32)+arc*48+40+(1+arc)*9);
+  expect(calculate(job(g),defaults).hasUnpriced).toBe(false);
+  expect(positionCost({...p,manualPrice:0},defaults).total).toBe(0);
+ });
+ it('naplaćuje zaokretno-otklopni okov jednom po označenom polju i čuva izbor',()=>{
+  const g=presetGeometry('rectangle',1000,1200);
+  const [{id:region}]=openingRegions(g);
+  const ordinary={...g,openings:[{region,side:'right' as const}]};
+  const tilt={...g,openings:[{region,side:'right' as const,tilt:true as const}]};
+  const loaded=parseBackup({settings:defaults,jobs:[job(tilt)]}).jobs[0].positions[0];
+  expect(loaded.customGeometry?.openings).toEqual(tilt.openings);
+  expect(positionCost(loaded,defaults).unit-positionCost(position(ordinary),defaults).unit).toBeCloseTo(12);
+ });
 });

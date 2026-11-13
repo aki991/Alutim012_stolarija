@@ -1,16 +1,17 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Calculator, ChevronRight, FileText, MapPin, Plus } from 'lucide-react';
 import { isActiveJob } from './models';
-import { useStore } from './store';
+import { awaitingMeasurements, useStore } from './store';
 import { Button, CategoryIcon, Empty, Saved } from './components/UI';
 import { categories } from './catalog';
 
 /** Reference composition, with real job data and accessible controls. */
 export function Dashboard({ onNew }: { onNew: () => void }) {
-  const { jobs, saveState, settings } = useStore();
+  const state = useStore();
+  const { jobs, saveState, settings, teamMember } = state;
   const navigate = useNavigate();
   const active = jobs.filter(isActiveJob);
-  const last = active[0];
+  const last = active.find(job => !awaitingMeasurements(state,job));
 
   return <div className="reference-home">
     <section className="reference-hero" aria-labelledby="reference-title">
@@ -54,6 +55,6 @@ export function Dashboard({ onNew }: { onNew: () => void }) {
         </section>
       </div>
     </div>
-    <div className="reference-local-state"><Saved state={saveState} />{last && <Link to={`/posao/${last.id}`}>Nastavi merenje <ChevronRight size={14} /></Link>}</div>
+    <div className="reference-local-state"><Saved state={saveState} shared={Boolean(teamMember)} />{last && <Link to={`/posao/${last.id}`}>Nastavi merenje <ChevronRight size={14} /></Link>}</div>
   </div>;
 }

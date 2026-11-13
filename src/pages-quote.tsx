@@ -3,7 +3,10 @@ import { lazy, Suspense, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { CheckCircle2, FileText, Share2 } from 'lucide-react';
 import { useStore } from './store';
-import { calculate, euro, validatePosition, positionPriceLabel, reviewPrice } from './services/calculation';
+import { calculate, euro, validatePosition, jobReviewLabel, positionReviewLabel } from './services/calculation';
+import type { Position } from './models';
+import { openingBoxHeight } from './shutters';
+import { portaDecorName, portaRoyalTypes } from './porta-royal';
 import { Modal } from './components/UI';
 import { FieldHeader } from './components/FieldHeader';
 import { Drawing } from './components/Drawing';
@@ -17,8 +20,41 @@ function ShareAppIcons(){
  return <span className="share-app-icons"><img src="/assets/viber.svg" alt="Viber" title="Viber"/><img src="/assets/whatsapp.svg" alt="WhatsApp" title="WhatsApp"/></span>;
 }
 
+const unitPriceFormat = new Intl.NumberFormat('sr-Latn-RS', {useGrouping:false, minimumFractionDigits:2, maximumFractionDigits:2});
+
+function QuotePositionPrice({position, price, onChange}: {
+ position:Position;
+ price:ReturnType<typeof calculate>['positions'][number];
+ onChange:(price:number|null)=>void;
+}){
+ const [draft,setDraft]=useState<string|null>(null);
+ const manual=position.manualPrice!==null;
+ return <div className="quote-position-price">
+  <div className="quote-price-controls">
+   <label className={manual?'quote-price-input is-manual':'quote-price-input'}>
+    <input aria-label={`Cena po komadu za ${position.name}`} inputMode="decimal" maxLength={16}
+     value={draft??(price.requiresReview?'':unitPriceFormat.format(price.unit))} placeholder="—"
+     onFocus={event=>event.currentTarget.select()} onBlur={()=>setDraft(null)}
+     onKeyDown={event=>{if(event.key==='Enter')event.currentTarget.blur();}}
+     onChange={event=>{
+      const value=event.target.value;
+      setDraft(value);
+      if(!/^\d+(?:[.,]\d{0,2})?$/.test(value))return;
+      const amount=Number(value.replace(',','.'));
+      if(amount<=1e8)onChange(amount);
+     }}/>
+    <span aria-hidden="true">€/kom.</span>
+   </label>
+   <button type="button" className="quote-price-auto" title={price.requiresReview?positionReviewLabel(position):`Automatska cena ${euro(price.calculated)} po komadu`}
+    aria-label={`Auto za ${position.name}`} onClick={()=>{setDraft(null);if(manual)onChange(null);}}>Auto</button>
+  </div>
+  {price.requiresReview&&position.portaRoyal&&<small>Cena po upitu</small>}
+  {position.quantity>1&&!price.requiresReview&&<strong className="quote-line-total">Ukupno {euro(price.total)}</strong>}
+ </div>;
+}
+
 export function Quote(){
- const {id}=useParams(),{jobs,settings}=useStore(),job=jobs.find(j=>j.id===id);
+ const {id}=useParams(),{jobs,settings,updatePosition}=useStore(),job=jobs.find(j=>j.id===id);
  const pendingSubmission=useRef<OfficeSubmission|null>(null),sending=useRef(false);
  const [officeNotice,setOfficeNotice]=useState<{text:string;kind:'progress'|'success'|'error'}|null>(null);
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[sharing,setSharing]=useState(false);
@@ -61,11 +97,11 @@ export function Quote(){
  }
  return <div className="field-page price-page"><FieldHeader title={`${showPrices?"Cena i ponuda":"Dokumenti"}: ${job.customer.name}`} back={`/posao/${job.id}`}/>
  <main className={showPrices?"price-workspace":"price-workspace without-prices"}><div className="price-content"><section className="price-lines" aria-label={showPrices?"Pregled cene":"Pregled elemenata"}><div className="price-line-head"><span>Element</span><span>Kom.</span>{showPrices&&<span>Cena</span>}</div>
- {job.positions.map((p,i)=><article className="price-line" key={p.id}><Link className="price-element" to={`/posao/${job.id}/element/${p.id}`}><span className="price-sketch"><Drawing position={p} compact/></span><span><strong>{p.name}</strong><small>{fmt(p.width)} × {fmt(p.height)} mm · {p.material}</small></span></Link><span>{p.quantity}</span>{showPrices&&<strong>{positionPriceLabel(p,result.positions[i].total)}</strong>}</article>)}
+ {job.positions.map((p,i)=><article className="price-line" key={p.id}><Link className="price-element" to={`/posao/${job.id}/element/${p.id}`}><span className="price-sketch"><Drawing position={p} compact/></span><span><strong>{p.name}</strong><small>{fmt(p.width)} × {fmt(p.height+openingBoxHeight(p))} mm · {p.portaRoyal?`Tip ${portaRoyalTypes[p.portaRoyal.type]} · ${portaDecorName(p.portaRoyal)}`:p.material}</small></span></Link><span>{p.quantity}</span>{showPrices&&<QuotePositionPrice position={p} price={result.positions[i]} onChange={manualPrice=>updatePosition(job.id,p.id,{manualPrice})}/>}</article>)}
  {!job.positions.length&&<p className="field-empty-text">Dodajte element u posao da biste pripremili ponudu.</p>}
  </section>
  {showPrices&&<Link className="field-button field-button-yellow correction-entry" to={`/posao/${job.id}/korekcija`}>Korekcija cene</Link>}</div>
- {showPrices&&<aside className="price-total"><div><span>Elementi i odabrani radovi</span><strong>{euro(result.elements)}</strong></div><div><span>Transport i dodatni radovi</span><strong>{euro(result.services)}</strong></div>{result.discount>0&&<div><span>Popust {job.discountMode==='amount'?'':`${job.discount}%`}</span><strong>−{euro(result.discount)}</strong></div>}<hr/>{result.surcharge>0&&<div><span>Uvećanje</span><strong>{euro(result.surcharge)}</strong></div>}{result.manual&&<p>Ručna ukupna cena — popust i uvećanje se ne primenjuju.</p>}<div><span>Osnovica</span><strong>{euro(result.net)}</strong></div><div><span>{result.vatMode==='none'?'Bez obračuna PDV-a':`PDV ${result.vat}%${result.vatMode==='inclusive'?' (uključen)':''}`}</span><strong>{euro(result.tax)}</strong></div><section><h2>{result.hasUnpriced?'Zbir poznatih stavki':'Okvirna cena'}</h2><strong data-testid="quote-total">{euro(result.total)}</strong></section><p>{result.hasUnpriced?reviewPrice+'. Zbir ne uključuje elemente bez ručne cene.':'Demonstracione cene. Konačnu ponudu potvrđuje kancelarija.'}</p></aside>}
+ {showPrices&&<aside className="price-total"><div><span>Elementi i odabrani radovi</span><strong>{euro(result.elements)}</strong></div><div><span>Transport i dodatni radovi</span><strong>{euro(result.services)}</strong></div>{result.discount>0&&<div><span>Popust {job.discountMode==='amount'?'':`${job.discount}%`}</span><strong>−{euro(result.discount)}</strong></div>}<hr/>{result.surcharge>0&&<div><span>Uvećanje</span><strong>{euro(result.surcharge)}</strong></div>}{result.manual&&<p>Ručna ukupna cena — popust i uvećanje se ne primenjuju.</p>}<div><span>Osnovica</span><strong>{euro(result.net)}</strong></div><div><span>{result.vatMode==='none'?'Bez obračuna PDV-a':`PDV ${result.vat}%${result.vatMode==='inclusive'?' (uključen)':''}`}</span><strong>{euro(result.tax)}</strong></div><section><h2>{result.hasUnpriced?'Zbir poznatih stavki':'Okvirna cena'}</h2><strong data-testid="quote-total">{euro(result.total)}</strong></section><p>{result.hasUnpriced?jobReviewLabel(job,result)+'. Zbir obuhvata stavke sa izračunatom cenom.':'Demonstracione cene. Konačnu ponudu potvrđuje kancelarija.'}</p></aside>}
  {errors.length>0&&<div className="field-error" role="alert">{errors.map((e,i)=><p key={i}>{e}</p>)}<Link to={`/posao/${job.id}`}>Ispravite mere u poslu</Link></div>}
  {message&&!sharing&&<p className="field-message" role="status">{message}</p>}
  </main>

@@ -1,0 +1,85 @@
+.porta-page .module-content{padding-bottom:28px}
+.porta-filters{margin-bottom:10px}
+.porta-count{margin:10px 0 16px;color:#4c5660}
+.porta-series-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.porta-series-card{display:flex;flex-direction:column;min-width:0;padding:0;overflow:hidden;text-align:left;background:#fff;border:1px solid #d5d8dd;border-radius:12px;color:#20242a}
+.porta-series-card:hover,.porta-series-card:focus-visible{border-color:#ad071a}
+.porta-series-card>span{padding:12px 14px;display:grid;gap:3px}
+.porta-series-card strong{font-family:AluNarrow,Arial,sans-serif;font-weight:700}
+.porta-series-card strong{font-size:22px;line-height:1.1}
+.porta-series-card small{color:#505960}
+.porta-photo{--porta-photo-scale:.27px;--porta-photo-max-height:min(78dvh,760px);container-type:inline-size;display:grid;justify-items:center;align-content:center;width:100%;padding:18px;overflow:hidden;background:#f3f1ed;border-radius:12px}
+.porta-photo-frame{position:relative}
+.porta-photo-door{position:absolute;inset:0;overflow:hidden}
+.porta-photo-door>img{position:absolute;display:block;max-width:none;max-height:none;object-fit:fill}
+.porta-photo-door>svg{display:block;width:100%;height:100%}
+.porta-photo-dimensioned{padding-block-start:64px;padding-inline:56px 18px}
+.porta-photo-dimension{
+ position:absolute;display:flex;align-items:center;gap:8px;color:#20262a;
+ font:700 clamp(16px,4cqw,24px)/1 Arial,sans-serif;white-space:nowrap;
+}
+.porta-photo-dimension-width{inset-inline:0;bottom:calc(100% + 14px);flex-direction:column}
+.porta-photo-dimension-height{inset-block:0;right:calc(100% + 14px)}
+.porta-photo-dimension-height span{writing-mode:vertical-rl;transform:rotate(180deg)}
+.porta-photo-dimension i{display:block;position:relative;background:currentColor;flex:none}
+.porta-photo-dimension-width i{width:100%;height:2px}
+.porta-photo-dimension-height i{width:2px;height:100%}
+.porta-photo-dimension i::before,.porta-photo-dimension i::after{content:"";position:absolute;border:5px solid transparent}
+.porta-photo-dimension-width i::before{left:0;top:50%;transform:translateY(-50%);border-right:9px solid currentColor;border-left:0}
+.porta-photo-dimension-width i::after{right:0;top:50%;transform:translateY(-50%);border-left:9px solid currentColor;border-right:0}
+.porta-photo-dimension-height i::before{top:0;left:50%;transform:translateX(-50%);border-bottom:9px solid currentColor;border-top:0}
+.porta-photo-dimension-height i::after{bottom:0;left:50%;transform:translateX(-50%);border-top:9px solid currentColor;border-bottom:0}
+.porta-series-card .porta-photo{--porta-photo-scale:.063px;--porta-photo-max-height:140px;min-height:145px;padding:8px;border-radius:0}
+.porta-editor-workspace{
+ grid-template-areas:"preview dimensions" "preview controls";
+ grid-template-rows:max-content 1fr;
+ align-items:start;
+}
+.porta-editor-workspace>.dimension-controls{grid-area:dimensions}
+.porta-card,.porta-technical{background:#fff;border:1px solid #d9dce0;border-radius:12px;padding:14px;min-width:0}
+.porta-card h2,.porta-technical>summary,.porta-equipment>summary{font:700 22px AluNarrow,Arial,sans-serif;margin:0 0 12px}
+.porta-card .field,.porta-variants{margin:0}
+.porta-variants{display:grid;gap:7px;margin-top:6px}
+.porta-swatches,.porta-types{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:7px}
+.porta-swatches button,.porta-types button{display:grid;align-content:start;justify-items:center;min-width:52px;min-height:44px;padding:4px;gap:4px;border-radius:6px;border:1px solid #cdd0d5;background:#fff;color:#272b30;font-size:13px}
+.porta-swatches button{min-width:64px;max-width:92px;line-height:1.15}
+.porta-types button[aria-pressed=true],.porta-swatches button[aria-pressed=true]{border-color:#a00018;box-shadow:0 0 0 1px #a00018;background:#fff3e1}
+.porta-swatches img,.porta-types img{width:42px;height:42px;object-fit:cover;border-radius:3px}
+.porta-swatches img[hidden],.porta-types img[hidden]{display:none}
+.porta-technical{margin-top:12px}
+.porta-technical>summary,.porta-equipment>summary{cursor:pointer;margin:0}
+.porta-technical dl{display:grid;gap:8px;margin:14px 0}
+.porta-technical dl>div{display:grid;grid-template-columns:minmax(85px,1fr) minmax(0,2.5fr);gap:6px}
+.porta-technical dt{font-weight:700}
+.porta-technical dd{margin:0;color:#343d46}
+.porta-technical a{color:#8c0a1d;text-decoration:underline}
+.porta-technical-links{display:flex;flex-wrap:wrap;gap:8px 16px}
+.porta-editor-fields{grid-area:controls;display:grid;gap:12px;min-width:0}
+.porta-editor-preview{grid-area:preview;align-self:start;gap:12px;padding:12px}
+.porta-editor-preview .porta-photo{--porta-photo-scale:.29px}
+.porta-editor-preview .porta-technical{margin:0}
+.porta-size-hint{margin:0;color:#4c5660;font-size:15px}
+.porta-equipment[open]>summary{margin-bottom:12px}
+.porta-equipment .porta-checks{margin:10px 0}
+.porta-equipment .field+.field{margin-top:0}
+.porta-equipment>.field{margin-top:12px}
+.quick-catalog-tile{text-decoration:none}
+@media(max-width:999px){
+ .porta-page>.porta-editor-workspace{display:flex;flex-direction:column}
+ .porta-editor-workspace>*{flex:none;width:100%}
+}
+@media(max-width:800px){
+ .porta-photo,.porta-editor-preview .porta-photo{--porta-photo-scale:.21px}
+}
+@media(max-width:550px){
+ .porta-photo-dimensioned{padding-block-start:52px;padding-inline:48px 12px}
+ .porta-photo-dimension-width{bottom:calc(100% + 10px)}
+ .porta-photo-dimension-height{right:calc(100% + 10px)}
+ .porta-series-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .porta-series-card>span{padding:9px}
+ .porta-series-card strong{font-size:19px}
+ .porta-page .module-header-actions .porta-catalog-link{font-size:14px;min-height:40px;padding:5px 9px}
+ .porta-card .field-options-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 10px}
+ .porta-card .field input,.porta-card .field select{min-width:0}
+ .porta-card .porta-checks{grid-template-columns:1fr 1fr}
+}

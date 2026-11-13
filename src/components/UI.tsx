@@ -13,7 +13,7 @@ export function CategoryIcon({category,size=24}:{category:Category;size?:number}
  return <svg width={size} height={size} viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">{paths}</svg>;
 }
 export function Button({children,variant='primary',className='',...props}:ButtonHTMLAttributes<HTMLButtonElement>&{variant?:'primary'|'secondary'|'ghost'|'danger'}){return <button className={`btn btn-${variant} ${className}`} {...props}>{children}</button>;}
-export function Badge({status}:{status:Status}){return <span className={`badge badge-${status==='U izradi'?'progress':status==='Ponuda'?'offer':status==='Odbijeno'?'rejected':'done'}`}><i/>{status}</span>;}
+export function Badge({status}:{status:Status}){return <span className={`badge badge-${status==='U izradi'||status==='Merenje'?'progress':status==='Ponuda'||status==='Poslati ponudu'?'offer':status==='Odbijeno'?'rejected':'done'}`}><i/>{status}</span>;}
 export function Modal({title,children,onClose,wide=false,sheet=false}:{title:string;children:ReactNode;onClose:()=>void;wide?:boolean;sheet?:boolean}){
  const ref=useRef<HTMLElement>(null);
  useEffect(()=>{const previous=document.activeElement as HTMLElement,overflow=document.body.style.overflow;document.body.style.overflow='hidden';if(!ref.current?.contains(document.activeElement))ref.current?.querySelector<HTMLElement>('button,input,select,textarea')?.focus();return()=>{document.body.style.overflow=overflow;previous?.focus();};},[]);
@@ -26,5 +26,5 @@ export function Field({label,children,hint}:{label:string;children:ReactNode;hin
 }
 export function SectionTitle({title,description,action}:{title:string;description?:string;action?:ReactNode}){return <div className="section-title"><div><h2>{title}</h2>{description&&<p>{description}</p>}</div>{action}</div>;}
 export function Empty({title,description,action}:{title:string;description?:string;action?:ReactNode}){return <div className="empty"><Ruler size={32}/><h3>{title}</h3><p>{description}</p>{action}</div>;}
-export function Saved({state}:{state:string}){return <span className={`saved ${state==='error'?'save-error':''}`}>{state==='saved'?<Check size={14}/>:<span className="save-dot"/>}{state==='saved'?'Sačuvano lokalno':state==='dirty'?'Nesačuvane izmene…':'Čuvanje nije uspelo'}</span>;}
+export function Saved({state,shared=false}:{state:string;shared?:boolean}){return <span className={`saved ${state==='error'?'save-error':''}`}>{state==='saved'?<Check size={14}/>:<span className="save-dot"/>}{state==='saved'?(shared?'Sačuvano u bazi':'Sačuvano lokalno'):state==='dirty'?'Nesačuvane izmene…':'Čuvanje nije uspelo'}</span>;}
 export const MoreArrow=()=> <ArrowRight size={16}/>;

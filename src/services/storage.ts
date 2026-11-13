@@ -1,5 +1,9 @@
 import { isGeometry } from '../custom/geometry';
+import { isModelLayout } from '../model-layout';
+import { supplementRates } from './pricing-rates';
 import { jobStatuses, type Job, type Settings } from '../models';
+import { isShutterConfig, shutterTypes } from '../shutters';
+import { isPortaRoyalConfig, portaSeriesById } from '../porta-royal';
 const record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v);
 const number=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1e8;
 const draftNumber=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=1e8;
@@ -9,9 +13,13 @@ export function parseBackup(data:unknown):{jobs:Job[];settings:Settings}{
  if(!record(data)||!Array.isArray(data.jobs)||!record(data.settings))return fail();
  const {settings}=data;
  if(settings.showPrices!==undefined&&typeof settings.showPrices!=='boolean')return fail();
+ if(settings.portaRoyalPrices!==undefined&&(!record(settings.portaRoyalPrices)||Object.entries(settings.portaRoyalPrices).some(([key,rate])=>!portaSeriesById(key)||!number(rate))))return fail();
  if(!record(settings.prices)||!strings(settings,['technician'])||!number(settings.vat)||Number(settings.vat)>100||!['exclusive','inclusive','none'].includes(String(settings.vatMode)))return fail();
  const priceKeys=['PVC','ALU','Dvoslojno','Troslojno','Sigurnosno','hardware','secureHardware','shutter','mosquito','sill','installation','removal','transport'];
  if(!priceKeys.every(k=>number((settings.prices as Record<string,unknown>)[k])))return fail();
+ if(settings.prices.marginPercent!==undefined&&!number(settings.prices.marginPercent))return fail();
+ const optionalRates=[...Object.keys(supplementRates),...Object.values(shutterTypes).map(type=>type.rate)];
+ if(optionalRates.some(key=>Object.hasOwn(settings.prices as object,key)&&!number((settings.prices as Record<string,unknown>)[key])))return fail();
  if(settings.elementDefaults!==undefined){const d=settings.elementDefaults;if(!record(d)||!strings(d,['profile','color'])||!['PVC','ALU'].includes(String(d.material))||!['Dvoslojno','Troslojno','Sigurnosno'].includes(String(d.glass))||!['Standardni','Sigurnosni'].includes(String(d.hardware)))return fail();}
  if(settings.documentDefaults!==undefined&&(!record(settings.documentDefaults)||!strings(settings.documentDefaults,['validity','delivery','payment'])))return fail();
  const ids=new Set();
@@ -25,8 +33,15 @@ export function parseBackup(data:unknown):{jobs:Job[];settings:Settings}{
   if(j.vatMode!==undefined&&!['exclusive','inclusive','none'].includes(String(j.vatMode)))return fail();
   ids.add(j.id);const positions=new Set();
   for(const p of j.positions){
-   if(!record(p)||!strings(p,['id','name','color','notes','access','extraWork'])||![p.width,p.height,p.quantity].every(draftNumber)||!number(p.extraCost)||!(p.manualPrice===null||number(p.manualPrice))||!['PVC','ALU'].includes(String(p.material))||!['Dvoslojno','Troslojno','Sigurnosno'].includes(String(p.glass))||!['Standardni','Sigurnosni'].includes(String(p.hardware))||!['Prozori','Vrata','Klizni sistemi','Ulazna vrata','Roletne','Komarnici','Klupice','Usluge'].includes(String(p.category))||!['shutter','mosquito','sill','installation','removal'].every(k=>typeof p[k]==='boolean')||!Array.isArray(p.segments)||p.segments.length<1||p.segments.length>4||positions.has(p.id))return fail();
+   if(!record(p)||!strings(p,['id','name','color','notes','access','extraWork'])||![p.width,p.height,p.quantity].every(draftNumber)||!number(p.extraCost)||!(p.manualPrice===null||number(p.manualPrice))||!['PVC','ALU'].includes(String(p.material))||!['Dvoslojno','Troslojno','Sigurnosno'].includes(String(p.glass))||!['Standardni','Sigurnosni'].includes(String(p.hardware))||!['Prozori','Vrata','Sobna vrata','Klizni sistemi','Ulazna vrata','Roletne','Komarnici','Klupice','Usluge'].includes(String(p.category))||!['shutter','mosquito','sill','installation','removal'].every(k=>typeof p[k]==='boolean')||!Array.isArray(p.segments)||p.segments.length<1||p.segments.length>4||positions.has(p.id))return fail();
    positions.add(p.id);
+   if(p.portaRoyal!==undefined||p.category==='Sobna vrata'||p.elementType==='sobna-vrata'){
+    if(!isPortaRoyalConfig(p.portaRoyal)||p.category!=='Sobna vrata'||p.elementType!=='sobna-vrata'||p.modelLayout||p.customGeometry||p.combination||p.fixedPanels||p.shutter||p.shutterConfig||p.mosquito||p.sill||p.segments.length!==1)return fail();
+   }
+   if(p.shutterConfig!==undefined&&(!isShutterConfig(p.shutterConfig)||!p.shutter&&p.category!=='Roletne'))return fail();
+   if(p.modelLayout!==undefined||p.elementType==='model'){
+    if(p.elementType!=='model'||!isModelLayout(p.modelLayout)||p.customGeometry||p.combination||p.fixedPanels||p.segments.length!==1||!record(p.segments[0])||p.segments[0].opening!=='Fiksno'||p.segments[0].width!==p.width)return fail();
+   }
    if(p.elementType==='kombinacija'||p.combination!==undefined){
     const c=p.combination;
     if(p.elementType!=='kombinacija'||!record(c)||!draftNumber(c.windowHeight)||!['left','right'].includes(String(c.windowSide))||!['top','bottom'].includes(String(c.alignment))||p.segments.length!==2||p.customGeometry||p.fixedPanels)return fail();
@@ -39,7 +54,7 @@ export function parseBackup(data:unknown):{jobs:Job[];settings:Settings}{
    if(p.elementType==='nacrtaj'&&!isGeometry(p.customGeometry))return fail();
    if(p.customGeometry&&((p.segments as {opening:string}[]).some(s=>s.opening!=='Fiksno')||p.elementType!=='nacrtaj'))return fail();
    if(p.profile!==undefined&&(typeof p.profile!=='string'||p.profile.length>200))return fail();
-   if(p.elementType!==undefined&&!['prozor','vrata','balkonska','klizni','fiksni','roletna','komarnik','ostalo','nacrtaj','kombinacija'].includes(String(p.elementType)))return fail();
+   if(p.elementType!==undefined&&!['prozor','vrata','sobna-vrata','balkonska','klizni','fiksni','roletna','komarnik','ostalo','nacrtaj','kombinacija','model'].includes(String(p.elementType)))return fail();
    if(p.segments.some(s=>!record(s)||!draftNumber(s.width)||!['Fiksno','Levo','Desno','Kip','Levo + kip','Desno + kip','Klizno'].includes(String(s.opening))))return fail();
    if(!Array.isArray(p.photos)||p.photos.length>4||p.photos.some(src=>typeof src!=='string'||!(src==='/assets/house.jpg'||/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(src))||src.length>650000))return fail();
   }

@@ -1,11 +1,14 @@
 import { NumberInput } from './NumberInput';
 import { centralWidth } from '../fixed-panels';
 import { customInfillOf } from '../models';
+import { hasGlass } from '../model-layout';
 import { useState, type ReactNode } from 'react';
 import { Camera, Check, ChevronRight, Droplet, Layers, MessageSquare, Minus, Plus, Puzzle, RectangleHorizontal, Settings, SlidersHorizontal, Wrench, X } from 'lucide-react';
 import type { Position } from '../models';
 import { useStore } from '../store';
 import { Field, Modal } from './UI';
+import { changeShutter, makeShutter, shutterOf, supportsShutter } from '../shutters';
+import { ShutterControls } from './ShutterControls';
 
 async function photoData(file:File):Promise<string>{
  if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw Error('Izaberite JPG, PNG ili WebP fotografiju.');
@@ -18,13 +21,14 @@ async function photoData(file:File):Promise<string>{
 function OptionsSection({title,icon,summary,children}:{title:string;icon:ReactNode;summary?:string;children:ReactNode}){
  return <details className="options-section"><summary>{icon}<span>{title}</span>{summary&&<small>{summary}</small>}<ChevronRight aria-hidden="true"/></summary><div className="options-section-content">{children}</div></details>;
 }
-export function PositionOptions({position:p,onChange,onClose}:{position:Position;onChange:(patch:Partial<Position>)=>void;onClose:()=>void}){
+export function PositionOptions({position:p,onChange,onClose,automaticUnit}:{position:Position;automaticUnit?:number;onChange:(patch:Partial<Position>)=>void;onClose:()=>void}){
  const showPrices=useStore(s=>s.settings.showPrices!==false);
  const [error,setError]=useState(''),[preview,setPreview]=useState<string|null>(null),[loading,setLoading]=useState(false);
  const profiles=p.material==='PVC'?['PVC 70 mm','PVC 76 mm','PVC 82 mm']:['ALU termo profil','ALU hladni profil'];
  if(p.profile&&!profiles.includes(p.profile))profiles.unshift(p.profile);
  const colors=['Bela','Antracit','Orah'];if(!colors.includes(p.color))colors.push(p.color);
- const equipment=([['shutter','Roletna'],['mosquito','Komarnik'],['sill','Klupica']] as const);
+ const equipment=p.customGeometry?[]:([['mosquito','Komarnik'],['sill','Klupica']] as const);
+ const allowShutter=supportsShutter(p),shutter=allowShutter?shutterOf(p):undefined;
  return <Modal title="Dodatne opcije" onClose={onClose} wide sheet><div className="position-options">
  <div className="position-options-body">
   <div className="options-basics-row">
@@ -34,12 +38,19 @@ export function PositionOptions({position:p,onChange,onClose}:{position:Position
   <div className="options-main-fields">
    <div className="option-setting"><Layers aria-hidden="true"/><Field label="Profil"><select value={p.profile||profiles[0]} onChange={e=>onChange({profile:e.target.value})}>{profiles.map(v=><option key={v}>{v}</option>)}</select></Field></div>
    <div className="option-setting option-color"><Droplet aria-hidden="true"/><div><span className="option-label" id="option-color-label">Boja</span><div className="option-color-buttons" role="group" aria-labelledby="option-color-label">{colors.map(color=><button key={color} className={p.color===color?'selected':''} aria-pressed={p.color===color} onClick={()=>onChange({color})}><i className={`color-swatch ${color==='Antracit'?'swatch-antracit':color==='Orah'?'swatch-orah':'swatch-bela'}`} aria-hidden="true"/>{color}{p.color===color&&<Check aria-hidden="true"/>}</button>)}</div></div></div>
-   {(!p.customGeometry||customInfillOf(p)==='glass')&&<div className="option-setting"><RectangleHorizontal aria-hidden="true"/><Field label="Staklo"><select value={p.glass} onChange={e=>onChange({glass:e.target.value as Position['glass']})}>{['Dvoslojno','Troslojno','Sigurnosno'].map(v=><option key={v}>{v}</option>)}</select></Field></div>}
-   {!p.customGeometry&&<div className="option-setting"><Settings aria-hidden="true"/><Field label="Okov"><select value={p.hardware} onChange={e=>onChange({hardware:e.target.value as Position['hardware']})}><option>Standardni</option><option>Sigurnosni</option></select></Field></div>}
+   {(!p.customGeometry||customInfillOf(p)==='glass')&&(!p.modelLayout||p.modelLayout.rows.some(row=>row.cells.some(cell=>hasGlass(cell.infill))))&&<div className="option-setting"><RectangleHorizontal aria-hidden="true"/><Field label="Staklo"><select value={p.glass} onChange={e=>onChange({glass:e.target.value as Position['glass']})}>{['Dvoslojno','Troslojno','Sigurnosno'].map(v=><option key={v}>{v}</option>)}</select></Field></div>}
+   {(!p.customGeometry||Boolean(p.customGeometry.openings?.length))&&<div className="option-setting"><Settings aria-hidden="true"/><Field label="Okov"><select value={p.hardware} onChange={e=>onChange({hardware:e.target.value as Position['hardware']})}><option>Standardni</option><option>Sigurnosni</option></select></Field></div>}
   </div>
   <div className="options-sections">
-   {!p.customGeometry&&<OptionsSection title="Dodatna oprema" icon={<Puzzle aria-hidden="true"/>} summary={equipment.filter(([key])=>p[key]).map(([,label])=>label).join(', ')}><div className="field-checks">{equipment.map(([key,label])=><label key={key}><input type="checkbox" checked={p[key]} onChange={e=>onChange({[key]:e.target.checked})}/><span>{label}</span></label>)}</div></OptionsSection>}
-   {!p.customGeometry&&<OptionsSection title="Montaža" icon={<Wrench aria-hidden="true"/>} summary={[p.installation?'Uključena':'',p.removal?'Demontaža':''].filter(Boolean).join(', ')}><div className="field-checks">{([['installation','Montaža'],['removal','Demontaža']] as const).map(([key,label])=><label key={key}><input type="checkbox" checked={p[key]} onChange={e=>onChange({[key]:e.target.checked})}/><span>{label}</span></label>)}</div><div className="field-options-grid"><Field label="Pristup i uslovi montaže"><textarea rows={2} maxLength={1000} value={p.access} onChange={e=>onChange({access:e.target.value})}/></Field><Field label="Dodatni radovi"><input maxLength={200} value={p.extraWork} onChange={e=>onChange({extraWork:e.target.value})}/></Field>{showPrices&&<Field label="Dodatni radovi po komadu (€)"><NumberInput clearToZero min={0} inputMode="decimal" value={p.extraCost} onChange={e=>onChange({extraCost:Math.max(0,+e.target.value)})}/></Field>}</div></OptionsSection>}
+   {p.modelLayout&&showPrices&&<Field label="Ručna okvirna cena po komadu (€)"><input type="number" inputMode="decimal" min="0" step="0.01" placeholder={automaticUnit?.toFixed(2)} value={p.manualPrice??''} onChange={e=>onChange({manualPrice:e.target.value===''?null:Math.max(0,+e.target.value)})}/></Field>}
+   {(allowShutter||equipment.length>0)&&<OptionsSection title="Dodatna oprema" icon={<Puzzle aria-hidden="true"/>} summary={[shutter?'Roletna':'',...equipment.filter(([key])=>p[key]).map(([,label])=>label)].filter(Boolean).join(', ')}>
+    <div className="field-checks">
+     {allowShutter&&<label><input type="checkbox" checked={p.shutter} onChange={event=>onChange(changeShutter(p,event.target.checked?makeShutter():undefined))}/><span>Roletna</span></label>}
+     {equipment.map(([key,label])=><label key={key}><input type="checkbox" checked={p[key]} onChange={e=>onChange({[key]:e.target.checked})}/><span>{label}</span></label>)}
+    </div>
+    {shutter&&<ShutterControls position={p} config={shutter} onChange={next=>onChange(changeShutter(p,next))}/>}
+   </OptionsSection>}
+   <OptionsSection title="Montaža" icon={<Wrench aria-hidden="true"/>} summary={[p.installation?'Uključena':'',p.removal?'Demontaža':''].filter(Boolean).join(', ')}><div className="field-checks">{([['installation','Montaža'],['removal','Demontaža']] as const).map(([key,label])=><label key={key}><input type="checkbox" checked={p[key]} onChange={e=>onChange({[key]:e.target.checked})}/><span>{label}</span></label>)}</div><div className="field-options-grid"><Field label="Pristup i uslovi montaže"><textarea rows={2} maxLength={1000} value={p.access} onChange={e=>onChange({access:e.target.value})}/></Field><Field label="Dodatni radovi"><input maxLength={200} value={p.extraWork} onChange={e=>onChange({extraWork:e.target.value})}/></Field>{showPrices&&<Field label="Dodatni radovi po komadu (€)"><NumberInput clearToZero min={0} inputMode="decimal" value={p.extraCost} onChange={e=>onChange({extraCost:Math.max(0,+e.target.value)})}/></Field>}</div></OptionsSection>
    <OptionsSection title="Napomena" icon={<MessageSquare aria-hidden="true"/>} summary={p.notes?'Uneta':''}><Field label="Napomena"><textarea rows={3} maxLength={2000} value={p.notes} onChange={e=>onChange({notes:e.target.value})}/></Field></OptionsSection>
    <OptionsSection title="Fotografije" icon={<Camera aria-hidden="true"/>} summary={`${p.photos.length}/4`}><div className="field-photos">{p.photos.map((photo,i)=><div key={i}><button onClick={()=>setPreview(photo)} aria-label={`Prikaži fotografiju ${i+1}`}><img src={photo} alt={`Fotografija objekta ${i+1}`}/></button><button className="field-photo-remove" onClick={()=>onChange({photos:p.photos.filter((_,k)=>k!==i)})} aria-label={`Ukloni fotografiju ${i+1}`}><X/></button>{photo.startsWith('/assets')&&<small>Ilustracija objekta</small>}</div>)}</div>
     <label className="field-button field-button-light upload-label"><Camera/>{loading?'Obrada fotografije…':'Dodaj fotografiju'}<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={p.photos.length>=4||loading} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;setLoading(true);try{const photo=await photoData(file);onChange({photos:[...p.photos,photo]});setError('');}catch(err){setError((err as Error).message);}finally{setLoading(false);e.target.value='';}}}/></label>

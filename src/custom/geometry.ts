@@ -3,7 +3,8 @@ export type Vertex=Point&{id:string};
 export type Edge={id:string;from:string;to:string;kind:'line'|'arc';via?:Point;locked?:{length:number;radius?:number}};
 export type Bar={id:string;a:Point;b:Point};
 export type Shape='free'|'rectangle'|'triangle'|'trapezoid'|'arch'|'circle'|'polygon';
-export type Geometry={version:1;points:Vertex[];edges:Edge[];bars:Bar[];preset:Shape;openings?:{region:string;side:'left'|'right'}[]};
+export type CustomOpening={region:string}&({side:'left'|'right';tilt?:true}|{side:'bottom';tilt?:never});
+export type Geometry={version:1;points:Vertex[];edges:Edge[];bars:Bar[];preset:Shape;openings?:CustomOpening[]};
 export const emptyGeometry=():Geometry=>({version:1,points:[],edges:[],bars:[],preset:'free'});
 const TAU=Math.PI*2,EPS=1e-6;
 export const distance=(a:Point,b:Point)=>Math.hypot(b.x-a.x,b.y-a.y);
@@ -34,6 +35,61 @@ export function contourPath(g:Geometry){return g.edges.map((e,i)=>`${i===0||g.ed
 export function bounds(g:Geometry){const ps:Point[]=[...g.points];for(const e of g.edges){if(e.kind==='arc')try{const arc=edgeArc(g,e);for(let i=0;i<4;i++){const p={x:arc.center.x+arc.radius*Math.cos(i*Math.PI/2),y:arc.center.y+arc.radius*Math.sin(i*Math.PI/2)};if(onArc(arc,p))ps.push(p);}}catch{/* Invalid draft arcs are reported by validation. */}}
  if(!ps.length)return{x:0,y:0,width:2400,height:1800};const x=Math.min(...ps.map(p=>p.x)),y=Math.min(...ps.map(p=>p.y));return{x,y,width:Math.max(...ps.map(p=>p.x))-x,height:Math.max(...ps.map(p=>p.y))-y};}
 export function signedArea(g:Geometry){return g.edges.reduce((n,e)=>{const[a,b]=ends(g,e);if(e.kind==='line')return n+cross(a,b)/2;const arc=edgeArc(g,e);return n+(arc.center.x*(b.y-a.y)-arc.center.y*(b.x-a.x)+arc.radius**2*arc.delta)/2;},0);}
+
+export interface ContourAngle {
+ vertex:Vertex;
+ degrees:number;
+ start:number;
+ sweep:number;
+ shorterSide:number;
+}
+
+function isSampledEllipse(g:Geometry){
+ // The catalog ellipse uses eight circular arcs through samples of a smooth ellipse.
+ if(g.points.length!==8||g.edges.length!==8||g.edges.some(edge=>edge.kind!=='arc'))return false;
+ const xs=g.points.map(p=>p.x),ys=g.points.map(p=>p.y);
+ const minX=Math.min(...xs),minY=Math.min(...ys);
+ const rx=(Math.max(...xs)-minX)/2,ry=(Math.max(...ys)-minY)/2;
+ if(rx<=EPS||ry<=EPS)return false;
+ const cx=minX+rx,cy=minY+ry;
+ return [...g.points,...g.edges.map(edge=>edge.via!)].every(point=>{
+  const normalizedRadius=((point.x-cx)/rx)**2+((point.y-cy)/ry)**2;
+  return Math.abs(normalizedRadius-1)<EPS;
+ });
+}
+
+export function contourAngles(g:Geometry):ContourAngle[]{
+ if(!isClosed(g))return [];
+ try{
+  if(isSampledEllipse(g))return [];
+  const winding=Math.sign(signedArea(g));
+  if(!winding)return [];
+  const edges=g.edges.map(edge=>{
+   const [vertex,end]=ends(g,edge);
+   if(edge.kind==='line'){
+    const heading=Math.atan2(end.y-vertex.y,end.x-vertex.x);
+    return {vertex,start:heading,end:heading,length:distance(vertex,end)};
+   }
+   const arc=edgeArc(g,edge);
+   const tangent=arc.start+Math.sign(arc.delta)*Math.PI/2;
+   return {vertex,start:tangent,end:tangent+arc.delta,length:arc.radius*Math.abs(arc.delta)};
+  });
+  return edges.flatMap((edge,index)=>{
+   const previous=edges[(index+edges.length-1)%edges.length];
+   const shorterSide=Math.min(previous.length,edge.length);
+   if(shorterSide<EPS)return [];
+   const turn=edge.start-previous.end;
+   const interior=Math.PI-winding*Math.atan2(Math.sin(turn),Math.cos(turn));
+   const degrees=interior*180/Math.PI;
+   const rounded=Math.round(degrees*100)/100;
+   if(rounded===0||rounded===90||rounded===180||rounded===360)return [];
+   return [{vertex:edge.vertex,degrees,start:edge.start,sweep:winding*interior,shorterSide}];
+  });
+ }catch{return [];}
+}
+
+const angleFormat=new Intl.NumberFormat('sr-Latn-RS',{maximumFractionDigits:2});
+export const formatAngle=(degrees:number)=>`${angleFormat.format(degrees)}°`;
 export function projectLine(p:Point,a:Point,b:Point){const v=sub(b,a),t=Math.max(0,Math.min(1,dot(sub(p,a),v)/(dot(v,v)||1)));return{x:a.x+t*v.x,y:a.y+t*v.y};}
 export function projectEdge(g:Geometry,e:Edge,p:Point){const[a,b]=ends(g,e);if(e.kind==='line')return projectLine(p,a,b);const arc=edgeArc(g,e),d=distance(p,arc.center);const q={x:arc.center.x+(p.x-arc.center.x)*arc.radius/(d||1),y:arc.center.y+(p.y-arc.center.y)*arc.radius/(d||1)};return onArc(arc,q)?q:distance(p,a)<distance(p,b)?a:b;}
 export function lineLine(a:Point,b:Point,c:Point,d:Point):{points:Point[];overlap:boolean}{const r=sub(b,a),s=sub(d,c),den=cross(r,s),q=sub(c,a);if(Math.abs(den)<EPS){if(Math.abs(cross(q,r))>EPS)return{points:[],overlap:false};const rr=dot(r,r);if(rr<EPS)return{points:[],overlap:false};const lo=Math.max(0,Math.min(dot(q,r)/rr,dot(sub(d,a),r)/rr)),hi=Math.min(1,Math.max(dot(q,r)/rr,dot(sub(d,a),r)/rr));return{points:hi>=lo-EPS?[{x:a.x+lo*r.x,y:a.y+lo*r.y}]:[],overlap:(hi-lo)*Math.sqrt(rr)>.001};}const t=cross(q,s)/den,u=cross(q,r)/den;return{points:t>=-EPS&&t<=1+EPS&&u>=-EPS&&u<=1+EPS?[{x:a.x+t*r.x,y:a.y+t*r.y}]:[],overlap:false};}
@@ -193,7 +249,7 @@ export function presetGeometry(shape:Exclude<Shape,'free'>,width=2400,height=160
 }
 export function isGeometry(value:unknown):value is Geometry{
  const g=value as Geometry;if(!g||g.version!==1||!Array.isArray(g.points)||!Array.isArray(g.edges)||!Array.isArray(g.bars)||g.points.length>256||g.edges.length>256||g.bars.length>100||!['free','rectangle','triangle','trapezoid','arch','circle','polygon'].includes(g.preset))return false;
- if(g.openings!==undefined&&(!Array.isArray(g.openings)||g.openings.length>256||!g.openings.every(mark=>mark&&typeof mark.region==='string'&&mark.region.length<=80000&&(mark.side==='left'||mark.side==='right'))||new Set(g.openings.map(mark=>mark.region)).size!==g.openings.length))return false;
+ if(g.openings!==undefined&&(!Array.isArray(g.openings)||g.openings.length>256||!g.openings.every(mark=>mark&&typeof mark.region==='string'&&mark.region.length<=80000&&((mark.side==='left'||mark.side==='right')&&(mark.tilt===undefined||mark.tilt===true)||mark.side==='bottom'&&mark.tilt===undefined))||new Set(g.openings.map(mark=>mark.region)).size!==g.openings.length))return false;
  const point=(p:Point)=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&Math.abs(p.x)<=1e6&&Math.abs(p.y)<=1e6,id=(s:string)=>typeof s==='string'&&s.length>0&&s.length<=100;
  return g.points.every(p=>point(p)&&id(p.id))&&new Set(g.points.map(p=>p.id)).size===g.points.length&&g.edges.every(e=>id(e.id)&&['line','arc'].includes(e.kind)&&g.points.some(p=>p.id===e.from)&&g.points.some(p=>p.id===e.to)&&(e.kind!=='arc'||point(e.via!))&&(e.locked===undefined||typeof e.locked==='object'&&e.locked!==null&&Number.isFinite(e.locked.length)&&e.locked.length>0&&e.locked.length<=1e8&&(e.locked.radius===undefined||e.kind==='arc'&&Number.isFinite(e.locked.radius)&&e.locked.radius>0&&e.locked.radius<=1e7)))&&new Set(g.edges.map(e=>e.id)).size===g.edges.length&&g.bars.every(b=>id(b.id)&&point(b.a)&&point(b.b))&&new Set(g.bars.map(b=>b.id)).size===g.bars.length;
 }

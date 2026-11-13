@@ -7,8 +7,7 @@ export const isSupabaseConfigured = Boolean(url && anonKey);
 
 let client: SupabaseClient | undefined;
 
-// Lazy initialization keeps the existing local application usable without a key.
-// This client does not migrate or synchronize local jobs automatically.
+// Both office submissions and employee sessions use the same configured project.
 export function getSupabase(): SupabaseClient {
   if (!url || !anonKey) {
     throw new Error(

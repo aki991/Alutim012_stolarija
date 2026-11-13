@@ -1,0 +1,138 @@
+import { expect, test } from '@playwright/test';
+
+const job='/posao/AT-2026-012';
+
+test('Marža i ručna cena rade direktno na ponudi uz povratak na Auto',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/cenovnik');
+ await page.getByLabel('Marža (%)',{exact:true}).fill('20');
+ await page.goto(`${job}/ponuda`);
+ const line=page.locator('.price-line').first();
+ const price=line.getByRole('textbox',{name:/Cena po komadu/});
+ const originalTotal=await page.getByTestId('quote-total').innerText();
+ await expect(price).toHaveValue('760,61');
+ await price.fill('600,50');
+ await expect(line.locator('.quote-line-total')).toContainText('1.201,00');
+ await expect(page.getByTestId('quote-total')).not.toHaveText(originalTotal);
+ await page.reload();
+ await expect(price).toHaveValue('600,50');
+ await line.getByRole('button',{name:/Auto/}).click();
+ await expect(price).toHaveValue('760,61');
+ await expect(page.getByTestId('quote-total')).toHaveText(originalTotal);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.reload();
+ await expect(price).toHaveValue('760,61');
+});
+
+test('Trapez prikazuje uglove na crtežu i čuva ih za izvoz',async({page},testInfo)=>{
+ await page.goto(`${job}/nov/nacrtaj`);
+ await page.getByRole('button',{name:'Trapezni prozor',exact:true}).click();
+ const angles=page.locator('.custom-canvas [data-contour-angle] text');
+ await expect(angles).toHaveText(['99,46°','80,54°']);
+ await page.getByLabel('Visina oblika (mm)',{exact:true}).fill('2400');
+ await page.getByRole('button',{name:'Primeni mere oblika',exact:true}).click();
+ await expect(angles).toHaveText(['104,04°','75,96°']);
+ await page.getByRole('button',{name:'Dodaj u posao',exact:true}).click();
+ await page.getByRole('link',{name:'Pogledaj cenu i podeli dokument',exact:true}).click();
+ await page.getByRole('button',{name:'Specifikacija za kancelariju',exact:true}).click();
+ const download=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Preuzmi PDF',exact:true}).click();
+ await (await download).saveAs(testInfo.outputPath('trapez-specifikacija.pdf'));
+});
+
+test('Pretražuje, podešava i izvozi model iz aktivnog posla',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto(`${job}/dodaj`);
+ await page.getByRole('link',{name:'Pretraži sve modele'}).click();
+ await expect(page.getByRole('status').filter({hasText:'modela'})).toHaveText(/1–24 od 2\.\d{3} modela/);
+ await expect(page.locator('.catalog-model-grid button')).toHaveCount(24);
+ const firstSketch=page.locator('.catalog-model-grid button').first();
+ await expect(firstSketch).toContainText('800 × 1200 mm');
+ const mark=await firstSketch.locator('[data-model-movement="right"]').getAttribute('d');
+ const [cornerX,,tipX]=mark!.match(/\d+(?:\.\d+)?/g)!.map(Number);
+ expect(tipX).toBeLessThan(cornerX);
+ await page.getByRole('button',{name:'Sledeća',exact:true}).click();
+ await expect(page.getByRole('status').filter({hasText:'modela'})).toContainText('25–48');
+ await page.getByLabel('Grupa modela',{exact:true}).selectOption('sliding');
+ await page.getByRole('searchbox',{name:'Pretraži modele'}).fill('podizno klizni ugao');
+ const model=page.getByRole('button',{name:/Podizno-klizni ugao · 2 \+ 3 polja/});
+ const catalogPrice=await model.locator('.catalog-model-price').innerText();
+ expect(catalogPrice).toContain('€');
+ await model.click();
+ await expect(page.locator('.measurement-amount strong')).toHaveText(catalogPrice);
+ await expect(page).toHaveURL(/model=s-corner-hs-2-3/);
+ await expect(page.locator('[data-model-movement="slideLeft"]')).toHaveCount(1);
+ await expect(page.locator('[data-model-movement="slideRight"]')).toHaveCount(2);
+ await page.getByRole('link',{name:'Nazad',exact:true}).click();
+ await expect(page.getByRole('searchbox',{name:'Pretraži modele'})).toHaveValue('podizno klizni ugao');
+ await model.click();
+ await page.getByText('Otvaranje, raspored i mere polja',{exact:true}).click();
+ await page.getByLabel('Širina polja 1.1 (mm)',{exact:true}).fill('800');
+ await page.getByLabel('Otvaranje polja 1.2',{exact:true}).selectOption('tiltRight');
+ await expect(page.locator('[data-model-movement="tiltRight"]')).toBeVisible();
+ await expect(page.locator('.measurement-amount strong')).not.toHaveText(catalogPrice);
+ await page.reload();
+ await page.getByText('Otvaranje, raspored i mere polja',{exact:true}).click();
+ await expect(page.getByLabel('Širina polja 1.1 (mm)',{exact:true})).toHaveValue('800');
+ await expect(page.getByLabel('Otvaranje polja 1.2',{exact:true})).toHaveValue('tiltRight');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.getByRole('button',{name:'Dodaj u posao',exact:true}).click();
+ await expect(page.locator('.job-line').last()).toContainText('Podizno-klizni ugao');
+ await expect(page.locator('.job-line').last()).toContainText('5 polja');
+ await page.getByRole('link',{name:'Pogledaj cenu i podeli dokument',exact:true}).click();
+ await page.getByRole('button',{name:'Specifikacija za kancelariju',exact:true}).click();
+ const download=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Preuzmi PDF',exact:true}).click();
+ const file=await download;
+ expect(file.suggestedFilename()).toContain('specifikacija.pdf');
+ await file.saveAs(test.info().outputPath('katalog-specifikacija.pdf'));
+});
+
+test('Vrata počinju sa kipom, a ručno nacrtani polukrug odmah dobija cenu',async({page})=>{
+ await page.goto(`${job}/nov/balkonska`);
+ await expect(page.getByRole('button',{name:'Levo + kip',exact:true})).toHaveAttribute('aria-pressed','true');
+ const price=page.locator('.measurement-amount strong');
+ const combinedPrice=await price.innerText();
+ await page.getByRole('button',{name:'Levo',exact:true}).click();
+ await expect(price).not.toHaveText(combinedPrice);
+ await page.getByRole('button',{name:'Desno + kip',exact:true}).click();
+ await expect(price).toHaveText(combinedPrice);
+ await page.reload();
+ await expect(page.getByRole('button',{name:'Desno + kip',exact:true})).toHaveAttribute('aria-pressed','true');
+
+ await page.goto(`${job}/nov/nacrtaj`);
+ await page.getByLabel('Širina oblika (mm)',{exact:true}).fill('1000');
+ await page.getByLabel('Visina oblika (mm)',{exact:true}).fill('500');
+ await page.getByRole('button',{name:'Polukružni prozor',exact:true}).click();
+ const sketchPrice=page.getByTestId('custom-position-price');
+ await expect(sketchPrice).toContainText('171,16');
+ await page.getByRole('button',{name:'Označi otvaranje',exact:true}).click();
+ await page.getByLabel('Strana otvaranja',{exact:true}).selectOption('tiltRight');
+ await expect(page.locator('.custom-canvas [data-opening-side="right"][data-opening-tilt="true"]')).toBeVisible();
+ await expect(sketchPrice).toContainText('207,16');
+ await page.getByRole('button',{name:'Dodaj u posao',exact:true}).click();
+ await expect(page.locator('.job-line').last()).toContainText('207,16');
+ await page.goto('/cenovnik');
+ await page.getByLabel('Savijanje PVC profila (€/m luka)',{exact:true}).fill('60');
+ await expect(page.locator('.settings-save')).toContainText('Sačuvano lokalno');
+ await page.goto(job);
+ await expect(page.locator('.job-line').last()).toContainText('226,01');
+ await page.getByRole('link',{name:'Pogledaj cenu i podeli dokument',exact:true}).click();
+ await page.getByRole('button',{name:'Specifikacija za kancelariju',exact:true}).click();
+ const download=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Preuzmi PDF',exact:true}).click();
+ await (await download).saveAs(test.info().outputPath('polukrug-specifikacija.pdf'));
+});
+
+test('Otvara lučna vrata sa nadsvetlom kao pripremljen crtež',async({page})=>{
+ await page.goto(`${job}/modeli?grupa=shapes&q=lucna+ulazna+vrata`);
+ await page.getByRole('button',{name:/Lučna ulazna vrata sa nadsvetlom · šarke desno/}).click();
+ await expect(page.locator('.custom-canvas [data-opening-side="right"]')).toBeVisible();
+ await page.getByLabel('Širina oblika (mm)',{exact:true}).fill('1200');
+ await page.getByRole('button',{name:'Primeni mere oblika',exact:true}).click();
+ await expect(page.locator('.custom-size-info')).toContainText('1200 mm');
+ await expect(page.locator('.custom-canvas [data-opening-side="right"]')).toBeVisible();
+ await expect(page.getByRole('button',{name:'Dodaj u posao',exact:true})).toBeEnabled();
+ await page.getByRole('button',{name:'Dodaj u posao',exact:true}).click();
+ await expect(page.locator('.job-line').last()).toContainText('Lučna ulazna vrata sa nadsvetlom');
+});

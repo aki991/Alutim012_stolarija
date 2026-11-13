@@ -1,12 +1,15 @@
 import { panelLabels, type PanelSide } from '../fixed-panels';
-import { hingeLabel, openingRegions } from '../custom/openings';
+import { customOpeningLabel, openingRegions } from '../custom/openings';
 import { customKindLabel, customInfillOf } from '../models';
-import { edgeArc, edgeLength, ends, fmt } from '../custom/geometry';
+import { contourAngles, edgeArc, edgeLength, ends, fmt, formatAngle } from '../custom/geometry';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { jsPDF as PDF } from 'jspdf';
 import type { Job, Position, Settings } from '../models';
 import { Drawing } from '../components/Drawing';
-import { calculate, jobTax, euro, positionCost, validatePosition, reviewPrice } from './calculation';
+import { calculate, jobTax, euro, validatePosition, jobReviewLabel, positionReviewLabel } from './calculation';
+import { hasGlass, infills, movements, weightTotal } from '../model-layout';
+import { openingBoxHeight, shutterBoxShapes, shutterMeasures, shutterMounts, shutterOf, shutterTypes } from '../shutters';
+import { portaDecorName, portaDirection, portaFills, portaGlazing, portaHandles, portaHinges, portaLocks, portaOptions, portaTechnical, portaVariant } from '../porta-royal';
 const base64=(bytes:Uint8Array)=>{let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(s);};
 let fonts:Promise<string[]>|undefined;
 function loadImage(src:string){return new Promise<HTMLImageElement>((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(Error('Slika nije dostupna. Proverite podatke o fotografijama.'));i.src=src;});}
@@ -33,44 +36,88 @@ export async function makeDocument(job:Job,settings:Settings,kind:'kupac'|'kance
  if(showPrices)text(`Demo paket: ${job.package}. Cene su ${taxSettings.vatMode==='inclusive'?'sa uključenim PDV-om':taxSettings.vatMode==='exclusive'?'bez PDV-a; porez se dodaje u pregledu':'bez obračuna PDV-a'}.`,8);rule();
  const c=calculate(job,settings);
  for(let i=0;i<job.positions.length;i++){
-  const p=job.positions[i],price=positionCost(p,settings,job.package);ensure(88);text(`${String(i+1).padStart(2,'0')}  ${p.name}`,11,true);const start=y;
+  const p=job.positions[i],price=c.positions[i],shutter=shutterOf(p),boxInHeight=openingBoxHeight(p),door=p.portaRoyal;ensure(88);text(`${String(i+1).padStart(2,'0')}  ${p.name}`,11,true);const start=y;
   doc.addImage(await drawingImage(p),'PNG',15,start,69,55);y=start+5;
-  text(`${fmt(p.width)} × ${fmt(p.height)} mm  |  ${p.quantity} kom`,10,true,88,104);text(`${p.material} · ${p.profile||(p.material==='PVC'?'PVC 70 mm':'ALU termo profil')}, ${p.color}`,9,false,88,104);text(p.customGeometry?`${customInfillOf(p)==='panel'?'Puni panel':p.glass+' staklo'}, ${customKindLabel(p.customKind).toLowerCase()}`:`${p.glass} staklo, ${p.hardware.toLowerCase()} okov`,9,false,88,104);
-  const extras=[p.shutter?'roletna':'',p.mosquito?'komarnik':'',p.sill?'klupica':'',p.installation?'montaža':'',p.removal?'demontaža':''].filter(Boolean).join(', ');
+  text(`${fmt(p.width)} × ${fmt(p.height+boxInHeight)} mm${boxInHeight||door?' (otvor)':''}  |  ${p.quantity} kom`,10,true,88,104);
+  if(!door)text(`${p.material} · ${p.profile||(p.material==='PVC'?'PVC 70 mm':'ALU termo profil')}, ${p.color}`,9,false,88,104);
+  const details=door?'':p.customGeometry?`${customInfillOf(p)==='panel'?'Puni panel':p.glass+' staklo'}, ${customKindLabel(p.customKind).toLowerCase()}`:p.modelLayout?[p.name.startsWith(p.modelLayout.system)?null:p.modelLayout.system,p.modelLayout.rows.some(row=>row.cells.some(cell=>hasGlass(cell.infill)))?`${p.glass} staklo`:null].filter(Boolean).join(' · '):`${p.glass} staklo, ${p.hardware.toLowerCase()} okov`;
+  if(details)text(details,9,false,88,104);
+  if(door){
+   const variant=portaVariant(door)!,spec=portaTechnical(variant.series);
+   text(`Porta Royal · ${variant.series.name} · Tip ${variant.code}`,9,true,88,104);
+   text(`${portaDecorName(door)} · ${portaDirection(door)}`,9,false,88,104);
+   text(`${spec.frame} · ${portaFills[door.fill]}`,9,false,88,104);
+   if(door.wall)text(`Debljina zida ${fmt(door.wall)} mm`,9,false,88,104);
+  }
+  const extras=[p.mosquito?'komarnik':'',p.sill?'klupica':'',p.installation?'montaža':'',p.removal?'demontaža':''].filter(Boolean).join(', ');
   if(extras)text(`Uključeno: ${extras}`,8,false,88,104);
-  if(showPrices){if(price.requiresReview)text(reviewPrice,10,true,88,104);else{text(`${p.customGeometry?'Ručno / kom':'Jedinično'}: ${euro(price.unit)}`,9,false,88,104);text(`Ukupno: ${euro(price.total)}`,10,true,88,104);}}y=Math.max(y,start+58);
+  if(showPrices){if(price.requiresReview)text(positionReviewLabel(p),10,true,88,104);else{text(`${p.manualPrice!==null?'Ručno / kom':'Jedinično'}: ${euro(price.unit)}`,9,false,88,104);text(`Ukupno: ${euro(price.total)}`,10,true,88,104);}}y=Math.max(y,start+58);
+  if(door){
+   const variant=portaVariant(door)!,spec=portaTechnical(variant.series);
+   const options=[door.hinge&&`Šarke ${portaHinges[door.hinge]}`,door.lock&&`Brava ${portaLocks[door.lock]}`,door.handle&&`Kvaka ${portaHandles[door.handle]}`,door.cutout&&`Otvor ${door.cutout}`,door.glazing&&`Staklići ${portaGlazing[door.glazing]}`,door.threshold&&portaOptions.threshold,door.vent&&portaOptions.vent].filter(Boolean);
+   if(options.length)text(options.join(' · '),9);
+   if(kind==='kancelarija'){
+    text(`Krilo ${spec.leaf} · Završna obrada ${spec.surface}${spec.trim?` · Pervajz ${spec.trim}`:''}`,9);
+    if(spec.detail)text(spec.detail,9);
+    text(`Raspon debljine zida ${spec.wall}${spec.limit?` · ${spec.limit}`:''}`,9);
+    if(spec.standardSizes)text('Standardne mere proizvođača 690, 790 ili 890 × 2.060 mm · dostupna izrada po meri',9);
+    text(`Kataloški ID ${variant.id} · ${variant.series.source}`,8);
+   }
+  }
   if(p.customGeometry?.openings?.length){
    const marks=p.customGeometry.openings;
    const openings=openingRegions(p.customGeometry).map((region,index)=>{
     const mark=marks.find(mark=>mark.region===region.id);
-    return mark?`Polje ${index+1}: ${hingeLabel(mark.side)}`:'';
+    return mark?`Polje ${index+1}: ${customOpeningLabel(mark)}`:'';
    }).filter(Boolean);
    if(openings.length)text(`Otvaranje (pogled kao na crtežu): ${openings.join(', ')}.`,9,true);
   }
-  if(p.customGeometry)text('Terenska skica — potrebna tehnička provera',9,true);
+  if(p.customGeometry||p.modelLayout)text('Terenska skica — potrebna tehnička provera',9,true);
   if(p.extraWork)text(`Dodatni radovi: ${p.extraWork}${showPrices?` (${euro(p.extraCost)} / kom)`:''}`);
   if(p.combination){
    text(`Vrata: ${fmt(p.segments[0].width)} × ${fmt(p.height)} mm / ${p.segments[0].opening}`,9);
    text(`Prozor ${p.combination.windowSide==='left'?'levo':'desno'}: ${fmt(p.segments[1].width)} × ${fmt(p.combination.windowHeight)} mm / ${p.segments[1].opening}`,9);
    text(`Poravnanje: ${p.combination.alignment==='top'?'gornja ivica':'donja ivica'}`,9);
   }
+  if(shutter){
+   const {part,width,totalHeight,frameHeight,openingHeight}=shutterMeasures(p,shutter);
+   const target=p.combination?` na delu ${part==='window'?'prozor':'vrata'}`:'';
+   text(`Roletna${target} · ${shutterTypes[shutter.type].label} · ${shutterMounts[shutter.mount]}`,9,true);
+   text(`Mera roletne ${fmt(width)} × ${fmt(totalHeight)} mm · Visina kutije ${fmt(shutter.boxHeight)} mm${shutter.shape?` · ${shutterBoxShapes[shutter.shape]}`:''}`,9);
+   if(!p.shutterConfig)text('Predloženi prikaz roletne · tip i mere kutije čekaju potvrdu',8);
+   if(p.category!=='Roletne'&&shutter.mount==='inside')text(`Visina otvora ${fmt(openingHeight)} mm = ram ${fmt(frameHeight)} mm + kutija ${fmt(shutter.boxHeight)} mm`,9);
+  }
   if(kind==='kancelarija'){
+   if(p.customGeometry){
+    const angles=contourAngles(p.customGeometry);
+    if(angles.length)text(`Unutrašnji uglovi · ${angles.map(({vertex,degrees})=>`(${fmt(vertex.x)}, ${fmt(vertex.y)}) ${formatAngle(degrees)}`).join(' · ')}`,9);
+   }
+   if(p.modelLayout){
+    const {rows,cornerAfter}=p.modelLayout;
+    if(cornerAfter){const left=p.width*weightTotal(rows[0].cells.slice(0,cornerAfter))/weightTotal(rows[0].cells);text(`Ugao 90° · razvijeni pogled · levi krak ${fmt(left)} mm · desni krak ${fmt(p.width-left)} mm`,9,true);}
+    else text('Raspored polja · pogled iznutra',9,true);
+    rows.forEach((row,j)=>{
+     const height=fmt(p.height*row.weight/weightTotal(rows));
+     const total=weightTotal(row.cells);
+     row.cells.forEach((cell,k)=>text(`Polje ${j+1}.${k+1}: ${fmt(p.width*cell.weight/total)} × ${height} mm · ${infills[cell.infill]}${cell.infill==='space'?'':` · ${movements[cell.movement]}`}`,9));
+    });
+   }
    if(p.fixedPanels){
     const panels=p.fixedPanels;
     const labels=(Object.keys(panelLabels) as PanelSide[]).filter(side=>panels[side]>0).map(side=>`${panelLabels[side]} ${panels[side]} mm`);
     if(labels.length)text(labels.join(' · '),9);
    }
-   if(!p.customGeometry&&!p.combination)text(`Krila: ${p.segments.map((s,k)=>`${k+1}: ${Math.round(s.width)} mm / ${s.opening}`).join('; ')}`,9);
+   if(!door&&!p.customGeometry&&!p.combination&&!p.modelLayout)text(`Krila: ${p.segments.map((s,k)=>`${k+1}: ${Math.round(s.width)} mm / ${s.opening}`).join('; ')}`,9);
    if(p.customGeometry){const g=p.customGeometry;text(`Geometrija u mm. ${customKindLabel(p.customKind)}. Širina rama: ${p.customFrameMm??70} mm. Otvaranje za tehničku proveru.`,9,true);for(let k=0;k<g.edges.length;k++){const e=g.edges[k],[a,b]=ends(g,e);text(`${k+1}. ${e.kind==='arc'?'Luk':'Linija'}: (${fmt(a.x)}; ${fmt(a.y)}) → (${fmt(b.x)}; ${fmt(b.y)}), dužina ${fmt(edgeLength(g,e))} mm`,8);if(e.kind==='arc'){const arc=edgeArc(g,e);text(`R ${fmt(arc.radius)} mm; centar (${fmt(arc.center.x)}; ${fmt(arc.center.y)}); kontrolna tačka (${fmt(e.via!.x)}; ${fmt(e.via!.y)})`,8);}}for(let k=0;k<g.bars.length;k++){const b=g.bars[k];text(`Prečka ${k+1}: (${fmt(b.a.x)}; ${fmt(b.a.y)}) → (${fmt(b.b.x)}; ${fmt(b.b.y)}) mm`,8);}}
    if(p.notes)text('Napomena: '+p.notes);if(p.access)text('Pristup i uslovi: '+p.access);
    text(`Montaža: ${p.installation?'DA':'NE'}  |  Demontaža: ${p.removal?'DA':'NE'}`);
-   if(showPrices){if(!p.customGeometry)text('Obračun po komadu:',8,true);for(const line of price.lines)text(`${line.name}: ${line.basis} = ${euro(line.amount)}`,8);
-   if(p.manualPrice!==null)text(p.customGeometry?`Ručna okvirna cena: ${euro(p.manualPrice)} / kom. Potrebna provera u kancelariji.`:`Ručna korekcija: ${euro(p.manualPrice)} / kom (umesto ${euro(price.calculated)})`,8,true);}
+   if(showPrices){text('Obračun po komadu:',8,true);for(const line of price.lines)text(`${line.name}: ${line.basis} = ${euro(line.amount)}`,8);
+   if(p.manualPrice!==null)text(`Ručna korekcija: ${euro(p.manualPrice)} / kom (umesto ${euro(price.calculated)})`,8,true);}
    for(let k=0;k<p.photos.length;k++){const src=p.photos[k];ensure(76);text(`Fotografija ${k+1}${src.startsWith('/assets')?' - demonstraciona ilustracija objekta':''}`,8);const img=await loadImage(src),ratio=Math.min(172/img.naturalWidth,65/img.naturalHeight);const cv=document.createElement('canvas');cv.width=img.naturalWidth;cv.height=img.naturalHeight;cv.getContext('2d')!.drawImage(img,0,0);const height=img.naturalHeight*ratio;doc.addImage(cv.toDataURL('image/jpeg',.8),'JPEG',16,y, img.naturalWidth*ratio,height);y+=height+7;}
   }
   rule();
  }
- if(showPrices){ensure(88);if(c.hasUnpriced)text(reviewPrice+'. Elementi bez ručne cene nisu uključeni u zbir.',10,true);text(c.hasUnpriced?'Zbir poznatih stavki':'Okvirna cena',15,true);text(`Elementi sa odabranom opremom i radovima: ${euro(c.elements)}`);text(`Transport: ${euro(job.transport)}`);if(job.extraCost||job.extraWork)text(`Dodatni radovi: ${job.extraWork||'-'} - ${euro(job.extraCost)}`);if(c.manual)text('Ručna ukupna cena (konačan iznos); popust i uvećanje se ne primenjuju.',9,true);else {text(`Popust ${job.discountMode==='amount'?'':job.discount+'%'}: -${euro(c.discount)}`);if(c.surcharge)text(`Uvećanje: ${euro(c.surcharge)}`);}text(`Osnovica: ${euro(c.net)}`);text(taxSettings.vatMode==='none'?'PDV: bez obračuna':`PDV ${taxSettings.vat}%${taxSettings.vatMode==='inclusive'?' (uključen)':''}: ${euro(c.tax)}`);text(`${c.hasUnpriced?'Nepotpun zbir poznatih stavki':'Ukupan okvirni iznos'}: ${euro(c.total)}`,13,true);y+=4;}
+ if(showPrices){ensure(88);if(c.hasUnpriced)text(jobReviewLabel(job,c)+'. Zbir obuhvata stavke sa izračunatom cenom.',10,true);text(c.hasUnpriced?'Zbir poznatih stavki':'Okvirna cena',15,true);text(`Elementi sa odabranom opremom i radovima: ${euro(c.elements)}`);text(`Transport: ${euro(job.transport)}`);if(job.extraCost||job.extraWork)text(`Dodatni radovi: ${job.extraWork||'-'} - ${euro(job.extraCost)}`);if(c.manual)text('Ručna ukupna cena (konačan iznos); popust i uvećanje se ne primenjuju.',9,true);else {text(`Popust ${job.discountMode==='amount'?'':job.discount+'%'}: -${euro(c.discount)}`);if(c.surcharge)text(`Uvećanje: ${euro(c.surcharge)}`);}text(`Osnovica: ${euro(c.net)}`);text(taxSettings.vatMode==='none'?'PDV: bez obračuna':`PDV ${taxSettings.vat}%${taxSettings.vatMode==='inclusive'?' (uključen)':''}: ${euro(c.tax)}`);text(`${c.hasUnpriced?'Nepotpun zbir poznatih stavki':'Ukupan okvirni iznos'}: ${euro(c.total)}`,13,true);y+=4;}
  if(!showPrices&&job.extraWork)text('Dodatni radovi: '+job.extraWork);
  if(job.notes)text('Napomena za posao: '+job.notes);
  if(kind==='kupac'){text(`Važenje ponude: ${job.validity}`);text(`Rok isporuke: ${job.delivery}`);text(`Plaćanje: ${job.payment}`);}else{text('Status: ZA DALJU TEHNIČKU PROVERU',10,true);text(`Evidentirani status posla: ${job.status}`);text('Potrebno je potvrditi završne mere, profile, raspored krila i uslove proizvodnje i montaže.');}

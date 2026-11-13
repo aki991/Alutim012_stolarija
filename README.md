@@ -43,13 +43,25 @@ Telefon, email, adresa, objekat i majstor nisu uslov za početak. Naknadno su do
 - **Telefon i uspravni tablet:** crtež je iznad kontrola. Radna površina se skroluje unutar ekrana, dok je veliko dugme za dodavanje ispod nje, bez prekrivanja kontrola. Dostupan je prošireni crtež.
 - **Posao:** mala skica, naziv, dimenzije, broj krila, količina i cena. Olovka otvara izmenu; meni sa tri tačke sadrži dupliranje, pomeranje i brisanje.
 - **Cena:** čitljiv spisak i izdvojeni zbir sa PDV-om. Popust, ručne cene, paketi i uslovi su u opcionoj sekciji **Korekcija cene i uslovi**.
-- **Katalog:** osam velikih kategorija sa različitim SVG ikonama. Svih 17 prethodnih modela je dostupno pod „Svi modeli“. Izbor otvara konfigurator u zapamćenom poslu; bez otvorenog posla traži samo naziv.
+- **Katalog:** osnovni izbor i pretraživ katalog sa 2.578 konfiguracija prozora i vrata u devet grupa. Iz posla je dostupan preko **Dodaj element → Pretraži sve modele**. Na karticama su skice i početne mere. Pretraga radi i bez srpskih dijakritika. Izbor otvara konfigurator u aktivnom poslu, a bez aktivnog posla traži naziv kupca.
 
-Osnovni pravougaoni prozori, vrata, fiksni i klizni paneli imaju funkcionalan SVG. Jednostruko krilo ne može dobiti kombinaciju „Levo + desno“; prikazuje se kratka poruka. Otklop se ne nudi za vrata. Menjanje broja i otvaranja krila čuva ukupne mere. Stari četvorokrilni elementi ostaju podržani.
+Prozori i vrata imaju opcije **Levo + kip** i **Desno + kip**, kao i obično zaokretanje, samo kip i fiksno polje. U brzom izboru prozora i vrata glavno krilo počinje sa opcijom **Levo + kip**. U katalogu model počinje sa otvaranjem iz izabranog šablona. Menjanje broja i otvaranja krila čuva ukupne mere.
 
-Nadsvetla, kombinacije sa različitim visinama i složene proizvodne geometrije nisu implementirane. Nasleđene kataloške kombinacije imaju pojednostavljen pravougaoni prikaz i zahtevaju razradu u kancelariji. Crteži služe za terensku specifikaciju, nisu proizvodno verifikovani.
+U kataloškim rasporedima mogu se podesiti ukupne mere, visine redova, širine, otvaranje i ispuna pojedinačnih polja. Opcija **Nacrtaj** pokriva dodatne oblike, a opcija **Kombinacija** ima odvojene mere za prozor i balkonska vrata. Vrh isprekidanih linija označava stranu ručke kod bočno otvarajućeg krila, u pogledu iznutra. Ugaoni sistemi imaju razvijeni prikaz sa označenim spojem i dužinama oba kraka u specifikaciji.
+
+Katalog sadrži terenske šablone i varijante rasporeda izvedene iz proizvođačkih tipologija. Svaku konkretnu meru, profil, okov i izvodljivost potvrđuje kancelarija. Elipsasti obris je na skici aproksimiran kružnim lukovima. Kataloške kartice prikazuju okvirnu cenu za početne mere, a konfigurator je ažurira pri izmeni.
+
+### Tehnički izvori za katalog
+
+- Otvaranje krila, obrtna i pivot vrata, fasadna izbačajna polja i posebna namena vrata. [Jansen](https://www.jansen.com/en/building-systems-profile-systems-steel/topics/design/opening-variants.html), [Schüco AWS 114](https://www.schueco.com/en-sg/architects/products/facades/insert-element/aws-114), [Schüco FireStop](https://www.schueco.com/de-en/architects/products/doors/aluminium/firestop-ads-90-fr30), [Breezway](https://www.breezway.com/downloads/australia/0456p_BREEZWAY_louvre_windows_Apr25.pdf), [Simpson Door](https://www.simpsondoor.com/door-series/dutch/Default.aspx)
+- Paralelno, otklopno, podizno i odmično klizanje, zidni džepovi, uglovi i vertikalna giljotina. [Roto](https://ftt.roto-frank.com/int-en/products/products-for-windows/sliding-systems/), [ALUMIL S700](https://www.alumil.com/georgia/en/aluminium-systems/all-architectural-aluminium-systems/lift-slide-insulated-system-supreme-s700), [Vitrocsa](https://vitrocsa.com/systems/guillotine/), [Andersen](https://www.prod.xmc.andersenwindows.com/for-professionals/architect/architectural-tools)
+- Sklopivi sistemi i rasporedi slaganja krila. [Loewen](https://technical.loewen.com/bifold-doors/), [ALUMIL M19800](https://www.alumil.com/egypt/aluminium-systems/all-architectural-aluminium-systems/smartia-m19800-insulated-folding-doors), [IDSystems / SUNFLEX](https://idsystems.co.uk/downloads/)
+- Nepravilni oblici, lučna nadsvetla i krovni prozori. [Pella](https://www.pella.com/ideas/windows/custom/special-shape/), [VEKA](https://www.veka.in/specialities/arched/), [VELUX](https://afd-marketing.velux.com/-/media/marketing/uk/architects%20sheets/v22%20architects%20sheets/velux%20ggl-gpl%20conservation%20roof%285%29.pdf)
+- Automatska i garažna vrata. [dormakaba](https://www.dormakaba.com/us-en/offering/products/entrance-systems), [Hörmann](https://www.hormann.co.uk/home-owners-and-renovators/garage-doors/)
 
 ## Čuvanje i migracija
+
+Za prijavu zaposlenih, zajedničke poslove, dodelu merenja i obaveštenja pogledajte [uključivanje zajedničkog rada](supabase/TEAM_WORKSPACE.md).
 
 - Postojeći ključ **`alu-tim-teren-v1`** je zadržan. Nema resetovanja ili zamene postojećih poslova demo podacima pri redovnom učitavanju.
 - Migracija dodaje podrazumevani profil kada ga stara pozicija nema (`PVC 70 mm` ili `ALU termo profil`). ID-jevi, mere, količine, ručne cene, paketi, popusti, radovi i fotografije ostaju sačuvani.
@@ -61,14 +73,16 @@ Nadsvetla, kombinacije sa različitim visinama i složene proizvodne geometrije 
 
 Fotografije: do četiri po elementu, JPG/PNG/WebP do 10 MB pre optimizacije. Slike se smanjuju na najviše 1000 px, JPEG kvalitet 0,65 i ograničenje približno 475 KB posle optimizacije. Ako kvota nije dovoljna, izvezite kopiju i uklonite veće slike.
 
-## Kalkulacija je zadržana
+## Automatski obračun
 
-Sve cene su **demonstracione** i nisu zvanični cenovnik firme. Valuta ostaje **EUR**; iznosi u RSD sa referentne slike nisu kopirani niti je uvedena prećutna konverzija.
+Početne stope su demonstracione i izražene u EUR. Menjaju se u **Podešavanja → Cenovnik**.
 
-Obračun kombinuje površinu profila i stakla, broj otvarajućih krila za okov, površinu dodataka, dužinu klupice, obim za montažu/demontažu, radove, količinu i transport.
+Cena po komadu sabira profil po površini elementa, staklo, panel i lamele po pripadajućoj površini, prečke po metru, okov po pokretnom krilu, dodatne mehanizme po sistemu i odabrane radove. Montaža i demontaža koriste obim elementa. Količina množi jediničnu cenu. Zbir posla uključuje transport, popuste, uvećanja i PDV prema podešavanjima. Proizvođačke kalkulacije razlikuju se po dobavljaču, profilu, okovu i obradi. [ALUMIL](https://www.alumil.com/india/support/services-tools/alumilcal/benefits), [Orgadata](https://help.orgadata.com/Download/Datenbankentwicklung%20-%20EN%20-%20Infoblatt.pdf)
+
+Za nacrtani polukrug širine 1.000 mm i visine 500 mm površina konture je približno 0,393 m², dužina luka 1,571 m, a ukupan obim 2,571 m. Aplikacija koristi punu preciznost crteža. Savijanje se računa po metru luka, a obrada nestandardne ispune po komadu. Površina je terenska mera i koristi se bez odbitaka za proizvodni kroj. [Aliplast](https://www.aliplastpoland.com/about-us/tech-and-technologies/profiles-bending)
 
 - **Standard:** faktor profila 1; **Optimal:** 1,12; **Premium:** 1,28. Odabrano staklo i okov ostaju prema elementu.
-- Naziv profila se beleži i pojavljuje u dokumentima. Ova verzija nema verifikovan cenovnik pojedinačnih proizvođačkih profila; cena profila je postojeća demo stopa po materijalu.
+- Cenovnik ima stope za PVC 70, 76 i 82 mm, ALU termo i hladni profil, kao i procentualnu doplatu za boju profila. Za ostale profile koristi se osnovna stopa materijala.
 - Ručna cena menja jedinični iznos cele pozicije, sa njenim dodacima i radovima. Prazno polje vraća automatski obračun; nula je dozvoljena. Ručna cena ostaje ista pri promeni paketa.
 - Popust važi za elemente, transport i zajedničke radove pre poreza.
 - PDV: neto cene dodaju porez; bruto cene izdvajaju već uključeni porez; režim bez PDV-a ne dodaje porez. Nema dvostrukog obračuna.
@@ -157,7 +171,7 @@ Nova opcija **Nacrtaj** dostupna je u katalogu i izboru novog elementa. Modul je
 - Undo / Redo pokrivaju izmene; zoom, pan i dva prsta menjaju samo pogled. Na telefonu postoji poseban fullscreen režim. U običnom režimu ostaje globalna navigacija.
 - Fiksno zastakljenje je jedina podržana izvedba nepravilnog elementa u ovom modulu. Prečke su terenska skica, bez pretpostavke o proizvodnom rešenju ili standardnom okovu.
 
-Nepravilni elementi ne koriste standardnu kalkulaciju površine, profila i okova. Bez ručne cene prikazuje se **Cena zahteva proveru u kancelariji**; zbir posla i oba PDF-a označavaju nepotpun zbir poznatih stavki. Nula je dozvoljena samo kada je ručno uneta. Ručna cena važi po komadu. Kancelarijska specifikacija sadrži koordinate, dužine, centre i radijuse lukova, prečke, napomenu i fotografije, sa oznakom **Terenska skica — potrebna tehnička provera**.
+Nepravilni elementi dobijaju okvirnu cenu čim je zatvorena kontura ispravna. Cena se menja pri promeni oblika, ispune, prečki i otvaranja. Ručna cena važi po komadu, a prazno polje vraća automatski iznos. Kancelarijska specifikacija sadrži geometriju, otvaranja i stavke obračuna.
 
 Izvori: `src/custom/geometry.ts`, `CustomDrawing.tsx`, `CustomEditor.tsx`, `custom.css`. Testovi: `src/custom/geometry.test.ts` i `tests/custom.spec.ts`. Uzorci dokumenata: `output/pdf/custom-ponuda.pdf` i `output/pdf/custom-specifikacija.pdf`.
 
@@ -186,7 +200,7 @@ Produkcioni build generiše `dist/sw.js` i Workbox runtime. Precache uključuje 
 
 ### Namena i ram nepravilnog elementa
 
-Nacrtana kontura označava spoljašnju ivicu rama. U konfiguraciji je izbor Prozor / Vrata / Drugi element i širina rama 20–150 mm. Ram se prikazuje ka unutrašnjosti konture, prati prave stranice i kružne lukove i koristi izabranu boju. Spoljašnje mere, čvorovi i zaključavanja time se ne menjaju. Geometrija ostaje terenska skica; izbor vrata ili prozora ne potvrđuje automatski otvaranje i standardni okov. Ručna cena i tehnička provera ostaju važeći.
+Nacrtana kontura označava spoljašnju ivicu rama. U konfiguraciji je izbor Prozor / Vrata / Drugi element i širina rama 20–150 mm. Ram se prikazuje ka unutrašnjosti konture, prati prave stranice i kružne lukove i koristi izabranu boju. U alatu **Označi otvaranje** može se izabrati i zaokretno-otklopni okov po polju. Proizvodnu izvodljivost potvrđuje kancelarija. [Roto NX](https://ftt.roto-frank.com/int-en/products/details/roto-nx/)
 
 Namena (`customKind`) i širina rama (`customFrameMm`) su opcioni podaci pozicije, uključeni u čuvanje, ponovno uređivanje, kopiranje i PDF specifikaciju. Stari nacrti bez ovih polja prikazuju se kao prozor sa ramom 70 mm.
 

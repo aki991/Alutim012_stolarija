@@ -2,17 +2,20 @@ import { NumberInput } from '../components/NumberInput';
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, ChevronDown, Circle, Expand, Hand, Minus, MousePointer2, MoveUpRight, Plus, Redo2, Save, Settings2, Spline, LockKeyhole, UnlockKeyhole, Trash2, Undo2, X } from 'lucide-react';
-import { useStore } from '../store';
+import { useStore, workspaceDraftKey } from '../store';
 import { makeFieldPosition } from '../field-types';
+import { findCatalogModel } from '../catalog-models';
 import { customKindLabel, customInfillOf, type CustomKind, type Position } from '../models';
 import { Field, Logo } from '../components/UI';
 import { PositionOptions } from '../components/PositionOptions';
 import { MissingJob } from '../pages-editor';
-import { euro, reviewPrice, validatePosition } from '../services/calculation';
+import { euro, positionCost, validatePosition } from '../services/calculation';
 import { parseBackup } from '../services/storage';
 import { GeometryArtwork, CustomDrawing } from './CustomDrawing';
+import { shutterExtent } from '../components/ShutterArtwork';
+import { openingBoxHeight, shutterOf } from '../shutters';
 import { arcThrough, bounds, distance, edgeArc, edgeLength, emptyGeometry, ends, fmt, isClosed, presetGeometry, projectEdge, projectLine, canRestoreRectangle, hasLinkedArch, isArchSide, isArchWidth, resizeArchSide, resizeArchWidth, resizeRectangle, resizeLine, resizeRadius, alignLine, toggleEdgeLock, solveLockedGeometry, moveArcControl, validBar, validateGeometry, type Geometry, type Point, type Shape } from './geometry';
-import { hingeLabel, openingRegions, regionContains, type HingeSide } from './openings';
+import { hingeLabel, openingRegions, regionContains } from './openings';
 import { WindowLayoutDialog } from './WindowLayoutDialog';
 type Tool='opening'|'line'|'arc'|'select'|'pan'|'bar';
 type Camera={x:number;y:number;w:number;h:number};
@@ -22,23 +25,29 @@ const newId=()=>crypto.randomUUID();
 const clone=<T,>(v:T):T=>structuredClone(v);
 export function CustomEditor(){
  const {id,positionId}=useParams(),location=useLocation(),navigate=useNavigate(),{jobs,settings,updateJob}=useStore(),job=jobs.find(j=>j.id===id),original=job?.positions.find(p=>p.id===positionId);
- const draftKey=`alu-custom-draft-v1:${id}:${positionId||'new'}`;
- const [p,setP]=useState<Position>(()=>{const initial=original?clone(original):{...makeFieldPosition('nacrtaj'),...settings.elementDefaults};try{const raw=sessionStorage.getItem(draftKey);if(raw&&job)return parseBackup({settings,jobs:[{...job,positions:[JSON.parse(raw)]}]}).jobs[0].positions[0];}catch{/* Invalid drafts never replace a saved position. */}return initial;});
+ const model=findCatalogModel(new URLSearchParams(location.search).get('model'));
+ const draftKey=workspaceDraftKey(`alu-custom-draft-v1:${id}:${positionId||(model?`model:${model.id}`:'new')}`);
+ const [p,setP]=useState<Position>(()=>{const initial=original?clone(original):{...makeFieldPosition('nacrtaj',undefined,model?.id),...settings.elementDefaults};try{const raw=sessionStorage.getItem(draftKey);if(raw&&job)return parseBackup({settings,jobs:[{...job,positions:[JSON.parse(raw)]}]}).jobs[0].positions[0];}catch{/* Invalid drafts never replace a saved position. */}return initial;});
  const previewRef=useRef<Geometry|null>(null);
  const ref=useRef(p),svg=useRef<SVGSVGElement>(null),gesture=useRef<Gesture|null>(null),pointers=useRef(new Map<number,Point>()),pinch=useRef<{distance:number;camera:Camera;world:Point}|null>(null);
- const [past,setPast]=useState<Position[]>([]),[future,setFuture]=useState<Position[]>([]),[preview,setPreview]=useState<Geometry|null>(null),[tool,setTool]=useState<Tool>('line'),[selected,setSelected]=useState<string|null>(null),[pendingArc,setPendingArc]=useState<{a:Point;b:Point}|null>(null),[rubber,setRubber]=useState<{a:Point;b:Point;via?:Point}|null>(null);
- const [camera,setCamera]=useState<Camera>({x:-400,y:-400,w:3200,h:2400}),[unit,setUnit]=useState(5),[message,setMessage]=useState(location.state?.customSaved?'Element je sačuvan u poslu.':''),[error,setError]=useState(''),[options,setOptions]=useState(false),[full,setFull]=useState(false),[shapeMenu,setShapeMenu]=useState(false),[length,setLength]=useState(''),[fixed,setFixed]=useState<'from'|'to'>('from'),[presetW,setPresetW]=useState(2400),[presetH,setPresetH]=useState(1600),[storageError,setStorageError]=useState(false);
+ const [past,setPast]=useState<Position[]>([]),[future,setFuture]=useState<Position[]>([]),[preview,setPreview]=useState<Geometry|null>(null),[tool,setTool]=useState<Tool>(model?'select':'line'),[selected,setSelected]=useState<string|null>(null),[pendingArc,setPendingArc]=useState<{a:Point;b:Point}|null>(null),[rubber,setRubber]=useState<{a:Point;b:Point;via?:Point}|null>(null);
+ const [camera,setCamera]=useState<Camera>({x:-400,y:-400,w:3200,h:2400}),[unit,setUnit]=useState(5),[message,setMessage]=useState(location.state?.customSaved?'Element je sačuvan u poslu.':''),[error,setError]=useState(''),[options,setOptions]=useState(false),[full,setFull]=useState(false),[shapeMenu,setShapeMenu]=useState(false),[length,setLength]=useState(''),[fixed,setFixed]=useState<'from'|'to'>('from'),[presetW,setPresetW]=useState(model||original?Math.round(p.width):2400),[presetH,setPresetH]=useState(model||original?Math.round(p.height):1600),[storageError,setStorageError]=useState(false);
  const g=p.customGeometry||emptyGeometry(),shown=preview||g,edge=g.edges.find(e=>e.id===selected),closed=isClosed(g),errors=validatePosition(p);
+ const shutter=closed?shutterOf(p):undefined,boxInHeight=closed?openingBoxHeight(p):0;
  const [layoutOpen,setLayoutOpen]=useState(false);
  const [openingRegion,setOpeningRegion]=useState('');
  const regions=useMemo(()=>p.customGeometry?openingRegions(p.customGeometry):[],[p.customGeometry]);
  const canDivide=closed&&!validateGeometry(g).length;
  const currentRegion=regions.find(region=>region.id===openingRegion) ?? (regions.length===1?regions[0]:undefined);
- const currentSide=g.openings?.find(mark=>mark.region===currentRegion?.id)?.side;
- function setOpening(side:HingeSide|'fixed'){
+ const currentMark=g.openings?.find(mark=>mark.region===currentRegion?.id);
+ const currentOpening=currentMark?.tilt?(currentMark.side==='left'?'tiltLeft':'tiltRight'):currentMark?.side??'fixed';
+ const price=job&&!errors.length&&settings.showPrices!==false?positionCost(p,settings,job.package):null;
+ function setOpening(value:string){
   if(!currentRegion)return;
   const openings=(g.openings??[]).filter(mark=>mark.region!==currentRegion.id);
-  if(side!=='fixed')openings.push({region:currentRegion.id,side});
+  const region=currentRegion.id;
+  if(value==='tiltLeft'||value==='tiltRight')openings.push({region,side:value==='tiltLeft'?'left':'right',tilt:true});
+  if(value==='left'||value==='right'||value==='bottom')openings.push({region,side:value});
   commit({...p,customGeometry:{...g,openings}});
  }
  const persist=(next:Position)=>{ref.current=next;setP(next);try{sessionStorage.setItem(draftKey,JSON.stringify(next));setStorageError(false);}catch{setStorageError(true);}};
@@ -51,13 +60,19 @@ export function CustomEditor(){
   if(openings.length<marks.length)setMessage('Oblik krila je promenjen. Ponovo označite otvaranje za promenjena polja.');
  }
  function patch(value:Partial<Position>){commit({...ref.current,...value,segments:[{width:ref.current.width,opening:'Fiksno'}]});}
- function fit(next:Geometry=g){const rect=svg.current?.getBoundingClientRect();if(!rect)return;const b=bounds(next),scale=Math.min(Math.max(80,rect.width-Math.min(100,rect.width*.25))/Math.max(200,b.width),Math.max(80,rect.height-Math.min(90,rect.height*.32))/Math.max(200,b.height)),w=rect.width/scale,h=rect.height/scale;setCamera({x:b.x+b.width/2-w/2,y:b.y+b.height/2-h/2,w,h});}
+ function fit(next:Geometry=g){
+  const rect=svg.current?.getBoundingClientRect();if(!rect)return;
+  const config=isClosed(next)?shutterOf(ref.current):undefined,b=shutterExtent(bounds(next),config);
+  const horizontalMargin=config?Math.min(180,rect.width*.38):Math.min(100,rect.width*.25);
+  const scale=Math.min(Math.max(80,rect.width-horizontalMargin)/Math.max(200,b.width),Math.max(80,rect.height-Math.min(90,rect.height*.32))/Math.max(200,b.height));
+  const w=rect.width/scale,h=rect.height/scale;setCamera({x:b.x+b.width/2-w/2,y:b.y+b.height/2-h/2,w,h});
+ }
  useEffect(()=>{try{sessionStorage.setItem(draftKey,JSON.stringify(p));}catch{setStorageError(true);}},[]);
  useEffect(()=>{const el=svg.current;if(!el)return;const observer=new ResizeObserver(()=>{const r=el.getBoundingClientRect();if(r.width&&r.height)setCamera(c=>({...c,y:c.y+c.h/2-c.w*r.height/r.width/2,h:c.w*r.height/r.width}));});observer.observe(el);fit();return()=>observer.disconnect();},[full]);
  useEffect(()=>{const el=svg.current;if(!el)return;const wheel=(e:WheelEvent)=>{if(e.ctrlKey){e.preventDefault();zoom(e.deltaY>0?1.1:.9);}};el.addEventListener('wheel',wheel,{passive:false});return()=>el.removeEventListener('wheel',wheel);},[full]);
  useEffect(()=>{if(!svg.current)return;const m=svg.current.getScreenCTM();if(m)setUnit(1/m.a);},[camera,full]);
  useEffect(()=>{if(!edge){setLength('');return;}try{setLength(fmt(edge.kind==='line'?edgeLength(g,edge):edgeArc(g,edge).radius));}catch{setLength('');}},[selected,p.customGeometry]);
- useEffect(()=>{if(g.preset==='rectangle'){setPresetW(Math.round(p.width));setPresetH(Math.round(p.height));}},[g.preset,p.width,p.height]);
+ useEffect(()=>{if(g.preset!=='free'){setPresetW(Math.round(p.width));setPresetH(Math.round(p.height));}},[g.preset,p.width,p.height]);
  if(!job||positionId&&!original)return <MissingJob/>;
  function world(client:Point):Point{const m=svg.current?.getScreenCTM();if(!m)return client;const q=new DOMPoint(client.x,client.y).matrixTransform(m.inverse());return{x:q.x,y:q.y};}
  function snap(q:Point,base:Geometry,ignore?:string){const near=base.points.filter(v=>v.id!==ignore).sort((a,b)=>distance(q,a)-distance(q,b))[0];return near&&distance(q,near)<=18*unit?{x:near.x,y:near.y,id:near.id}:{...q,id:undefined};}
@@ -96,11 +111,38 @@ export function CustomEditor(){
  function finish(){try{if(!isClosed(g)&&g.edges.length>=1){const next=clone(g),first=next.edges[0].from,last=next.edges.at(-1)!.to;next.edges.push({id:newId(),kind:'line',from:last,to:first});const errs=validateGeometry(next);if(errs.length)throw Error(errs[0]);geometry(next);}else{const errs=validateGeometry(g);if(errs.length)throw Error(errs[0]);}chooseTool('select');setMessage('Oblik je zatvoren. Ram prati konturu; izvedba zahteva tehničku proveru.');}catch(err){setError((err as Error).message);}}
  function useShape(shape:Exclude<Shape,'free'>){try{if(g.edges.some(e=>e.locked))throw Error('Otključajte linije pre promene početnog oblika.');const next=presetGeometry(shape,presetW,shape==='circle'?presetW:presetH);const b=bounds(next);commit({...ref.current,name:ref.current.customKind==='door'?'Vrata po meri':ref.current.customKind==='other'?'Element po meri':shapes.find(s=>s[0]===shape)![1],customGeometry:next,width:b.width,height:b.height,segments:[{width:b.width,opening:'Fiksno'}]});setSelected(null);setPendingArc(null);setRubber(null);setTool('select');setShapeMenu(false);fit(next);}catch(err){setError((err as Error).message);}}
  function applyPresetMeasures(){
-  if(g.preset==='free')return;
-  if(g.preset!=='rectangle'){useShape(g.preset);return;}
   try{
-   const wider=resizeRectangle(g,g.edges[0].id,presetW);
-   const next=resizeRectangle(wider,wider.edges[3].id,presetH,'to');
+   if(g.preset==='free'&&!hasLinkedArch(g))return;
+   if(g.edges.some(e=>e.locked))throw Error('Otključajte linije pre promene ukupnih mera.');
+   if([presetW,presetH].some(value=>value<200||value>20000))throw Error('Mere moraju biti između 200 i 20000 mm.');
+   let next:Geometry;
+   if(g.preset==='rectangle'){
+    const wider=resizeRectangle(g,g.edges[0].id,presetW);
+    next=resizeRectangle(wider,wider.edges[3].id,presetH,'to');
+   }else if(hasLinkedArch(g)){
+    next=resizeArchWidth(g,g.edges.at(-1)!.id,presetW,'to');
+    if(next.edges.length===4){
+     const sideLength=edgeLength(next,next.edges[0]);
+     const rise=bounds(next).height-sideLength;
+     const straightSide=presetH-rise;
+     if(straightSide<-.001)throw Error('Visina ne može biti manja od visine luka. Kod polukruga to je polovina širine.');
+     if(straightSide>.001)next=resizeArchSide(next,next.edges[0].id,straightSide,'to');
+     else{
+      if(next.bars.length)throw Error('Uklonite prečke pre prelaska na oblik bez uspravnih stranica.');
+      const arc=next.edges[1],[left,right]=ends(next,arc),mark=next.openings?.[0];
+      next={...next,points:[left,right],edges:[arc,{...next.edges[3],from:right.id,to:left.id}],openings:[]};
+      const region=mark&&openingRegions(next)[0];
+      if(mark&&region)next.openings=[{...mark,region:region.id}];
+     }
+    }
+   }else{
+    next=clone(g);
+    const b=bounds(g),scaleX=presetW/b.width,scaleY=g.preset==='circle'?scaleX:presetH/b.height;
+    const points=[...next.points,...next.edges.flatMap(edge=>edge.via?[edge.via]:[]),...next.bars.flatMap(bar=>[bar.a,bar.b])];
+    for(const point of points){point.x=b.x+(point.x-b.x)*scaleX;point.y=b.y+(point.y-b.y)*scaleY;}
+   }
+   const errors=validateGeometry(next);
+   if(errors.length)throw Error(errors[0]);
    geometry(next);
    fit(next);
   }catch(err){setError((err as Error).message);}
@@ -112,7 +154,7 @@ export function CustomEditor(){
  const profiles=p.material==='PVC'?['PVC 70 mm','PVC 76 mm','PVC 82 mm']:['ALU termo profil','ALU hladni profil'];if(p.profile&&!profiles.includes(p.profile))profiles.push(p.profile);
  let rubberPath='';if(rubber){if(rubber.via)try{const a=arcThrough(rubber.a,rubber.b,rubber.via);rubberPath=`M${rubber.a.x} ${rubber.a.y}A${a.radius} ${a.radius} 0 ${Math.abs(a.delta)>Math.PI?1:0} ${a.delta>0?1:0} ${rubber.b.x} ${rubber.b.y}`;}catch{rubberPath=`M${rubber.a.x} ${rubber.a.y}L${rubber.b.x} ${rubber.b.y}`;}else rubberPath=`M${rubber.a.x} ${rubber.a.y}L${rubber.b.x} ${rubber.b.y}`;}
  return <div className={`custom-page ${full?'custom-fullscreen':''}`}>
-  <header className="custom-header"><Link className="field-back" aria-label="Nazad" to={`/posao/${job.id}`}><ArrowLeft/></Link><div><h1>Nacrtaj element</h1><p>{job.customer.name} · Ručni crtež u milimetrima</p></div><div className="custom-header-actions"><button aria-label="Undo" title="Poništi" disabled={!past.length} onClick={()=>history()}><Undo2/></button><button aria-label="Redo" title="Ponovi" disabled={!future.length} onClick={()=>history(true)}><Redo2/></button><button className="custom-clear" disabled={!g.edges.length} onClick={()=>{geometry(emptyGeometry());setSelected(null);setPendingArc(null);setRubber(null);chooseTool('line');}}><Trash2/><span>Obriši sve</span></button><button className="custom-save" disabled={!!errors.length} onClick={()=>save(false)}><Save/><span>Sačuvaj</span></button><button className="field-button field-button-yellow custom-header-add" disabled={!!errors.length} onClick={()=>save(true)}><Check/>{job.positions.some(v=>v.id===p.id)?'Sačuvaj u poslu':'Dodaj u posao'}</button></div><Link to="/" className="custom-brand" aria-label="ALU TIM 012 — Početna"><Logo/></Link></header>
+  <header className="custom-header"><Link className="field-back" aria-label="Nazad" to={model?(location.state?.catalogReturn??`/posao/${job.id}/modeli`):`/posao/${job.id}`}><ArrowLeft/></Link><div><h1>{model?p.name:'Nacrtaj element'}</h1><p>{job.customer.name} · Ručni crtež u milimetrima</p></div><div className="custom-header-actions"><button aria-label="Undo" title="Poništi" disabled={!past.length} onClick={()=>history()}><Undo2/></button><button aria-label="Redo" title="Ponovi" disabled={!future.length} onClick={()=>history(true)}><Redo2/></button><button className="custom-clear" disabled={!g.edges.length} onClick={()=>{geometry(emptyGeometry());setSelected(null);setPendingArc(null);setRubber(null);chooseTool('line');}}><Trash2/><span>Obriši sve</span></button><button className="custom-save" disabled={!!errors.length} onClick={()=>save(false)}><Save/><span>Sačuvaj</span></button><button className="field-button field-button-yellow custom-header-add" disabled={!!errors.length} onClick={()=>save(true)}><Check/>{job.positions.some(v=>v.id===p.id)?'Sačuvaj u poslu':'Dodaj u posao'}</button></div><Link to="/" className="custom-brand" aria-label="ALU TIM 012 — Početna"><Logo/></Link></header>
   <main className="custom-workspace">
    <nav className="custom-tools" aria-label="Alati za crtanje">{([['line','Linija',MoveUpRight],['arc','Luk',Spline],['select','Izaberi / Pomeri',MousePointer2],['pan','Pomeri platno',Hand],['bar','Dodaj prečku',Plus]] as const).map(([value,label,Icon])=><button key={value} aria-pressed={tool===value} disabled={value==='bar'&&!!validateGeometry(g).length} onClick={()=>chooseTool(value)}><Icon/><span>{label}</span></button>)}<button disabled={!g.edges.length} onClick={()=>remove(true)}><Undo2/><span>Obriši poslednju</span></button><button disabled={!selected} onClick={()=>remove()}><Trash2/><span>Obriši izabrano</span></button><button className="custom-finish" onClick={finish}><Check/><span>Završi oblik</span></button></nav>
    <section className="custom-canvas-region" aria-label="Radna površina">
@@ -122,25 +164,28 @@ export function CustomEditor(){
       <option value="" disabled>Izaberite polje</option>
       {regions.map((region,index)=><option key={region.id} value={region.id}>Polje {index+1}</option>)}
      </select></label>}
-     <label>Otvaranje <select aria-label="Strana otvaranja" disabled={!currentRegion} value={currentSide??'fixed'} onChange={e=>setOpening(e.target.value as HingeSide|'fixed')}>
+     <label>Otvaranje <select aria-label="Strana otvaranja" disabled={!currentRegion} value={currentOpening} onChange={e=>setOpening(e.target.value)}>
       <option value="fixed">Fiksno</option>
       <option value="left">{hingeLabel('left')}</option>
       <option value="right">{hingeLabel('right')}</option>
+      <option value="tiltLeft">Šarke levo + kip</option>
+      <option value="tiltRight">Šarke desno + kip</option>
+      <option value="bottom">Kip / otklop</option>
      </select></label>
      <small>Pogled kao na crtežu. Polja bez oznake ostaju fiksna.</small>
     </div>}
     <svg ref={svg} className={`custom-canvas tool-${tool}`} viewBox={`${camera.x} ${camera.y} ${camera.w} ${camera.h}`} aria-label="Platno za crtanje u milimetrima" role="img" onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={cancel}>
      <defs><pattern id="custom-grid-small" width="100" height="100" patternUnits="userSpaceOnUse"><path d="M100 0H0V100" fill="none" stroke="#eaf0f6" strokeWidth="1" vectorEffect="non-scaling-stroke"/></pattern><pattern id="custom-grid" width="500" height="500" patternUnits="userSpaceOnUse"><rect width="500" height="500" fill="url(#custom-grid-small)"/><path d="M500 0H0V500" fill="none" stroke="#d7e1ec" strokeWidth="1" vectorEffect="non-scaling-stroke"/></pattern></defs><rect x={camera.x} y={camera.y} width={camera.w} height={camera.h} fill="url(#custom-grid)"/>
-     <GeometryArtwork geometry={shown} regions={shown===g?regions:undefined} activeOpeningRegion={tool==='opening'?currentRegion?.id:undefined} frameMm={p.customFrameMm??70} frameColor={p.color} infill={customInfillOf(p)} selected={selected} unit={unit} viewport={{x:camera.x,y:camera.y,width:camera.w,height:camera.h}} editable measureEnds={edge?.kind==='line'?{moving:fixed==='from'?edge.to:edge.from,fixed:edge[fixed]}:undefined} onDimensionSelect={id=>{selectDimension(id);setTool('select');}}/>
+     <GeometryArtwork geometry={shown} regions={shown===g?regions:undefined} activeOpeningRegion={tool==='opening'?currentRegion?.id:undefined} frameMm={p.customFrameMm??70} frameColor={p.color} infill={customInfillOf(p)} selected={selected} unit={unit} viewport={{x:camera.x,y:camera.y,width:camera.w,height:camera.h}} editable shutter={shutter} measureEnds={edge?.kind==='line'?{moving:fixed==='from'?edge.to:edge.from,fixed:edge[fixed]}:undefined} onDimensionSelect={id=>{selectDimension(id);setTool('select');}}/>
      {rubberPath&&<path d={rubberPath} stroke="#c4001b" strokeWidth="3" strokeDasharray="6 4" fill="none" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
     </svg>
     {!g.edges.length&&<div className="custom-empty-hint" aria-hidden="true"><MoveUpRight/><strong>Nacrtajte prvi potez</strong><span>ili izaberite početni oblik ispod</span></div>}
     <div className="custom-zoom"><button aria-label="Umanji nacrt" onClick={()=>zoom(1.25)}><Minus/></button><button onClick={()=>fit()} aria-label="Uklopi ceo nacrt">Uklopi</button><button aria-label="Uvećaj nacrt" onClick={()=>zoom(.8)}><Plus/></button><small>Mreža: 100 mm</small></div>
     {edge&&<div className="custom-dimension-editor"><div className="custom-dimension-title"><strong>{edge.kind==='arc'?'Radijus R (mm)':'Dužina (mm)'}</strong><button aria-label="Zatvori meru" onClick={()=>setSelected(null)}><X/></button></div><div><input aria-label={edge.kind==='arc'?'Radijus R (mm)':'Dužina (mm)'} type="number" inputMode="numeric" min="1" step="1" disabled={!!edge.locked} value={length} onChange={e=>setLength(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')setMeasure();}}/><button className="custom-apply" aria-label="Potvrdi meru" disabled={!!edge.locked} onClick={setMeasure}><Check/></button></div>{edge.kind==='line'?<label>Pomeri tačku<select aria-label="Pomeri tačku" value={fixed} onChange={e=>setFixed(e.target.value as 'from'|'to')}><option value="to">1 · Početak</option><option value="from">2 · Kraj</option></select></label>:<small>Krajnje tačke ostaju na mestu. Žuti čvor menja radijus: povucite ka tetivi ili od nje.</small>}{edge.kind==='line'&&<small>Dodirni tačku na crtežu. Plava miruje.</small>}{hasLinkedArch(g)&&isArchSide(g,edge.id)&&<small>Obe uspravne stranice dobijaju istu meru.</small>}{hasLinkedArch(g)&&isArchWidth(g,edge.id)&&<small>Menja se širina celog prozora. Visina uspravnih stranica ostaje ista.</small>}{g.preset==='free'&&!hasLinkedArch(g)&&(isArchSide(g,edge.id)||isArchWidth(g,edge.id))&&<button className="custom-lock-toggle" onClick={()=>{try{const resize=isArchWidth(g,edge.id)?resizeArchWidth:resizeArchSide;const next=resize(g,edge.id,Number(length),fixed);geometry(next);fit(next);}catch(err){setError((err as Error).message);}}}>Vrati simetričan luk</button>}{g.preset==='rectangle'&&<small>Suprotna stranica dobija istu meru. Uglovi ostaju pravi.</small>}{canRestoreRectangle(g)&&<button className="custom-lock-toggle" onClick={()=>{try{const next=resizeRectangle(g,edge.id,Number(length),fixed);geometry(next);fit(next);}catch(err){setError((err as Error).message);}}}>Vrati pravougaonik</button>}{edge.kind==='line'&&g.preset!=='rectangle'&&<div className="custom-alignment" role="group" aria-label="Poravnanje linije"><button onClick={()=>alignSelected('horizontal')}>Poravnaj vodoravno</button><button onClick={()=>alignSelected('vertical')}>Poravnaj uspravno</button></div>}<button className={`custom-lock-toggle ${edge.locked?'is-locked':''}`} aria-label={edge.locked?'Otključaj liniju':'Zaključaj liniju'} aria-pressed={!!edge.locked} onClick={()=>{try{geometry(toggleEdgeLock(g,edge.id));}catch(err){setError((err as Error).message);}}}>{edge.locked?<LockKeyhole/>:<UnlockKeyhole/>}{edge.locked?'Zaključano':'Zaključaj meru'}</button></div>}
    </section>
-   <aside className="custom-settings"><h2>Konfiguracija elementa</h2><div className="custom-fixed"><CustomDrawing geometry={g.edges.length?g:presetGeometry('triangle',600,500)} frameMm={p.customFrameMm??70} frameColor={p.color} infill={customInfillOf(p)} compact/><div><strong>{customKindLabel(p.customKind)}</strong><small>Terenska skica — potrebna tehnička provera</small></div></div><Field label="Namena elementa"><select value={p.customKind??'window'} onChange={e=>{const kind=e.target.value as CustomKind;patch({customKind:kind,customInfill:kind==='door'?'panel':'glass',category:kind==='door'?'Vrata':'Prozori',name:kind==='door'?'Vrata po meri':kind==='other'?'Element po meri':'Prozor po meri'});}}><option value="window">Prozor</option><option value="door">Vrata</option><option value="other">Drugi element</option></select></Field><Field label="Ispuna"><select value={customInfillOf(p)} onChange={e=>patch({customInfill:e.target.value as 'glass'|'panel'})}><option value="glass">Staklo</option><option value="panel">Puni panel</option></select></Field><Field label="Širina rama (mm)"><NumberInput inputMode="numeric" min="20" max="150" step="1" value={p.customFrameMm??70} onChange={e=>patch({customFrameMm:+e.target.value})}/></Field><p className="custom-frame-note">Mere označavaju spoljašnju ivicu rama. Otvaranje i okov potvrđuje kancelarija.</p><Field label="Materijal"><select value={p.material} onChange={e=>patch({material:e.target.value as 'PVC'|'ALU',profile:e.target.value==='PVC'?'PVC 70 mm':'ALU termo profil'})}><option>PVC</option><option>ALU</option></select></Field><Field label="Profil"><select value={p.profile||profiles[0]} onChange={e=>patch({profile:e.target.value})}>{profiles.map(v=><option key={v}>{v}</option>)}</select></Field>{customInfillOf(p)==='glass'&&<Field label="Staklo"><select value={p.glass} onChange={e=>patch({glass:e.target.value as Position['glass']})}>{['Dvoslojno','Troslojno','Sigurnosno'].map(v=><option key={v}>{v}</option>)}</select></Field>}<button className="field-button field-button-light custom-options" onClick={()=>setOptions(true)}><Settings2/>Dodatne opcije</button>{settings.showPrices!==false&&<><Field label="Ručna okvirna cena po komadu (€)"><input type="number" inputMode="decimal" min="0" placeholder="Provera u kancelariji" value={p.manualPrice??''} onChange={e=>patch({manualPrice:e.target.value===''?null:Math.max(0,+e.target.value)})}/></Field><p className="custom-price-note">{p.manualPrice===null?reviewPrice:'Ručna okvirna cena. Kancelarija potvrđuje proizvodnju i cenu.'}</p></>}<details className="custom-measures"><summary>Sve mere ({g.edges.length} stranica)</summary>{g.edges.map((e,i)=>{let value='Nevažeći luk';try{value=`${fmt(edgeLength(g,e))} mm${e.kind==='arc'?` · R ${fmt(edgeArc(g,e).radius)} mm`:''}`;}catch{}return <button key={e.id} onClick={()=>{selectDimension(e.id);setTool('select');}}>Stranica {i+1}<strong>{value}</strong></button>;})}</details></aside>
+   <aside className="custom-settings"><h2>Konfiguracija elementa</h2><div className="custom-fixed"><CustomDrawing geometry={g.edges.length?g:presetGeometry('triangle',600,500)} frameMm={p.customFrameMm??70} frameColor={p.color} infill={customInfillOf(p)} compact/><div><strong>{customKindLabel(p.customKind)}</strong><small>Terenska skica — potrebna tehnička provera</small></div></div><Field label="Namena elementa"><select value={p.customKind??'window'} onChange={e=>{const kind=e.target.value as CustomKind;patch({customKind:kind,customInfill:kind==='door'?'panel':'glass',category:kind==='door'?'Vrata':'Prozori',name:kind==='door'?'Vrata po meri':kind==='other'?'Element po meri':'Prozor po meri'});}}><option value="window">Prozor</option><option value="door">Vrata</option><option value="other">Drugi element</option></select></Field><Field label="Ispuna"><select value={customInfillOf(p)} onChange={e=>patch({customInfill:e.target.value as 'glass'|'panel'})}><option value="glass">Staklo</option><option value="panel">Puni panel</option></select></Field><Field label="Širina rama (mm)"><NumberInput inputMode="numeric" min="20" max="150" step="1" value={p.customFrameMm??70} onChange={e=>patch({customFrameMm:+e.target.value})}/></Field><p className="custom-frame-note">Mere označavaju spoljašnju ivicu rama. Otvaranje i okov potvrđuje kancelarija.</p><Field label="Materijal"><select value={p.material} onChange={e=>patch({material:e.target.value as 'PVC'|'ALU',profile:e.target.value==='PVC'?'PVC 70 mm':'ALU termo profil'})}><option>PVC</option><option>ALU</option></select></Field><Field label="Profil"><select value={p.profile||profiles[0]} onChange={e=>patch({profile:e.target.value})}>{profiles.map(v=><option key={v}>{v}</option>)}</select></Field>{customInfillOf(p)==='glass'&&<Field label="Staklo"><select value={p.glass} onChange={e=>patch({glass:e.target.value as Position['glass']})}>{['Dvoslojno','Troslojno','Sigurnosno'].map(v=><option key={v}>{v}</option>)}</select></Field>}<button className="field-button field-button-light custom-options" onClick={()=>setOptions(true)}><Settings2/>Dodatne opcije</button>{settings.showPrices!==false&&<><Field label="Ručna okvirna cena po komadu (€)"><input type="number" inputMode="decimal" min="0" step="0.01" placeholder={price?price.calculated.toFixed(2):undefined} value={p.manualPrice??''} onChange={e=>patch({manualPrice:e.target.value===''?null:Math.max(0,+e.target.value)})}/></Field></>}<details className="custom-measures"><summary>Sve mere ({g.edges.length} stranica)</summary>{g.edges.map((e,i)=>{let value='Nevažeći luk';try{value=`${fmt(edgeLength(g,e))} mm${e.kind==='arc'?` · R ${fmt(edgeArc(g,e).radius)} mm`:''}`;}catch{}return <button key={e.id} onClick={()=>{selectDimension(e.id);setTool('select');}}>Stranica {i+1}<strong>{value}</strong></button>;})}</details></aside>
   </main>
-  <div className="custom-size-info" aria-label="Ukupne mere"><span>Širina <strong>{g.edges.length?fmt(bounds(shown).width):'—'} mm</strong></span><span>Visina <strong>{g.edges.length?fmt(bounds(shown).height):'—'} mm</strong></span></div>
+  <div className="custom-size-info" aria-label="Ukupne mere"><span>Širina <strong>{g.edges.length?fmt(bounds(shown).width):'—'} mm</strong></span><span>{boxInHeight?'Visina rama':'Visina'} <strong>{g.edges.length?fmt(bounds(shown).height):'—'} mm</strong></span>{boxInHeight>0&&<span>Visina otvora <strong>{fmt(bounds(shown).height+boxInHeight)} mm</strong></span>}</div>
   {layoutOpen&&<WindowLayoutDialog geometry={g} onClose={()=>setLayoutOpen(false)} onApply={next=>{
    geometry(next);
    setSelected(null);
@@ -149,9 +194,9 @@ export function CustomEditor(){
    chooseTool('opening');
    setMessage('Raspored je napravljen. Označite krilo koje se otvara.');
   }}/>}
-  <section className="custom-shapes"><button className="custom-shapes-toggle" onClick={()=>setShapeMenu(!shapeMenu)} aria-expanded={shapeMenu}><Circle/><span>Početni oblici</span><ChevronDown/></button><div className={`custom-shape-list ${shapeMenu?'is-open':''}`}>{shapes.map(([shape,label])=><button key={shape} aria-label={label} onClick={()=>useShape(shape)}><CustomDrawing geometry={presetGeometry(shape,600,shape==='arch'?600:500)} compact/><span>{label}</span></button>)}</div><div className="custom-preset-measures"><Field label={g.preset==='circle'?'Prečnik (mm)':'Širina oblika (mm)'}><NumberInput inputMode="numeric" min="200" max="20000" value={presetW} onChange={e=>setPresetW(Math.round(+e.target.value))}/></Field>{g.preset!=='circle'&&<Field label="Visina oblika (mm)"><NumberInput inputMode="numeric" min="200" max="20000" value={presetH} onChange={e=>setPresetH(Math.round(+e.target.value))}/></Field>}<button className="field-button field-button-light" disabled={g.preset==='free'} onClick={applyPresetMeasures}>Primeni mere oblika</button></div></section>
+  <section className="custom-shapes"><button className="custom-shapes-toggle" onClick={()=>setShapeMenu(!shapeMenu)} aria-expanded={shapeMenu}><Circle/><span>Početni oblici</span><ChevronDown/></button><div className={`custom-shape-list ${shapeMenu?'is-open':''}`}>{shapes.map(([shape,label])=><button key={shape} aria-label={label} onClick={()=>useShape(shape)}><CustomDrawing geometry={presetGeometry(shape,600,shape==='arch'?600:500)} compact/><span>{label}</span></button>)}</div><div className="custom-preset-measures"><Field label={g.preset==='circle'?'Prečnik (mm)':'Širina oblika (mm)'}><NumberInput inputMode="numeric" min="200" max="20000" value={presetW} onChange={e=>setPresetW(Math.round(+e.target.value))}/></Field>{g.preset!=='circle'&&<Field label="Visina oblika (mm)"><NumberInput inputMode="numeric" min="200" max="20000" disabled={g.preset==='arch'&&g.edges.length===2} value={presetH} onChange={e=>setPresetH(Math.round(+e.target.value))}/></Field>}<button className="field-button field-button-light" disabled={g.preset==='free'&&!hasLinkedArch(g)} onClick={applyPresetMeasures}>Primeni mere oblika</button></div></section>
   <div className="custom-feedback" aria-live="polite">{error||closed&&errors.length?<p role="alert">{error||errors[0]}</p>:message?<p role="status">{message}</p>:<span>{closed?(validateGeometry(g).length?'Proverite konturu.':'Zatvorena kontura · element sa ramom'):'Nacrt se čuva na ovom uređaju · kontura nije zatvorena'}</span>}{storageError&&<p role="alert">Nacrt ne može da se sačuva na uređaju. Sačuvajte element u poslu.</p>}</div>
-  <footer className="custom-footer">{settings.showPrices!==false&&<div><span>{p.quantity} {p.quantity===1?'komad':'komada'} · okvirno</span><strong>{p.manualPrice===null?'Cena za proveru':euro(p.manualPrice*p.quantity)}</strong></div>}<button className="field-button field-button-yellow" disabled={!!errors.length} onClick={()=>save(true)}><Check/>{job.positions.some(v=>v.id===p.id)?'Sačuvaj u poslu':'Dodaj u posao'}</button></footer>
-  {options&&<PositionOptions position={p} onChange={patch} onClose={()=>setOptions(false)}/>}
+  <footer className="custom-footer">{settings.showPrices!==false&&<div><span>{p.quantity} {p.quantity===1?'komad':'komada'} · okvirno</span><strong data-testid="custom-position-price">{price?euro(price.total):'—'}</strong></div>}<button className="field-button field-button-yellow" disabled={!!errors.length} onClick={()=>save(true)}><Check/>{job.positions.some(v=>v.id===p.id)?'Sačuvaj u poslu':'Dodaj u posao'}</button></footer>
+  {options&&<PositionOptions position={p} onChange={patch} onClose={()=>{setOptions(false);if(shutter)fit();}}/>}
  </div>;
 }

@@ -8,7 +8,7 @@ async function mockClient(page:any){
  // This test never uploads customer data to the live Supabase project.
  await page.route('**/src/services/supabase.ts*',(route:any)=>route.fulfill({contentType:'application/javascript',body:`
  export const isSupabaseConfigured=true;
- export function getSupabase(){return {functions:{invoke:async(name,options)=>{try{const r=await fetch('/mock-office-submit',{method:'POST',body:options.body});if(!r.ok)return {data:null,error:{context:r}};return {data:await r.json(),error:null};}catch(e){return {data:null,error:e};}}}};}
+ export function getSupabase(){return {auth:{onAuthStateChange(callback){queueMicrotask(()=>callback('INITIAL_SESSION',null));return {data:{subscription:{unsubscribe(){}}}};}},functions:{invoke:async(name,options)=>{try{const r=await fetch('/mock-office-submit',{method:'POST',body:options.body});if(!r.ok)return {data:null,error:{context:r}};return {data:await r.json(),error:null};}catch(e){return {data:null,error:e};}}}};}
  `}));
 }
 for(const width of [390,620,1024])test(`Slanje kancelarijske specifikacije bez prijave ${width}`,async({page})=>{

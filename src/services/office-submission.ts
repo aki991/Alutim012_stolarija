@@ -1,6 +1,7 @@
 import type { Job, Settings } from '../models';
 import { calculate } from './calculation';
 import { makeDocument } from './documents';
+import { getSupabase, isSupabaseConfigured } from './supabase';
 
 export interface OfficeSubmission {
  signature:string;
@@ -14,7 +15,6 @@ export async function prepareOfficeSubmission(job:Job,settings:Settings):Promise
 }
 export async function sendOfficeSubmission(submission:OfficeSubmission){
  if(!navigator.onLine)throw Error('Za slanje u app potreban je internet. Posao ostaje sačuvan na ovom uređaju.');
- const {getSupabase,isSupabaseConfigured}=await import('./supabase');
  if(!isSupabaseConfigured)throw Error('Supabase nije podešen. Unesite URL i javni ključ u podešavanja projekta.');
  if(submission.file.size>20*1024*1024)throw Error('Specifikacija je veća od 20 MB. Smanjite broj ili veličinu fotografija.');
  const body=new FormData();body.append('file',submission.file);body.append('metadata',JSON.stringify(submission.metadata));

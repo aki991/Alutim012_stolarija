@@ -1,6 +1,7 @@
 import { NumberInput } from './NumberInput';
 import type { Opening, Position } from '../models';
 import { Field } from './UI';
+import { openingBoxHeight } from '../shutters';
 
 export function CombinationControls({position,combination,onChange}:{
  position:Position; combination:NonNullable<Position['combination']>; onChange:(next:Partial<Position>)=>void;
@@ -10,18 +11,19 @@ export function CombinationControls({position,combination,onChange}:{
    {['Vrata','Prozor'].map((label,index)=>{
     const segment=position.segments[index];
     const isWindow=index===1;
+    const boxHeight=openingBoxHeight(position,isWindow?'window':'door');
     return <section key={label} className="visual-control">
      <h2>{label}</h2>
      <Field label={`Širina (${label.toLowerCase()}, mm)`}><NumberInput inputMode="numeric" min={100} value={segment.width} onChange={event=>{
       const width=Number(event.target.value);
       onChange({width:width+position.segments[1-index].width,segments:position.segments.map((part,i)=>i===index?{...part,width}:part)});
      }}/></Field>
-     <Field label={`Visina (${label.toLowerCase()}, mm)`}><NumberInput inputMode="numeric" min={200} value={isWindow?combination.windowHeight:position.height} onChange={event=>{
-      const height=Number(event.target.value);
+     <Field label={`Visina${boxHeight?' otvora':''} (${label.toLowerCase()}, mm)`}><NumberInput inputMode="numeric" min={200+boxHeight} value={(isWindow?combination.windowHeight:position.height)+boxHeight} onChange={event=>{
+      const height=Number(event.target.value)-boxHeight;
       onChange(isWindow?{combination:{...combination,windowHeight:height}}:{height});
      }}/></Field>
      <Field label={`Otvaranje (${label.toLowerCase()})`}><select value={segment.opening} onChange={event=>onChange({segments:position.segments.map((part,i)=>i===index?{...part,opening:event.target.value as Opening}:part)})}>
-      {(isWindow?['Levo','Desno','Fiksno','Kip','Levo + kip','Desno + kip']:['Levo','Desno']).map(value=><option key={value}>{value}</option>)}
+      {['Levo','Desno','Levo + kip','Desno + kip','Kip',...(isWindow?['Fiksno']:[])].map(value=><option key={value}>{value}</option>)}
      </select></Field>
     </section>;
    })}

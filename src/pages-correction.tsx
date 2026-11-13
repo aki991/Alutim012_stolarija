@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { useStore } from './store';
 import type { Job } from './models';
-import { calculate, euro, packages } from './services/calculation';
+import { calculate, euro, packages, positionPriceLabel } from './services/calculation';
 import { Field } from './components/UI';
 import { FieldHeader } from './components/FieldHeader';
 import { Drawing } from './components/Drawing';
@@ -30,8 +30,8 @@ function PriceCorrection({job}:{job:Job}){
  return <div className="field-page correction-page"><FieldHeader title="Korekcija cene" back={`/posao/${job.id}`}/>
  <form className="correction-form" onSubmit={e=>{e.preventDefault();save();}}><main className="correction-workspace">
  <section className="correction-elements"><h2>Cene elemenata</h2><p className="price-mode-note">Ručna cena je po komadu. Prazno polje vraća automatski obračun.</p>
- {draft.positions.map((p,i)=><article className="correction-element" key={p.id}><span className="price-sketch"><Drawing position={p} compact/></span><div><strong>{p.name}</strong><small>{Math.round(p.width)} × {Math.round(p.height)} mm · {p.quantity} kom.</small><span>Stavka ukupno: {p.customGeometry&&p.manualPrice===null?'Za proveru':euro(c.positions[i].total)}</span></div>
- <Field label={`Cena po komadu ${i+1} (€)`}><input aria-label={`Ručna cena ${i+1}`} type="number" inputMode="decimal" min={0} max={1e8} step="0.01" value={p.manualPrice??''} placeholder={p.customGeometry?'Za proveru':c.positions[i].calculated.toFixed(2)} onChange={e=>patch({positions:draft.positions.map(d=>d.id===p.id?{...d,manualPrice:e.target.value===''?null:+e.target.value}:d)})}/></Field></article>)}
+ {draft.positions.map((p,i)=><article className="correction-element" key={p.id}><span className="price-sketch"><Drawing position={p} compact/></span><div><strong>{p.name}</strong><small>{Math.round(p.width)} × {Math.round(p.height)} mm · {p.quantity} kom.</small><span>Stavka ukupno: {positionPriceLabel(c.positions[i],p)}</span></div>
+ <Field label={`Cena po komadu ${i+1} (€)`}><input aria-label={`Ručna cena ${i+1}`} type="number" inputMode="decimal" min={0} max={1e8} step="0.01" value={p.manualPrice??''} placeholder={c.positions[i].calculated.toFixed(2)} onChange={e=>patch({positions:draft.positions.map(d=>d.id===p.id?{...d,manualPrice:e.target.value===''?null:+e.target.value}:d)})}/></Field></article>)}
  </section>
  <div className="correction-settings"><section className="correction-card"><h2>Brza korekcija</h2><p className="price-mode-note">{taxHint}</p>
  <fieldset disabled={manual} className="quick-adjustments"><div className="adjustment-row"><Field label="Popust"><NumberInput clearToZero aria-label="Popust" inputMode="decimal" step="0.01" min={0} max={draft.discountMode==='amount'?1e8:100} value={draft.discount} onChange={e=>patch({discount:+e.target.value})}/></Field><Field label="Vrsta popusta"><select value={draft.discountMode??'percent'} onChange={e=>patch({discountMode:e.target.value as 'percent'|'amount',discount:0})}><option value="percent">%</option><option value="amount">€</option></select></Field></div>
@@ -40,7 +40,7 @@ function PriceCorrection({job}:{job:Job}){
  <label className="manual-total-toggle"><input type="checkbox" checked={manual} onChange={e=>patch({manualTotal:e.target.checked?Number(c.total.toFixed(2)):null})}/>Ručna ukupna cena</label>
  {manual&&<Field label="Konačna cena sa PDV-om (€)"><NumberInput inputMode="decimal" required min={0} max={1e8} step="0.01" value={draft.manualTotal??''} onChange={e=>patch({manualTotal:+e.target.value})}/></Field>}
  <p className="price-mode-note" role="status">{manual?'Aktivna je ručna ukupna cena. To je konačan iznos za plaćanje; popust i uvećanje se ne primenjuju.':'Aktivan je obračun po stavkama, sa popustom i uvećanjem.'}</p></section>
- <section className="correction-total"><div><span>Osnovica</span><strong>{euro(c.net)}</strong></div><div><span>{c.vatMode==='none'?'Bez PDV-a':`PDV ${c.vat}%`}</span><strong>{euro(c.tax)}</strong></div><div><h2>{c.hasUnpriced?'Zbir poznatih stavki':'Okvirna cena'}</h2><strong data-testid="correction-total">{euro(c.total)}</strong></div>{c.hasUnpriced&&<p>Elementi bez ručne cene čekaju proveru i nisu uključeni u zbir.</p>}</section>
+ <section className="correction-total"><div><span>Osnovica</span><strong>{euro(c.net)}</strong></div><div><span>{c.vatMode==='none'?'Bez PDV-a':`PDV ${c.vat}%`}</span><strong>{euro(c.tax)}</strong></div><div><h2>{c.hasUnpriced?'Zbir poznatih stavki':'Okvirna cena'}</h2><strong data-testid="correction-total">{euro(c.total)}</strong></div>{c.hasUnpriced&&<p>Proverite mere elemenata za koje cena nije izračunata.</p>}</section>
  </div>
  <details className="correction-card correction-advanced"><summary>Napredne opcije</summary><div className="advanced-content"><h2>Nivo ponude</h2><div className="field-packages">{(Object.keys(packages) as Job['package'][]).map(tier=><button type="button" key={tier} className={draft.package===tier?'selected':''} aria-pressed={draft.package===tier} onClick={()=>patch({package:tier})}><strong>{tier}</strong><small>{packages[tier].description}</small></button>)}</div>
  <div className="form-grid"><Field label="Transport (€)"><NumberInput clearToZero min={0} max={1e8} step="0.01" value={draft.transport} onChange={e=>patch({transport:+e.target.value})}/></Field><Field label="Dodatni radovi za ceo posao (€)"><NumberInput clearToZero min={0} max={1e8} step="0.01" value={draft.extraCost} onChange={e=>patch({extraCost:+e.target.value})}/></Field><Field label="Opis dodatnih radova"><input maxLength={300} value={draft.extraWork} onChange={e=>patch({extraWork:e.target.value})}/></Field>
