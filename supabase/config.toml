@@ -8,3 +8,7 @@ verify_jwt = false
 [functions.field-team-push]
 # Internal database webhook authenticated with a dedicated shared secret.
 verify_jwt = false
+
+[functions.field-team-accounts]
+# The handler validates the user token with Auth and checks the active administrator role in Postgres.
+verify_jwt = false

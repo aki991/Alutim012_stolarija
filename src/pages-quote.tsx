@@ -2,8 +2,8 @@ import { fmt } from './custom/geometry';
 import { lazy, Suspense, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { CheckCircle2, FileText, Share2 } from 'lucide-react';
-import { useStore } from './store';
-import { calculate, euro, validatePosition, jobReviewLabel, positionReviewLabel } from './services/calculation';
+import { canEditPrices, useStore } from './store';
+import { calculate, euro, validatePosition, jobReviewLabel, positionReviewLabel, positionPriceLabel } from './services/calculation';
 import type { Position } from './models';
 import { openingBoxHeight } from './shutters';
 import { portaDecorName, portaRoyalTypes } from './porta-royal';
@@ -54,13 +54,14 @@ function QuotePositionPrice({position, price, onChange}: {
 }
 
 export function Quote(){
- const {id}=useParams(),{jobs,settings,updatePosition}=useStore(),job=jobs.find(j=>j.id===id);
+ const {id}=useParams(),{jobs,settings,teamMember,updatePosition}=useStore(),job=jobs.find(j=>j.id===id);
  const pendingSubmission=useRef<OfficeSubmission|null>(null),sending=useRef(false);
  const [officeNotice,setOfficeNotice]=useState<{text:string;kind:'progress'|'success'|'error'}|null>(null);
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[sharing,setSharing]=useState(false);
  const [preview,setPreview]=useState<{file:File;title:string}|null>(null);
  if(!job)return <MissingJob/>;
  const showPrices=settings.showPrices!==false;
+ const editPrices=showPrices&&canEditPrices({teamMember});
  async function previewDocument(kind:'kupac'|'kancelarija'){
   if(!job)return;
   setBusy(true);
@@ -97,10 +98,11 @@ export function Quote(){
  }
  return <div className="field-page price-page"><FieldHeader title={`${showPrices?"Cena i ponuda":"Dokumenti"}: ${job.customer.name}`} back={`/posao/${job.id}`}/>
  <main className={showPrices?"price-workspace":"price-workspace without-prices"}><div className="price-content"><section className="price-lines" aria-label={showPrices?"Pregled cene":"Pregled elemenata"}><div className="price-line-head"><span>Element</span><span>Kom.</span>{showPrices&&<span>Cena</span>}</div>
- {job.positions.map((p,i)=><article className="price-line" key={p.id}><Link className="price-element" to={`/posao/${job.id}/element/${p.id}`}><span className="price-sketch"><Drawing position={p} compact/></span><span><strong>{p.name}</strong><small>{fmt(p.width)} × {fmt(p.height+openingBoxHeight(p))} mm · {p.portaRoyal?`Tip ${portaRoyalTypes[p.portaRoyal.type]} · ${portaDecorName(p.portaRoyal)}`:p.material}</small></span></Link><span>{p.quantity}</span>{showPrices&&<QuotePositionPrice position={p} price={result.positions[i]} onChange={manualPrice=>updatePosition(job.id,p.id,{manualPrice})}/>}</article>)}
+ {job.positions.map((p,i)=><article className="price-line" key={p.id}><Link className="price-element" to={`/posao/${job.id}/element/${p.id}`}><span className="price-sketch"><Drawing position={p} compact/></span><span><strong>{p.name}</strong><small>{fmt(p.width)} × {fmt(p.height+openingBoxHeight(p))} mm · {p.portaRoyal?`Tip ${portaRoyalTypes[p.portaRoyal.type]} · ${portaDecorName(p.portaRoyal)}`:p.material}</small></span></Link><span>{p.quantity}</span>{showPrices&&(editPrices?<QuotePositionPrice position={p} price={result.positions[i]} onChange={manualPrice=>updatePosition(job.id,p.id,{manualPrice})}/>:
+  <strong className="quote-position-price">{positionPriceLabel(result.positions[i],p)}</strong>)}</article>)}
  {!job.positions.length&&<p className="field-empty-text">Dodajte element u posao da biste pripremili ponudu.</p>}
  </section>
- {showPrices&&<Link className="field-button field-button-yellow correction-entry" to={`/posao/${job.id}/korekcija`}>Korekcija cene</Link>}</div>
+ {editPrices&&<Link className="field-button field-button-yellow correction-entry" to={`/posao/${job.id}/korekcija`}>Korekcija cene</Link>}</div>
  {showPrices&&<aside className="price-total"><div><span>Elementi i odabrani radovi</span><strong>{euro(result.elements)}</strong></div><div><span>Transport i dodatni radovi</span><strong>{euro(result.services)}</strong></div>{result.discount>0&&<div><span>Popust {job.discountMode==='amount'?'':`${job.discount}%`}</span><strong>−{euro(result.discount)}</strong></div>}<hr/>{result.surcharge>0&&<div><span>Uvećanje</span><strong>{euro(result.surcharge)}</strong></div>}{result.manual&&<p>Ručna ukupna cena — popust i uvećanje se ne primenjuju.</p>}<div><span>Osnovica</span><strong>{euro(result.net)}</strong></div><div><span>{result.vatMode==='none'?'Bez obračuna PDV-a':`PDV ${result.vat}%${result.vatMode==='inclusive'?' (uključen)':''}`}</span><strong>{euro(result.tax)}</strong></div><section><h2>{result.hasUnpriced?'Zbir poznatih stavki':'Okvirna cena'}</h2><strong data-testid="quote-total">{euro(result.total)}</strong></section><p>{result.hasUnpriced?jobReviewLabel(job,result)+'. Zbir obuhvata stavke sa izračunatom cenom.':'Demonstracione cene. Konačnu ponudu potvrđuje kancelarija.'}</p></aside>}
  {errors.length>0&&<div className="field-error" role="alert">{errors.map((e,i)=><p key={i}>{e}</p>)}<Link to={`/posao/${job.id}`}>Ispravite mere u poslu</Link></div>}
  {message&&!sharing&&<p className="field-message" role="status">{message}</p>}

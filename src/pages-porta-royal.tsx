@@ -16,7 +16,7 @@ import { isPortaDimension, portaCatalogPath, portaConfiguration, portaDefaultSel
 import { positionCost, positionPriceLabel, validatePosition } from './services/calculation';
 import { parseBackup } from './services/storage';
 import { useNavigation } from './navigation';
-import { jobFromSettings, useStore, workspaceDraftKey } from './store';
+import { canEditPrices, jobFromSettings, useStore, workspaceDraftKey, withPositionPrice } from './store';
 import './porta-royal.css';
 
 const searchText=(value:string)=>value.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase();
@@ -131,6 +131,8 @@ export function PortaEditor({catalogReturn}:{catalogReturn?:string}) {
 
 function PortaMeasurements({initial,jobId,customer,back,editing,showPrices,draftSize}:{initial:Position;jobId?:string;customer?:string;back:string;editing:boolean;showPrices:boolean;draftSize:string}) {
  const navigate=useNavigate(),settings=useStore(s=>s.settings);
+ const editPrices=useStore(canEditPrices);
+ const savedPosition=useStore(s=>s.jobs.find(job=>job.id===jobId)?.positions.find(position=>position.id===initial.id));
  const start=initial.portaRoyal!;
  const key=workspaceDraftKey(`alu-porta-draft-v1:${jobId??'catalog'}:${editing?initial.id:`${start.series}:${start.decor}:${start.type}`}${draftSize}`);
  const [p,setP]=useState(()=>{
@@ -147,7 +149,7 @@ function PortaMeasurements({initial,jobId,customer,back,editing,showPrices,draft
  const [newJobOpen,setNewJobOpen]=useState(false);
  const [draftError,setDraftError]=useState(false);
  const config=p.portaRoyal!,{series}=portaVariant(config)!,spec=portaTechnical(series),sliding=portaSliding(config.type);
- const errors=validatePosition(p),price=positionCost(p,settings);
+ const errors=validatePosition(p),price=positionCost(editPrices?p:withPositionPrice(p,savedPosition),settings);
  function patch(next:Position){
   setP(next);
   try{sessionStorage.setItem(key,JSON.stringify(next));setDraftError(false);}catch{setDraftError(true);}
@@ -220,7 +222,7 @@ function PortaMeasurements({initial,jobId,customer,back,editing,showPrices,draft
       <label><input type="checkbox" checked={p.removal} onChange={event=>patch({...p,removal:event.target.checked})}/>Demontaža</label>
      </div>
      <Field label="Napomena"><textarea rows={2} maxLength={2000} value={p.notes} onChange={event=>patch({...p,notes:event.target.value})}/></Field>
-     {showPrices&&<Field label="Ručna cena po komadu (€)"><input type="number" inputMode="decimal" min={0} max={1e8} step="0.01" value={p.manualPrice??''} onChange={event=>{if(!event.target.validity.badInput)patch({...p,manualPrice:event.target.value?Math.max(0,Math.min(1e8,+event.target.value)):null});}}/></Field>}
+     {showPrices&&editPrices&&<Field label="Ručna cena po komadu (€)"><input type="number" inputMode="decimal" min={0} max={1e8} step="0.01" value={p.manualPrice??''} onChange={event=>{if(!event.target.validity.badInput)patch({...p,manualPrice:event.target.value?Math.max(0,Math.min(1e8,+event.target.value)):null});}}/></Field>}
     </details>
     {errors.length>0&&<p className="field-error" role="status">{errors[0]}</p>}
     {draftError&&<p className="field-error" role="alert">Nacrt nije sačuvan na uređaju. Sačuvajte vrata u poslu.</p>}

@@ -31,7 +31,7 @@ export function positionCost(p:Position,s:Settings,tier:Package='Standard') {
  const lines: {name:string;basis:string;amount:number}[]=[];
  const measures=positionMeasures(p);
  const portaRate=p.portaRoyal?s.portaRoyalPrices?.[p.portaRoyal.series]:undefined;
- if(!measures||p.portaRoyal&&portaRate===undefined){const unit=p.manualPrice??0;return {area:measures?.area??0,perimeter:measures?.perimeter??0,lines,calculated:0,unit,total:unit*p.quantity,requiresReview:p.manualPrice===null};}
+ if(!measures||p.portaRoyal&&portaRate===undefined){const unit=p.manualPrice??0;return {area:measures?.area??0,perimeter:measures?.perimeter??0,lines,calculated:0,unit,total:unit*p.quantity,requiresReview:p.manualPrice==null};}
  const {area,perimeter}=measures,pr=s.prices;
  const shutterRate=(p.shutterConfig&&pr[shutterTypes[p.shutterConfig.type].rate])??pr.shutter;
  const rateOf=(key:SupplementRate)=>pr[key]??supplementRates[key];

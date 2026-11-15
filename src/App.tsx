@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowRight, FolderOpen, Search } from 'lucide-react';
-import { awaitingMeasurements, discardConflictingTeamChange, jobFromSettings, useStore } from './store';
+import { awaitingMeasurements, canEditPrices, discardConflictingTeamChange, jobFromSettings, refreshTeamPricing, useStore } from './store';
 import type { Job } from './models';
 import { Empty, Modal } from './components/UI';
 import { NewJobDialog } from './components/NewJobDialog';
@@ -19,12 +19,13 @@ import { AccountPage, AssignmentPage, MessagesPage, NotificationsPage } from './
 import type { ReactNode } from 'react';
 
 export default function App(){
- const {jobs,settings,addJob,storageError,retrySave,teamMember,teamConflict}=useStore(),navigate=useNavigate(),location=useLocation();
+ const {jobs,settings,addJob,storageError,retrySave,teamMember,teamConflict,teamPricingError}=useStore(),navigate=useNavigate(),location=useLocation();
  const [draft,setDraft]=useState<{job:Job;choice?:CatalogChoice}|null>(null),[searchOpen,setSearchOpen]=useState(false),[search,setSearch]=useState(''),[notifications,setNotifications]=useState(false);
  const newJob=(choice?:CatalogChoice)=>setDraft({job:{...jobFromSettings(settings),...(teamMember?{status:'Merenje' as const}:{})},choice});
  useEffect(()=>{setDraft(null);setSearchOpen(false);setNotifications(false);},[location.pathname]);
  return <AppShell onNavigation={()=>{setDraft(null);setSearchOpen(false);setNotifications(false);}} onNew={()=>newJob()} onSearch={()=>setSearchOpen(true)} onNotifications={()=>setNotifications(true)}>
   {storageError&&<div className="storage-error" role="alert"><span>{storageError}</span>{teamConflict?<button className="field-button field-button-light" onClick={()=>{if(confirm('Odbaciti neposlate izmene ovog posla i preuzeti verziju iz baze?'))discardConflictingTeamChange();}}>Preuzmi verziju iz baze</button>:<button className="field-button field-button-light" onClick={retrySave}>Pokušaj ponovo</button>}{!teamMember&&<Link to="/podesavanja/podaci">Rezervna kopija</Link>}</div>}
+  {teamPricingError&&<div className="storage-error" role="alert"><span>{teamPricingError}</span><button className="field-button field-button-light" onClick={()=>void refreshTeamPricing()}>Učitaj cenovnik ponovo</button></div>}
   <Routes>
    <Route path="/" element={<Dashboard onNew={()=>newJob()}/>}/>
    <Route path="/tim" element={<Navigate to="/obavestenja" replace/>}/>
@@ -47,7 +48,7 @@ export default function App(){
    <Route path="/posao/:id/sobna-vrata" element={<MeasurementAccess><PortaCatalog/></MeasurementAccess>}/>
    <Route path="/posao/:id/nov/:type" element={<MeasurementAccess><PositionEditor key={location.pathname+location.search}/></MeasurementAccess>}/>
    <Route path="/posao/:id/element/:positionId" element={<MeasurementAccess><PositionEditor key={location.pathname+location.search}/></MeasurementAccess>}/>
-   <Route path="/posao/:id/korekcija" element={<MeasurementAccess>{settings.showPrices===false?<Navigate to="../ponuda" relative="path" replace/>:<Correction/>}</MeasurementAccess>}/>
+   <Route path="/posao/:id/korekcija" element={<MeasurementAccess>{settings.showPrices===false||!canEditPrices({teamMember})?<Navigate to="../ponuda" relative="path" replace/>:<Correction/>}</MeasurementAccess>}/>
    <Route path="/posao/:id/ponuda" element={<MeasurementAccess><Quote/></MeasurementAccess>}/>
    <Route path="*" element={<Empty title="Stranica nije pronađena" action={<Link to="/" className="field-button field-button-yellow">Vrati se na početnu</Link>}/>}/>
   </Routes>

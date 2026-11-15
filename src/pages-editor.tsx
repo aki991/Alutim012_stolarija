@@ -3,7 +3,7 @@ import { fmt } from './custom/geometry';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowDown, ArrowRight, ArrowUp, Check, ChevronRight, Copy, Expand, Minus, MoreVertical, Pencil, Plus, RotateCcw, Settings2, Trash2, UserRound, X } from 'lucide-react';
-import { assignedMeasurement, awaitingMeasurements, useStore, workspaceDraftKey } from './store';
+import { canEditPrices, hasPositionPriceCorrection, assignedMeasurement, awaitingMeasurements, useStore, workspaceDraftKey, withPositionPrice } from './store';
 import type { Opening, Position } from './models';
 import { uid } from './catalog';
 import { calculate, euro, positionCost, validatePosition, positionPriceLabel, jobReviewLabel } from './services/calculation';
@@ -44,7 +44,11 @@ export function Editor(){
  if(!job)return <MissingJob/>;
  const waiting=awaitingMeasurements(state,job),statusLocked=assignedMeasurement(state,job);
  const total=calculate(job,settings);
- function duplicate(p:Position){updateJob(job!.id,{positions:[...job!.positions,{...structuredClone(p),id:uid(),name:p.name+' (kopija)'}]});}
+ const editPrices=canEditPrices(state);
+ function duplicate(p:Position){
+  const copy=structuredClone(p);
+  updateJob(job!.id,{positions:[...job!.positions,{...copy,id:uid(),name:p.name+' (kopija)'}]});
+ }
  function move(index:number,by:number){const positions=[...job!.positions];[positions[index],positions[index+by]]=[positions[index+by],positions[index]];updateJob(job!.id,{positions});}
  return <div className="field-page summary-page"><FieldHeader title={`Posao: ${job.customer.name}`} back="/poslovi"/>
  <main className="job-summary">
@@ -62,13 +66,13 @@ export function Editor(){
       <button onClick={e=>{duplicate(p);e.currentTarget.closest('details')?.removeAttribute('open');}}><Copy/>Dupliraj</button>
       <button disabled={i===0} onClick={e=>{move(i,-1);e.currentTarget.closest('details')?.removeAttribute('open');}}><ArrowUp/>Pomeri gore</button>
       <button disabled={i===job.positions.length-1} onClick={e=>{move(i,1);e.currentTarget.closest('details')?.removeAttribute('open');}}><ArrowDown/>Pomeri dole</button>
-      <button onClick={e=>{setDeleting(p);e.currentTarget.closest('details')?.removeAttribute('open');}}><Trash2/>Obriši</button>
+      {(editPrices||!hasPositionPriceCorrection(p))&&<button onClick={e=>{setDeleting(p);e.currentTarget.closest('details')?.removeAttribute('open');}}><Trash2/>Obriši</button>}
     </div></details></div>
    </article>)}
   </section>{settings.showPrices!==false&&<aside className="summary-price"><div><span>{(total.manual||total.vatMode==='inclusive')?'Osnovica bez PDV-a':'Elementi, radovi i transport'}</span><strong>{euro(total.manual||total.vatMode==='inclusive'?total.net:total.subtotal)}</strong></div>{total.discount>0&&<div><span>Popust {job.discountMode==='amount'?'':`${job.discount}%`}</span><strong>−{euro(total.discount)}</strong></div>}<>{total.surcharge>0&&<div><span>Uvećanje</span><strong>{euro(total.surcharge)}</strong></div>}{total.manual&&<p>Ručna ukupna cena</p>}</><div><span>{total.vatMode==='none'?'Bez obračuna PDV-a':`PDV ${total.vat}%${total.vatMode==='inclusive'?' (uključen)':''}`}</span><strong>{euro(total.tax)}</strong></div><section><h2>{total.hasUnpriced?'Zbir poznatih stavki':'Okvirna cena'}</h2><strong data-testid="job-total">{euro(total.total)}</strong></section><p>{total.hasUnpriced?jobReviewLabel(job,total)+'. Zbir obuhvata stavke sa izračunatom cenom.':'Demonstracione cene. Konačnu ponudu potvrđuje kancelarija.'}</p></aside>}</div>}
   <TeamJobPanel job={job}/>
  </main>
- {!waiting&&<footer className="field-bottom-actions job-quick-actions"><Link className="field-button field-button-red" to={`/posao/${job.id}/dodaj`}><Plus/>Dodaj element</Link>{settings.showPrices!==false&&<Link className="field-button field-button-light" to={`/posao/${job.id}/korekcija`}><Settings2/>Korekcija cene</Link>}<Link className="field-button field-button-yellow summary-more-offer" to={`/posao/${job.id}/ponuda`}>{settings.showPrices===false?"Pregledaj i podeli dokument":"Pogledaj cenu i podeli dokument"} <ArrowRight size={18}/></Link></footer>}
+ {!waiting&&<footer className="field-bottom-actions job-quick-actions"><Link className="field-button field-button-red" to={`/posao/${job.id}/dodaj`}><Plus/>Dodaj element</Link>{settings.showPrices!==false&&editPrices&&<Link className="field-button field-button-light" to={`/posao/${job.id}/korekcija`}><Settings2/>Korekcija cene</Link>}<Link className="field-button field-button-yellow summary-more-offer" to={`/posao/${job.id}/ponuda`}>{settings.showPrices===false?"Pregledaj i podeli dokument":"Pogledaj cenu i podeli dokument"} <ArrowRight size={18}/></Link></footer>}
  {dataOpen&&<JobForm job={job} statusLocked={statusLocked} onClose={()=>setDataOpen(false)} onSave={(j,baseline)=>{updateJob(job.id,j,baseline);setDataOpen(false);}}/>}
  {deleting&&<Modal title="Obriši element?" onClose={()=>setDeleting(null)}><p>{deleting.name}</p><div className="modal-footer"><button className="field-button field-button-light" onClick={()=>setDeleting(null)}>Otkaži</button><button className="field-button field-button-red" onClick={()=>{updateJob(job.id,{positions:job.positions.filter(p=>p.id!==deleting.id)});setDeleting(null);}}>Obriši element</button></div></Modal>}
  </div>;
@@ -77,6 +81,7 @@ export function Editor(){
 export function ElementEditor(){
  const {id,type,positionId}=useParams(),[params]=useSearchParams(),navigate=useNavigate(),location=useLocation();
  const {jobs,settings,updateJob}=useStore(),job=jobs.find(j=>j.id===id),original=job?.positions.find(p=>p.id===positionId);
+ const editPrices=useStore(canEditPrices);
  const template=params.has('template')?Number(params.get('template')):undefined;
  const model=findCatalogModel(params.get('model'));
  const draftKey=workspaceDraftKey(`alu-position-draft-v1:${id}:${positionId||(template===6?'kombinacija':type)}:${model?.id??(template===6?'':template??'')}`);
@@ -98,7 +103,7 @@ export function ElementEditor(){
  const heightLabel=boxInHeight?'Visina otvora (mm)':'Visina (mm)';
  const standaloneShutter=p.category==='Roletne'?shutterOf(p):undefined;
  const mode=combination?'kombinacija':type||typeOfPosition(p),special=['roletna','komarnik','ostalo'].includes(mode),isFixed=mode==='fiksni',isSliding=mode==='klizni',isDoor=['vrata','balkonska'].includes(mode);
- const errors=validatePosition(p),price=positionCost(p,settings,job.package);
+ const errors=validatePosition(p),price=positionCost(editPrices?p:withPositionPrice(p,original),settings,job.package);
  const persist=(next:Position)=>{positionRef.current=next;try{sessionStorage.setItem(draftKey,JSON.stringify(next));setDraftError(false);}catch{setDraftError(true);}setPosition(next);};
  const patch=(value:Partial<Position>)=>persist({...positionRef.current,...value});
  const dimension=(key:'width'|'height',value:number)=>{

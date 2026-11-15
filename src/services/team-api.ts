@@ -1,7 +1,11 @@
-import type { Job } from '../models';
+import { FunctionsHttpError } from '@supabase/supabase-js';
+import type { Job, Settings } from '../models';
 import { getSupabase } from './supabase';
 
 export type TeamMember={id:string;name:string;role:'manager'|'worker';active:boolean};
+export type TeamAccount=TeamMember&{email:string|null};
+export type PriceSettings=Pick<Settings,'prices'|'portaRoyalPrices'|'vat'|'vatMode'>;
+export type TeamPricingRow={prices:Partial<Settings['prices']>;porta_royal_prices:Record<string,number>;vat:number;vat_mode:Settings['vatMode'];revision:number};
 export type TeamJob={id:string;data:Job;assigned_to:string|null;assigned_by:string|null;revision:number};
 export type TeamMessage={id:string;job_id:string;sender_id:string|null;sender_name:string;body:string;created_at:string};
 export type TeamConversation=TeamMessage&{job_name:string;unread:boolean};
@@ -31,6 +35,41 @@ export async function fetchTeamMember(id:string):Promise<TeamMember|null>{
 
 export async function fetchTeamWorkers():Promise<TeamMember[]>{
  return check(await getSupabase().from('field_team_members').select('id,name,role,active').eq('role','worker').eq('active',true).order('name'))??[];
+}
+
+export async function fetchTeamPricing():Promise<TeamPricingRow>{
+ return checkedPricing(check(await getSupabase().from('field_team_pricing').select('prices,porta_royal_prices,vat,vat_mode,revision').single<TeamPricingRow>()));
+}
+
+export async function saveTeamPricing(value:PriceSettings,revision:number):Promise<TeamPricingRow>{
+ return checkedPricing(check(await getSupabase().rpc('field_team_save_pricing',{
+  p_prices:value.prices,p_porta_royal_prices:value.portaRoyalPrices??{},p_vat:value.vat,p_vat_mode:value.vatMode,p_revision:revision,
+ }).single<TeamPricingRow>()));
+}
+
+function checkedPricing(row:TeamPricingRow|null):TeamPricingRow{
+ if(!row)throw new TeamRequestError('Baza nije vratila cenovnik.');
+ return row;
+}
+
+export async function fetchTeamAccounts():Promise<TeamAccount[]>{
+ const accounts:TeamAccount[]=[];
+ const pageSize=100;
+ for(let offset=0;;offset+=pageSize){
+  const page=check(await getSupabase().rpc('field_team_list_accounts').order('name').order('id').range(offset,offset+pageSize-1)) as TeamAccount[];
+  accounts.push(...page);
+  if(page.length<pageSize)return accounts;
+ }
+}
+
+export async function changeTeamAccount(body:{action:'create';identifier:string;name:string;password:string}|{action:'delete';id:string}){
+ const {error}=await getSupabase().functions.invoke('field-team-accounts',{body});
+ if(!error)return;
+ if(error instanceof FunctionsHttpError){
+  const response=await error.context.json().catch(()=>null);
+  if(typeof response?.error==='string')throw new Error(response.error);
+ }
+ throw new Error('Upravljanje korisnicima trenutno nije dostupno. Pokušajte ponovo.');
 }
 
 export async function fetchTeamJobs(known:ReadonlyMap<string,TeamJob>):Promise<TeamJob[]>{

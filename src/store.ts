@@ -3,7 +3,7 @@ import type { Job, Position, Settings } from './models';
 import { catalog, makePosition, uid } from './catalog';
 import { defaults } from './services/calculation';
 import { parseBackup } from './services/storage';
-import { createTeamJob, deleteTeamJob, fetchTeamJobs, updateTeamJob, type TeamJob, type TeamMember } from './services/team-api';
+import { createTeamJob, deleteTeamJob, fetchTeamJobs, fetchTeamPricing, saveTeamPricing, updateTeamJob, type PriceSettings, type TeamJob, type TeamMember, type TeamPricingRow } from './services/team-api';
 const KEY='alu-tim-teren-v1';
 const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Europe/Belgrade'});
 export function emptyJob(technician:string): Job {return {id:'AT-'+new Date().getFullYear()+'-'+uid().slice(0,8).toUpperCase(),customer:{name:'',phone:'',email:'',address:'',building:'Porodična kuća'},date:today(),createdAt:new Date().toISOString(),technician,notes:'',status:'U izradi',positions:[],package:'Standard',discount:0,transport:defaults.prices.transport,extraWork:'',extraCost:0,validity:'15 dana',delivery:'Po dogovoru, nakon tehničke provere',payment:'50% avans, ostatak po montaži',updated:new Date().toISOString()};}
@@ -25,31 +25,50 @@ type SaveState='saved'|'dirty'|'error';
 interface AppState {
  jobs:Job[];settings:Settings;saveState:SaveState;storageError:string;
  teamMember:TeamMember|null;teamConflict:boolean;teamAssignments:Record<string,string|null>;
+ teamPricingRevision:number|null;teamPricingError:string;
  updateJob:(id:string,patch:Partial<Job>,baseline?:Job)=>void;addJob:(job:Job)=>void;deleteJob:(id:string)=>void;duplicateJob:(id:string)=>string;
  updatePosition:(job:string,id:string,patch:Partial<Position>)=>void;setSettings:(patch:Partial<Settings>)=>void;
  importData:(data:unknown)=>void;retrySave:()=>void;
 }
 export const assignedMeasurement=(state:Pick<AppState,'teamAssignments'>,job:Job)=>job.status==='Merenje'&&Boolean(state.teamAssignments[job.id]);
 export const awaitingMeasurements=(state:Pick<AppState,'teamAssignments'|'teamMember'>,job:Job)=>state.teamMember?.role==='manager'&&assignedMeasurement(state,job);
+export const canEditPrices=(state:Pick<AppState,'teamMember'>)=>state.teamMember?.role!=='worker';
+export const hasPositionPriceCorrection=(p:Position)=>p.manualPrice!=null||Boolean(p.extraCost);
+export const withPositionPrice=(p:Position,source?:Position)=>({...p,manualPrice:source?.manualPrice??null,extraCost:source?.extraCost??0});
 type TeamMutation=
  | {type:'create';job:Job}
  | {type:'update';id:string;patch:Partial<Job>;expected:Partial<Job>;updated:string}
  | {type:'delete';job:Job};
 interface TeamWorkspace {
  member:TeamMember; rows:Map<string,TeamJob>; pending:TeamMutation[]; epoch:number;
- running:boolean; refreshing:boolean; conflict:boolean; mutationError:string; connectionError:string; draftError:string;
+ running:boolean; refreshing:boolean; pricingRefreshing:boolean; conflict:boolean; mutationError:string; connectionError:string; draftError:string;
 }
 let initial:{jobs:Job[];settings:Settings}={jobs:demoJobs(),settings:defaults},initialError='';
 try {const raw=localStorage.getItem(KEY);if(raw)initial=parseBackup(JSON.parse(raw));}catch {initialError='Lokalni podaci nisu dostupni ili su oštećeni. Prikazani su demonstracioni podaci.';}
-let workspace:TeamWorkspace|undefined,localJobs=initial.jobs;
+let workspace:TeamWorkspace|undefined,localJobs=initial.jobs,localSettings=initial.settings;
+const localPreferenceKeys=['technician','showPrices','elementDefaults','documentDefaults'] as const;
+function pickPricing(settings:Settings):PriceSettings{
+ const {prices,portaRoyalPrices,vat,vatMode}=settings;
+ return {prices,portaRoyalPrices,vat,vatMode};
+}
+export function localPricingForImport(){
+ const price=pickPricing(localSettings);
+ const hasChanges=price.vat!==defaults.vat||price.vatMode!==defaults.vatMode||Object.keys(price.portaRoyalPrices??{}).length>0
+  ||Object.entries(price.prices).some(([key,value])=>defaults.prices[key as keyof Settings['prices']]!==value);
+ return hasChanges?price:null;
+}
 export const useStore=create<AppState>((set,get)=>({
  ...initial,saveState:initialError?'error':'saved',storageError:initialError,
- teamMember:null,teamConflict:false,teamAssignments:{},
+ teamMember:null,teamConflict:false,teamAssignments:{},teamPricingRevision:null,teamPricingError:'',
  updateJob:(id,patch,baseline)=>{
   if(workspace){
    const job=get().jobs.find(j=>j.id===id);
    if(!job)return;
    const previous=baseline??job;
+   if(workspace.member.role==='worker'&&patch.positions){
+    const positions=new Map(job.positions.map(p=>[p.id,p]));
+    patch={...patch,positions:patch.positions.map(p=>withPositionPrice(p,positions.get(p.id)))};
+   }
    const fields=(Object.keys(patch) as (keyof Job)[]).filter(key=>key!=='id'&&key!=='updated'&&patch[key]!==undefined&&JSON.stringify(patch[key])!==JSON.stringify(previous[key]));
    if(!fields.length)return;
    enqueue({type:'update',id,patch:Object.fromEntries(fields.map(key=>[key,patch[key]])),
@@ -60,7 +79,12 @@ export const useStore=create<AppState>((set,get)=>({
   set(s=>({jobs:s.jobs.map(j=>j.id===id?{...j,...patch,updated:new Date().toISOString()}:j),saveState:'dirty'}));
  },
  addJob:job=>{
-  if(workspace){enqueue({type:'create',job:{...job,technician:workspace.member.name,status:workspace.member.role==='worker'?'Merenje':job.status}});return;}
+  if(workspace){
+   const worker=workspace.member.role==='worker';
+   enqueue({type:'create',job:{...job,technician:workspace.member.name,status:worker?'Merenje':job.status,
+    positions:worker?job.positions.map(p=>withPositionPrice(p)):job.positions}});
+   return;
+  }
   set(s=>({jobs:[job,...s.jobs],saveState:'dirty'}));
  },
  deleteJob:id=>{
@@ -71,9 +95,27 @@ export const useStore=create<AppState>((set,get)=>({
   }
   set(s=>({jobs:s.jobs.filter(j=>j.id!==id),saveState:'dirty'}));
  },
- duplicateJob:id=>{const j=get().jobs.find(j=>j.id===id)!;const copy={...structuredClone(j),id:emptyJob(get().settings.technician).id,customer:{...j.customer,name:j.customer.name+' (kopija)'},status:'U izradi' as const,createdAt:new Date().toISOString(),updated:new Date().toISOString(),positions:j.positions.map(p=>({...structuredClone(p),id:uid()}))};get().addJob(copy);return copy.id;},
+ duplicateJob:id=>{
+  const state=get(),original=state.jobs.find(j=>j.id===id)!;
+  const fresh=jobFromSettings(state.settings),job=structuredClone(original);
+  const worker=state.teamMember?.role==='worker';
+  const pricing=worker?{package:fresh.package,transport:fresh.transport,discount:0,discountMode:undefined,surcharge:undefined,
+   surchargeMode:undefined,manualTotal:undefined,extraCost:0,vat:undefined,vatMode:undefined}:{};
+  const copy={...job,...pricing,id:fresh.id,customer:{...job.customer,name:job.customer.name+' (kopija)'},
+   status:fresh.status,createdAt:fresh.createdAt,updated:fresh.updated,
+   positions:job.positions.map(p=>({...p,id:uid()}))};
+  state.addJob(copy);
+  return copy.id;
+ },
  updatePosition:(job,id,patch)=>{const j=get().jobs.find(j=>j.id===job);if(j)get().updateJob(job,{positions:j.positions.map(p=>p.id===id?{...p,...patch}:p)});},
- setSettings:patch=>set(s=>({settings:{...s.settings,...patch},saveState:'dirty'})),
+ setSettings:patch=>{
+  if(!workspace){set(s=>({settings:{...s.settings,...patch},saveState:'dirty'}));return;}
+  const preferences=Object.fromEntries(localPreferenceKeys.filter(key=>Object.hasOwn(patch,key)).map(key=>[key,patch[key]]));
+  if(!Object.keys(preferences).length)return;
+  localSettings={...localSettings,...preferences};
+  set(s=>({settings:{...s.settings,...preferences,...(s.teamPricingRevision===null?{showPrices:false}:{})}}));
+  saveLocal();
+ },
  importData:data=>{
   const d=parseBackup(data);
   if(workspace)return;
@@ -151,6 +193,7 @@ async function flushWorkspace(w:TeamWorkspace){
 export async function refreshTeamWorkspace(){
  const w=workspace;
  if(!w||w.refreshing)return;
+ void refreshTeamPricing();
  w.refreshing=true;
  try{
   const epoch=w.epoch;
@@ -166,22 +209,50 @@ export async function refreshTeamWorkspace(){
  }
  await flushWorkspace(w);
 }
+
+function publishTeamPricing(w:TeamWorkspace,row:TeamPricingRow){
+ if(workspace!==w)return;
+ useStore.setState(state=>{
+  if(state.teamPricingRevision!==null&&row.revision<state.teamPricingRevision)return state;
+  const updated=row.revision!==state.teamPricingRevision;
+  return {teamPricingRevision:row.revision,teamPricingError:'',settings:updated?{
+   ...state.settings,showPrices:localSettings.showPrices,prices:{...defaults.prices,...row.prices},
+   portaRoyalPrices:row.porta_royal_prices,vat:row.vat,vatMode:row.vat_mode,
+  }:state.settings};
+ });
+}
+
+export async function refreshTeamPricing(){
+ const w=workspace;
+ if(!w||w.pricingRefreshing)return;
+ w.pricingRefreshing=true;
+ try{publishTeamPricing(w,await fetchTeamPricing());}
+ catch{if(workspace===w)useStore.setState({teamPricingError:'Zajednički cenovnik trenutno nije dostupan.'});}
+ finally{w.pricingRefreshing=false;}
+}
+
+export async function saveWorkspacePricing(value:PriceSettings,revision:number){
+ const w=workspace;
+ if(w?.member.role!=='manager')throw new Error('Cene može da menja samo administrator.');
+ publishTeamPricing(w,await saveTeamPricing(value,revision));
+}
+
 export async function beginTeamWorkspace(member:TeamMember){
  if(workspace?.member.id===member.id)return;
- const w:TeamWorkspace={member,rows:new Map(),pending:[],epoch:0,running:false,refreshing:false,conflict:false,mutationError:'',connectionError:'',draftError:''};
+ const w:TeamWorkspace={member,rows:new Map(),pending:[],epoch:0,running:false,refreshing:false,pricingRefreshing:false,conflict:false,mutationError:'',connectionError:'',draftError:''};
  try{
   const pending=JSON.parse(sessionStorage.getItem(queueKey(w))??'[]');
   if(Array.isArray(pending))w.pending=pending;
  }catch{/* Only the authorized user's pending queue is loaded. */}
  workspace=w;
- useStore.setState({teamMember:member});
+ useStore.setState({teamMember:member,teamPricingRevision:null,teamPricingError:'',settings:{...localSettings,...pickPricing(defaults),showPrices:false}});
  publishWorkspace(w);
- await refreshTeamWorkspace();
+ await Promise.all([refreshTeamPricing(),refreshTeamWorkspace()]);
 }
 export function endTeamWorkspace(){
  if(!workspace)return;
  workspace=undefined;
- useStore.setState({jobs:localJobs,teamMember:null,teamAssignments:{},teamConflict:false,storageError:'',saveState:'saved'});
+ useStore.setState({jobs:localJobs,settings:localSettings,teamMember:null,teamAssignments:{},teamConflict:false,teamPricingRevision:null,teamPricingError:'',storageError:'',saveState:'saved'});
 }
 export function workspaceDraftKey(key:string){return workspace?`alu-team-draft:${workspace.member.id}:${key}`:key;}
 export function acceptTeamJob(row:TeamJob,memberId:string){
@@ -202,10 +273,12 @@ export function discardConflictingTeamChange(){
 }
 
 let timer:ReturnType<typeof setTimeout>;
-function saveLocal(){const s=useStore.getState();try{localStorage.setItem(KEY,JSON.stringify({jobs:localJobs,settings:s.settings}));if(!workspace)useStore.setState({saveState:'saved',storageError:''});}catch{if(!workspace)useStore.setState({saveState:'error',storageError:'Nema dovoljno lokalnog prostora ili je čuvanje blokirano. Izvezite rezervnu kopiju i uklonite velike fotografije.'});}}
+function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify({jobs:localJobs,settings:localSettings}));if(!workspace)useStore.setState({saveState:'saved',storageError:''});}catch{if(!workspace)useStore.setState({saveState:'error',storageError:'Nema dovoljno lokalnog prostora ili je čuvanje blokirano. Izvezite rezervnu kopiju i uklonite velike fotografije.'});}}
 useStore.subscribe((s,prev)=>{
- if(!workspace&&s.jobs!==prev.jobs)localJobs=s.jobs;
- if((!workspace&&s.jobs!==prev.jobs)||s.settings!==prev.settings){clearTimeout(timer);timer=setTimeout(saveLocal,350);}
+ if(workspace)return;
+ if(s.jobs!==prev.jobs)localJobs=s.jobs;
+ if(s.settings!==prev.settings)localSettings=s.settings;
+ if(s.jobs!==prev.jobs||s.settings!==prev.settings){clearTimeout(timer);timer=setTimeout(saveLocal,350);}
 });
 window.addEventListener('pagehide',()=>{if(!workspace&&useStore.getState().saveState==='dirty')saveLocal();});
 if(!initialError)saveLocal();

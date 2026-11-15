@@ -22,7 +22,13 @@
 4. Za lokalni test pokrenite `npm run dev` i otvorite [stranicu za prijavu](http://127.0.0.1:5187/prijava). U običnom prozoru prijavite se kao `sef`, a u privatnom kao `milos`, da biste imali dve odvojene sesije.
 5. Za objavljenu verziju postavite aplikaciju na Vercel sa istim javnim `VITE_SUPABASE_URL` i `VITE_SUPABASE_ANON_KEY`. Produkcijska verzija traži prijavu pri otvaranju bilo koje stranice. Na lokalnom razvojnom serveru postavite `VITE_TEAM_LOGIN_REQUIRED=true` ako želite da proverite isti način ulaska.
 
-Deaktiviranje zaposlenog postavljanjem `active = false` odmah ukida pristup zajedničkim podacima na serveru. U aplikaciji ne postoji samostalno otvaranje naloga. Lozinke čuvajte kroz Supabase Auth.
+## Administrator, korisnici i zajednički cenovnik
+
+1. U Supabase SQL Editoru primenite [migraciju za administraciju](migrations/202611150001_team_admin.sql) nakon ranijih migracija tima. Postojeći aktivni nalozi sa ulogom `manager` dobijaju administratorski pristup.
+2. Iz korena repozitorijuma prijavite se komandom `npx.cmd --yes supabase@3.1.0 login`, pa objavite funkciju komandom `npx.cmd --yes supabase@3.1.0 functions deploy field-team-accounts --remote=KOD_PROJEKTA --use-api`. Zamenite `KOD_PROJEKTA` ID-jem postojećeg projekta Stolarije. Funkcija koristi ključeve iz okruženja Supabase-a i proverava ulogu prijavljenog korisnika pre svake izmene. Zatim objavite klijentsku verziju na Vercelu.
+3. Kao administrator otvorite **Podešavanja → Korisnici**. Za novi nalog unesite korisničko ime ili e-mail, ime i prezime i lozinku. Novi korisnik je majstor i može odmah da se prijavi. Brisanje ukida pristup i uklanja nalog sa liste, dok poslovi i poruke ostaju sačuvani. Po potrebi nedovršeno merenje dodelite drugom majstoru.
+4. Ako ste ranije unosili svoje cene, na istom uređaju i u istom pregledaču otvorite **Cenovnik**, izaberite **Učitaj ranije cene sa ovog uređaja** i proverite iznose. Kliknite **Sačuvaj cenovnik** da bi ih dobio ceo tim. Uvoz je dostupan dok zajednički cenovnik nema sačuvanu izmenu.
+5. Proverite oba naloga. Administrator menja cenovnik, PDV i korekcije ponude. Majstor vidi iste cene i može da menja mere i opremu, što automatski preračunava ponudu. Baza proverava dozvole i za direktne zahteve.
 
 ## Rad u aplikaciji
 
@@ -30,7 +36,7 @@ Deaktiviranje zaposlenog postavljanjem `active = false` odmah ukida pristup zaje
 - Ikonice **Obaveštenja** i **Poruke** otvaraju zasebne stranice. U razgovoru je samo poslednja primljena poruka nepročitana dok je korisnik ne vidi, ne označi kao pročitanu ili ne pošalje odgovor. Baza pamti pročitanost po nalogu. Za ovo je potrebna [migracija za pročitanost poruka](migrations/202611130002_team_message_reads.sql).
 - Za obaveštenja kada je aplikacija zatvorena otvorite **Nalog → Obaveštenja na uređaju → Uključi na ovom uređaju** i dozvolite obaveštenja. Ponovite na svakom uređaju na kom želite da ih primate. Na iPhone-u i iPad-u prvo dodajte aplikaciju na početni ekran i pokrenite je preko ikonice. Odjava isključuje obaveštenja na tom uređaju.
 - Dok je dodeljeni posao u statusu **Merenje**, šef vidi podatke o poslu i razgovor. Baza prikazuje elemente i mere samo dodeljenom majstoru. Kada majstor klikne **Merenje završeno**, posao prelazi u **Poslati ponudu** i šefu se otvaraju svi elementi i ponuda. Vraćanje u **Merenje** ponovo skriva elemente dok majstor ne preda ispravke.
-- Poslovi, elementi, poruke i obaveštenja čuvaju se u zajedničkoj bazi. Obaveštenja se osvežavaju u otvorenoj aplikaciji na svakih pet sekundi i odmah po povratku fokusa ili veze. Podešavanja i cenovnik i dalje se čuvaju na uređaju. Raniji lokalni poslovi ostaju dostupni u lokalnom režimu.
+- Poslovi, elementi, poruke, obaveštenja i cenovnik čuvaju se u zajedničkoj bazi. Obaveštenja se osvežavaju u otvorenoj aplikaciji na svakih pet sekundi i odmah po povratku fokusa ili veze. Lična podešavanja prikaza i merenja čuvaju se na uređaju. Raniji lokalni poslovi ostaju dostupni u lokalnom režimu.
 
 ## Provera od merenja do završetka posla
 

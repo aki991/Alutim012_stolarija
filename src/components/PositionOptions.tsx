@@ -5,7 +5,7 @@ import { hasGlass } from '../model-layout';
 import { useState, type ReactNode } from 'react';
 import { Camera, Check, ChevronRight, Droplet, Layers, MessageSquare, Minus, Plus, Puzzle, RectangleHorizontal, Settings, SlidersHorizontal, Wrench, X } from 'lucide-react';
 import type { Position } from '../models';
-import { useStore } from '../store';
+import { canEditPrices, useStore } from '../store';
 import { Field, Modal } from './UI';
 import { changeShutter, makeShutter, shutterOf, supportsShutter } from '../shutters';
 import { ShutterControls } from './ShutterControls';
@@ -22,7 +22,7 @@ function OptionsSection({title,icon,summary,children}:{title:string;icon:ReactNo
  return <details className="options-section"><summary>{icon}<span>{title}</span>{summary&&<small>{summary}</small>}<ChevronRight aria-hidden="true"/></summary><div className="options-section-content">{children}</div></details>;
 }
 export function PositionOptions({position:p,onChange,onClose,automaticUnit}:{position:Position;automaticUnit?:number;onChange:(patch:Partial<Position>)=>void;onClose:()=>void}){
- const showPrices=useStore(s=>s.settings.showPrices!==false);
+ const showPrices=useStore(s=>s.settings.showPrices!==false&&canEditPrices(s));
  const [error,setError]=useState(''),[preview,setPreview]=useState<string|null>(null),[loading,setLoading]=useState(false);
  const profiles=p.material==='PVC'?['PVC 70 mm','PVC 76 mm','PVC 82 mm']:['ALU termo profil','ALU hladni profil'];
  if(p.profile&&!profiles.includes(p.profile))profiles.unshift(p.profile);

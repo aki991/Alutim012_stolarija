@@ -5,6 +5,7 @@ import { beginTeamWorkspace, endTeamWorkspace, refreshTeamWorkspace, useStore } 
 import { fetchTeamConversations, fetchTeamMember, fetchTeamNotifications, markTeamMessagesRead, markTeamNotificationRead, type TeamConversation, type TeamNotification } from './services/team-api';
 import { getSupabase, isSupabaseConfigured } from './services/supabase';
 import { removeDeviceNotifications } from './components/DeviceNotifications';
+import { loginEmail, usernameHint, usernamePattern } from '../supabase/functions/_shared/team-login';
 
 const teamLoginRequired = (import.meta.env.PROD && import.meta.env.MODE !== 'test') ||
  import.meta.env.VITE_TEAM_LOGIN_REQUIRED === 'true';
@@ -112,6 +113,20 @@ export function TeamGate({ children }: { children: ReactNode }) {
   return () => { active = false; };
  }, [userId, retry]);
 
+ const activeProfileId = profile && !profile.error ? profile.id : null;
+ useEffect(() => {
+  if (!activeProfileId || activeProfileId !== userId) return;
+  return pollTeam(async isCurrent => {
+   try {
+    const current = await fetchTeamMember(activeProfileId);
+    if (isCurrent() && !current?.active) {
+     endTeamWorkspace();
+     setProfile({ id: activeProfileId, error: 'Nalog nema pristup timu. Obratite se administratoru.' });
+    }
+   } catch { /* A temporary connection failure does not revoke the session. */ }
+  });
+ }, [activeProfileId, userId]);
+
  const loginPath = /^\/prijava\/?$/.test(location.pathname);
  if (userId === undefined || (userId && profile?.id !== userId) || (!userId && member)) {
   return <LoginFrame><p role="status">Učitavanje radnog prostora…</p></LoginFrame>;
@@ -146,11 +161,11 @@ function Login() {
   if (busy || !isSupabaseConfigured) return;
   const login = identifier.trim().toLowerCase();
   if (!login || !password) { setError('Unesite e-mail ili korisničko ime i lozinku.'); return; }
-  if (!login.includes('@') && !/^[a-z0-9._-]{3,32}$/.test(login)) {
-   setError('Korisničko ime treba da ima 3–32 znaka. Dozvoljeni su slova a–z, brojevi, tačka, crtica i donja crta.');
+  if (!login.includes('@') && !usernamePattern.test(login)) {
+   setError(usernameHint);
    return;
   }
-  const email = login.includes('@') ? login : `${login}@alutim012.local`;
+  const email = loginEmail(login);
   setBusy(true);
   setError('');
   try {

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import type { TeamJob, TeamMember, TeamMessage, TeamNotification } from '../src/services/team-api';
+import type { TeamAccount, TeamJob, TeamMember, TeamMessage, TeamNotification, TeamPricingRow } from '../src/services/team-api';
 import type { Job } from '../src/models';
 
 test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({ browser, page }) => {
@@ -7,6 +7,8 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
  const boss = { id: '10000000-0000-4000-8000-000000000001', name: 'Šef', role: 'manager', active: true } as const;
  const worker = { id: '10000000-0000-4000-8000-000000000002', name: 'Miloš', role: 'worker', active: true } as const;
  const people = [boss, worker];
+ const accounts: TeamAccount[] = [{...boss,email:'manager@example.test'},{...worker,email:'milos@alutim012.local'}];
+ let pricing: TeamPricingRow = {prices:{},porta_royal_prices:{},vat:20,vat_mode:'exclusive',revision:0};
  const jobs = new Map<string, TeamJob>();
  const inbox = new Map<string, TeamNotification[]>();
  const messages: TeamMessage[] = [];
@@ -19,7 +21,7 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
 
  // Supabase responses are intercepted. The browser still uses the real Auth and REST clients.
  async function mockSupabase(target: Page, member: TeamMember) {
-  await target.route(/\/(auth|rest)\/v1\//, async route => {
+  await target.route(/\/(auth|rest|functions)\/v1\//, async route => {
    const request = route.request(), url = new URL(request.url()), endpoint = url.pathname.split('/').pop();
    const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
    const reply = (json: unknown) => route.fulfill({ headers, json });
@@ -38,6 +40,30 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
    const visible = [...jobs.values()].filter(row => member.role === 'manager' || row.assigned_to === member.id);
    switch (endpoint) {
     case 'field_team_members': return reply(url.searchParams.has('id') ? [member] : people.filter(person => person.role === 'worker'));
+    case 'field_team_pricing': return reply(pricing);
+    case 'field_team_save_pricing': {
+     expect(member.role).toBe('manager');
+     expect(body.p_revision).toBe(pricing.revision);
+     pricing={prices:body.p_prices,porta_royal_prices:body.p_porta_royal_prices,vat:body.p_vat,vat_mode:body.p_vat_mode,revision:pricing.revision+1};
+     return reply(pricing);
+    }
+    case 'field_team_list_accounts': {
+     expect(member.role).toBe('manager');
+     return reply(accounts);
+    }
+    case 'field-team-accounts': {
+     expect(member.role).toBe('manager');
+     expect(request.headers().authorization).toMatch(/^Bearer /);
+     if(body.action==='create'){
+      expect(body).toEqual({action:'create',identifier:'petar',name:'Petar Petrović',password:'proba-1234'});
+      accounts.push({id:crypto.randomUUID(),name:body.name,role:'worker',active:true,email:'petar@alutim012.local'});
+     }else{
+      const index=accounts.findIndex(account=>account.id===body.id&&account.name==='Petar Petrović');
+      expect(index).toBeGreaterThan(-1);
+      accounts.splice(index,1);
+     }
+     return reply({ok:true});
+    }
     case 'field_team_visible_jobs': return reply(visible.map(row => member.role === 'manager' && row.assigned_to && row.data.status === 'Merenje'
      ? { ...row, data: { ...row.data, positions: [] } } : row));
     case 'field_team_messages': return reply(messages.filter(message => `eq.${message.job_id}` === url.searchParams.get('job_id')).reverse());
@@ -110,6 +136,25 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
  }
 
  await login(page, boss);
+ await page.goto('/podesavanja');
+ await page.getByRole('link', {name:/Korisnici/}).click();
+ await expect(page.getByText('Administrator · Vaš nalog')).toBeVisible();
+ await expect(page.getByText('milos', {exact:true})).toBeVisible();
+ await expect(page.getByRole('button', {name:'Obriši nalog za Šef'})).toHaveCount(0);
+ await page.getByLabel('Korisničko ime ili e-mail').fill('petar');
+ await page.getByLabel('Ime i prezime').fill('Petar Petrović');
+ await page.getByLabel('Lozinka').fill('proba-1234');
+ await page.getByRole('button', {name:'Dodaj korisnika'}).click();
+ await expect(page.getByText('petar', {exact:true})).toBeVisible();
+ await expect(page.getByLabel('Lozinka')).toHaveValue('');
+ await page.getByRole('button', {name:'Obriši nalog za Petar Petrović'}).click();
+ await page.getByRole('dialog').getByRole('button', {name:'Obriši nalog',exact:true}).click();
+ await expect(page.getByText('Nalog za Petar Petrović je obrisan.')).toBeVisible();
+ await expect(page.getByText('petar', {exact:true})).toHaveCount(0);
+ await page.goto('/cenovnik');
+ await page.getByRole('spinbutton', {name:'PVC profil (€/m²)',exact:true}).fill('126');
+ await page.getByRole('button', {name:'Sačuvaj cenovnik'}).click();
+ await expect(page.getByText('Cene su sačuvane za ceo tim.')).toBeVisible();
  await expect(page.getByLabel('Majstor', { exact: true })).toHaveCount(0);
  await page.getByRole('navigation', { name: 'Glavna navigacija' }).getByRole('link', { name: 'Dodeli merenje' }).click();
  await expect(page.getByRole('heading', { name: 'Dodeli merenje' })).toBeVisible();
@@ -207,6 +252,20 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await page.goto(`${jobUrl}/ponuda`);
   await page.getByRole('button', { name: 'Ponuda za kupca', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Pregled: Ponuda za kupca' }).getByRole('button', { name: 'Preuzmi PDF' })).toBeVisible();
+  await mobile.goto(`${jobUrl}/korekcija`);
+  await expect(mobile).toHaveURL(`${jobUrl}/ponuda`);
+  await expect(mobile.getByRole('link', {name:'Korekcija cene'})).toHaveCount(0);
+  await expect(mobile.getByRole('button', {name:/Auto za/})).toHaveCount(0);
+  await expect(mobile.getByRole('region', {name:'Pregled cene'}).getByText(/€/)).toBeVisible();
+  await mobile.goto('/podesavanja/korisnici');
+  await expect(mobile).toHaveURL(/\/podesavanja$/);
+  await expect(mobile.getByRole('link', {name:/Korisnici/})).toHaveCount(0);
+  await mobile.goto('/cenovnik');
+  const sharedRate=mobile.getByRole('spinbutton',{name:'PVC profil (€/m²)',exact:true});
+  await expect(sharedRate).toHaveValue('126');
+  await expect(sharedRate).toHaveAttribute('readonly','');
+  await expect(mobile.getByRole('button',{name:'Sačuvaj cenovnik'})).toHaveCount(0);
+  await mobile.goto(jobUrl);
   await page.goto(jobUrl);
   await bossStatus.selectOption('U izradi');
   await expect(workerStatus).toHaveValue('U izradi', { timeout: 10000 });

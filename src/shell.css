@@ -124,3 +124,9 @@
 .unified-shell.is-fullscreen,.unified-shell.is-fullscreen.sidebar-compact{--sidebar-width:0px;--nav-bottom:0px}
 @media(max-width:700px){.module-page:has(.jobs-controls) .module-header p{display:none}}
 @media(min-width:1000px) and (max-width:1150px){.unified-shell:not(.sidebar-compact) .measurement-workspace{grid-template-columns:minmax(0,1fr) 360px}}
+.pricing-save-bar{position:sticky;top:0;z-index:1;display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:#fff;padding:10px 0 14px;margin-bottom:14px;border-bottom:1px solid #e6e8ec}
+.pricing-save-bar p{margin:0}.pricing-save-bar [role=alert]{color:#a90017}.pricing-import{margin-bottom:20px}
+.team-accounts{display:grid;gap:26px}.team-accounts h2{font:700 25px AluNarrow,Arial,sans-serif;margin-bottom:12px}
+.team-account-create{align-self:start;margin-top:25px;min-height:56px}.team-account-feedback{grid-column:1/-1}
+.team-account-list{list-style:none;padding:0;margin:0;display:grid;gap:8px}.team-account-list li{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px;border:1px solid #e0e2e6;border-radius:9px;font-size:17px}
+.team-account-list li>div:first-child{display:grid;overflow-wrap:anywhere;min-width:0}.team-account-list li>div:last-child{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.team-account-list li span{color:#59616c}.team-account-list li .field-button{min-height:40px;padding:6px 12px}
