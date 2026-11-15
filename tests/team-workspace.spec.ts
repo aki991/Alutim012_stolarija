@@ -7,8 +7,10 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
  const boss = { id: '10000000-0000-4000-8000-000000000001', name: 'Šef', role: 'manager', active: true } as const;
  const worker = { id: '10000000-0000-4000-8000-000000000002', name: 'Miloš', role: 'worker', active: true } as const;
  const observer = { id: '10000000-0000-4000-8000-000000000003', name: 'Ivan', role: 'worker', active: true } as const;
+ const admin = { id: '10000000-0000-4000-8000-000000000004', name: 'Privatni nalog', role: 'manager', active: true, is_admin: true } as const;
  const people = [boss, worker, observer];
- const accounts: TeamAccount[] = [{...boss,email:'manager@example.test'},{...worker,email:'milos@alutim012.local'},{...observer,email:'ivan@alutim012.local'}];
+ const accounts: TeamAccount[] = [{...boss,email:'manager@example.test'},{...worker,email:'milos@alutim012.local'},{...observer,email:'ivan@alutim012.local'},
+  {...admin,role:'admin',email:'admin@example.test'}];
  let pricing: TeamPricingRow = {prices:{},porta_royal_prices:{},vat:20,vat_mode:'exclusive',revision:0};
  const preferences = new Map<string,TeamPreferencesRow>();
  const archived = new Map<string, {pdf:Buffer; createdAt:string}>();
@@ -68,7 +70,8 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
    const view = (row:TeamJob) => row.assigned_to && row.data.status==='Merenje' &&
     (member.role==='manager'||row.assigned_to!==member.id)?{...row,data:{...row.data,positions:[]}}:row;
    switch (endpoint) {
-    case 'field_team_members': return reply(url.searchParams.has('id') ? [member] : people.filter(person => person.role === 'worker'));
+    case 'field_team_my_profile': return reply(request.headers().accept?.includes('vnd.pgrst.object') ? member : [member]);
+    case 'field_team_members': return reply(people.filter(person => person.role === 'worker'));
     case 'field_team_pricing': return reply(pricing);
     case 'field_team_preferences': return reply(preferences.has(member.id)?[preferences.get(member.id)]:[]);
     case 'field_team_save_preferences': {
@@ -85,26 +88,27 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
     }
     case 'field_team_list_accounts': {
      expect(member.role).toBe('manager');
-     return reply(accounts);
+     return reply(accounts.filter(account => member.is_admin || account.role !== 'admin'));
     }
     case 'field-team-accounts': {
      expect(member.role).toBe('manager');
      expect(request.headers().authorization).toMatch(/^Bearer /);
      if(body.action==='create'){
-      expect(body).toEqual({action:'create',identifier:'petar',name:'Petar Petrović',password:'proba-1234'});
-      accounts.push({id:crypto.randomUUID(),name:body.name,role:'worker',active:true,email:'petar@alutim012.local'});
+      expect(body.password).toBe('proba-1234');
+      expect(body.role).toBe(body.identifier==='petar'?'worker':'manager');
+      accounts.push({id:crypto.randomUUID(),name:body.name,role:body.role,active:true,email:body.identifier+'@alutim012.local'});
      }else if(body.action==='link'){
-      expect(body).toEqual({action:'link',identifier:'jelena'});
+      expect(body).toEqual({action:'link',identifier:'jelena',role:'worker'});
       accounts.push({id:crypto.randomUUID(),name:'Jelena Ograde',role:'worker',active:true,email:'jelena@alutim012.local'});
      }else{
-      const index=accounts.findIndex(account=>account.id===body.id&&account.name==='Petar Petrović');
+      const index=accounts.findIndex(account=>account.id===body.id&&account.id!==member.id&&account.role!=='admin');
       expect(index).toBeGreaterThan(-1);
       accounts.splice(index,1);
      }
      return reply({ok:true});
     }
     case 'field_team_visible_jobs': return reply(visible.map(view));
-    case 'field_team_messages': return reply(messages.filter(message => `eq.${message.job_id}` === url.searchParams.get('job_id')).reverse());
+    case 'field_team_visible_messages': return reply(messages.filter(message => `eq.${message.job_id}` === url.searchParams.get('job_id')).reverse());
     case 'field_team_notifications': return reply(url.searchParams.get('kind') === 'eq.message'
      ? messageNotices.get(member.id) ?? [] : inbox.get(member.id) ?? []);
     case 'field_team_push_key': return reply('test-public-key');
@@ -182,7 +186,8 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await expect(target.getByRole('button', { name: 'Nastavi bez interneta (gost)' })).toHaveCount(0);
   const identifier = target.getByLabel('E-mail ili korisničko ime');
   const password = target.getByLabel('Lozinka', { exact: true });
-  await identifier.fill(member.id === boss.id ? ' Manager@Example.test ' : member.id === worker.id ? ' MiLoS ' : ' ivan ');
+  await identifier.fill(member.id === boss.id ? ' Manager@Example.test ' : member.id === worker.id ? ' MiLoS '
+   : accounts.find(account=>account.id===member.id)!.email!);
   if (member.role === 'manager') {
    await password.fill('wrong-password');
    await target.getByRole('button', { name: 'Prijavi se' }).click();
@@ -201,7 +206,9 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
  await login(page, boss);
  await page.goto('/podesavanja');
  await page.getByRole('link', {name:/Korisnici/}).click();
- await expect(page.getByText('Administrator · Vaš nalog')).toBeVisible();
+ await expect(page.getByText('Šef · Vaš nalog')).toBeVisible();
+ await expect(page.getByText(admin.name)).toHaveCount(0);
+ await expect(page.getByRole('combobox',{name:'Uloga'}).locator('option')).toHaveText(['Majstor','Šef']);
  await expect(page.getByText('milos', {exact:true})).toBeVisible();
  await expect(page.getByRole('button', {name:'Obriši nalog za Šef'})).toHaveCount(0);
  await page.getByLabel('Korisničko ime ili e-mail').fill('petar');
@@ -228,6 +235,33 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
  await page.getByLabel('Korisničko ime ili e-mail').fill('jelena');
  await page.getByRole('button',{name:'Dodeli pristup'}).click();
  await expect(page.getByText('Jelena Ograde',{exact:true})).toBeVisible();
+ await page.getByRole('checkbox',{name:'Postojeći nalog'}).uncheck();
+ await page.getByLabel('Korisničko ime ili e-mail').fill('sara');
+ await page.getByLabel('Ime i prezime').fill('Sara');
+ await newPassword.fill('proba-1234');
+ await page.getByRole('combobox',{name:'Uloga'}).selectOption('manager');
+ await page.getByRole('button', {name:'Dodaj korisnika'}).click();
+ await expect(page.getByText('Nalog za Sara je napravljen.')).toBeVisible();
+ const newChief = accounts.find(account=>account.name==='Sara')!;
+ expect(newChief.role).toBe('manager');
+ const accountsContext = await browser.newContext({ baseURL: page.url() });
+ try {
+  const chiefPage = await accountsContext.newPage();
+  await login(chiefPage,{...newChief,role:'manager'});
+  await chiefPage.goto('/podesavanja/korisnici');
+  await expect(chiefPage.getByText('Šef · Vaš nalog')).toBeVisible();
+  await expect(chiefPage.getByRole('button',{name:'Dodaj korisnika'})).toBeVisible();
+  await chiefPage.getByRole('button',{name:'Obriši nalog za Jelena Ograde'}).click();
+  await chiefPage.getByRole('dialog').getByRole('button',{name:'Obriši nalog',exact:true}).click();
+  await expect(chiefPage.getByText('Nalog za Jelena Ograde je obrisan.')).toBeVisible();
+  await chiefPage.goto('/nalog');
+  await chiefPage.getByRole('button',{name:'Odjavi se'}).click();
+  const adminPage = await accountsContext.newPage();
+  await login(adminPage,admin);
+  await adminPage.goto('/podesavanja/korisnici');
+  await expect(adminPage.getByText('Admin · Vaš nalog')).toBeVisible();
+  await expect(adminPage.getByText('Sara',{exact:true})).toBeVisible();
+ } finally { await accountsContext.close(); }
  await page.goto('/podesavanja/dokumenti');
  const validity=page.getByLabel('Važenje ponude');
  await validity.fill('30 dana');

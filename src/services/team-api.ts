@@ -2,8 +2,8 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 import type { Job, Settings } from '../models';
 import { getSupabase } from './supabase';
 
-export type TeamMember={id:string;name:string;role:'manager'|'worker';active:boolean};
-export type TeamAccount=TeamMember&{email:string|null};
+export type TeamMember={id:string;name:string;role:'manager'|'worker';active:boolean;is_admin?:boolean;document_author?:string};
+export type TeamAccount=Pick<TeamMember,'id'|'name'|'active'>&{role:TeamMember['role']|'admin';email:string|null};
 export type PriceSettings=Pick<Settings,'prices'|'portaRoyalPrices'|'vat'|'vatMode'>;
 export type TeamPricingRow={prices:Partial<Settings['prices']>;porta_royal_prices:Record<string,number>;vat:number;vat_mode:Settings['vatMode'];revision:number};
 export type TeamPreferences=Pick<Settings,'showPrices'|'elementDefaults'|'documentDefaults'>;
@@ -32,7 +32,7 @@ function checkedJob(response:{data:TeamJob|null;error:{message:string;code?:stri
 }
 
 export async function fetchTeamMember(id:string):Promise<TeamMember|null>{
- return check(await getSupabase().from('field_team_members').select('id,name,role,active').eq('id',id).maybeSingle());
+ return check(await getSupabase().rpc('field_team_my_profile').eq('id',id).maybeSingle());
 }
 
 export async function fetchTeamWorkers():Promise<TeamMember[]>{
@@ -74,7 +74,7 @@ export async function fetchTeamAccounts():Promise<TeamAccount[]>{
  }
 }
 
-export async function changeTeamAccount(body:{action:'create';identifier:string;name:string;password:string}|{action:'link';identifier:string}|{action:'delete';id:string}){
+export async function changeTeamAccount(body:{action:'create';identifier:string;name:string;password:string;role:TeamMember['role']}|{action:'link';identifier:string;role:TeamMember['role']}|{action:'delete';id:string}){
  const {error}=await getSupabase().functions.invoke('field-team-accounts',{body});
  if(!error)return;
  if(error instanceof FunctionsHttpError){
@@ -120,7 +120,7 @@ export async function assignTeamJob(id:string,assignee:string,message:string,ass
 }
 
 export async function fetchTeamMessages(id:string):Promise<TeamMessage[]>{
- const rows=check(await getSupabase().from('field_team_messages').select('id,job_id,sender_id,sender_name,body,created_at')
+ const rows=check(await getSupabase().from('field_team_visible_messages').select('id,job_id,sender_id,sender_name,body,created_at')
   .eq('job_id',id).order('created_at',{ascending:false}).order('id',{ascending:false}).limit(100))??[];
  return rows.reverse();
 }

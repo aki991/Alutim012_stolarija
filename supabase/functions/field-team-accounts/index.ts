@@ -11,6 +11,7 @@ const reply = (status: number, error?: string) => Response.json(error ? { error 
 const authOptions = { persistSession: false, autoRefreshToken: false };
 const uuid = /^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 const unavailable = 'Upravljanje korisnicima trenutno nije dostupno. Pokušajte ponovo.';
+const accessDenied = 'Korisnicima upravlja šef ili admin.';
 
 function identifierError(identifier: string) {
  if (identifier.includes('@')) {
@@ -36,19 +37,22 @@ Deno.serve(async request => {
   });
   const { error: accessError } = await caller.rpc('field_team_list_accounts').limit(1);
   if (accessError) return accessError.code === '42501'
-   ? reply(403, 'Korisnicima upravlja samo administrator.') : reply(503, unavailable);
+   ? reply(403, accessDenied) : reply(503, unavailable);
 
   const body = await request.json().catch(() => null);
   if (body?.action === 'create' || body?.action === 'link') {
+   const role = body.role === undefined ? 'worker' : body.role;
+   if (role !== 'manager' && role !== 'worker') return reply(400, 'Izaberite ulogu šefa ili majstora.');
    const identifier = typeof body.identifier === 'string' ? body.identifier.trim().toLowerCase() : '';
    const invalidIdentifier = identifierError(identifier);
    if (invalidIdentifier) return reply(400, invalidIdentifier);
    const email = loginEmail(identifier);
    if (body.action === 'link') {
-    const { error } = await admin.rpc('field_team_link_account', { p_actor: user.id, p_email: email });
-    if (error?.code === '42501') return reply(403, 'Korisnicima upravlja samo administrator.');
+    const { error } = await admin.rpc('field_team_link_account', { p_actor: user.id, p_email: email, p_role: role });
+    if (error?.code === '42501') return reply(403, accessDenied);
     if (error?.code === 'P0002') return reply(404, 'Postojeći nalog nije pronađen. Proverite korisničko ime ili e-mail.');
     if (error?.code === '22023') return reply(409, 'Pristup ovom nalogu je ukinut.');
+    if (error?.code === 'P2001') return reply(409, 'Nalog već ima ulogu u Stolariji.');
     return error ? reply(503, unavailable) : reply(200);
    }
    const name = typeof body.name === 'string' ? body.name.trim() : '';
@@ -58,9 +62,14 @@ Deno.serve(async request => {
     return reply(400, 'Lozinka mora imati najmanje 8 znakova i najviše 72 bajta.');
    }
 
+   const { data: registration, error: prepareError } = await admin.rpc('field_team_prepare_account', {
+    p_actor: user.id, p_email: email, p_role: role,
+   });
+   if (prepareError?.code === '42501') return reply(403, accessDenied);
+   if (prepareError || !registration) return reply(503, unavailable);
    const { error } = await admin.auth.admin.createUser({
     email, password, email_confirm: true,
-    user_metadata: { full_name: name }, app_metadata: { field_team_created_by: user.id },
+    user_metadata: { full_name: name }, app_metadata: { field_team_registration: registration },
    });
    if (error?.code === 'email_exists' || error?.code === 'user_already_exists') return reply(409, 'Nalog već postoji. Izaberite Postojeći nalog da mu dodelite pristup Stolariji.');
    if (error?.code === 'weak_password') return reply(400, 'Unesite jaču lozinku.');
@@ -70,7 +79,7 @@ Deno.serve(async request => {
 
   if (body?.action === 'delete' && typeof body.id === 'string' && uuid.test(body.id)) {
    const { error } = await admin.rpc('field_team_deactivate_account', { p_actor: user.id, p_target: body.id });
-   if (error?.code === '42501') return reply(403, 'Korisnicima upravlja samo administrator.');
+   if (error?.code === '42501') return reply(403, accessDenied);
    if (error?.code === '22023') return reply(400, 'Ne možete obrisati svoj nalog.');
    if (error?.code === 'P0002') return reply(404, 'Nalog nije pronađen.');
    if (error) return reply(503, unavailable);

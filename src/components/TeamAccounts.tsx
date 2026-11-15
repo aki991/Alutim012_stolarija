@@ -5,6 +5,7 @@ import { changeTeamAccount, fetchTeamAccounts, type TeamAccount, type TeamMember
 import { Field, Modal } from './UI';
 
 const loadError = 'Lista korisnika trenutno nije dostupna.';
+const roleLabels = { admin: 'Admin', manager: 'Šef', worker: 'Majstor' };
 
 export function TeamAccounts({member}: {member:TeamMember}){
  const [accounts,setAccounts]=useState<TeamAccount[]|null>(null);
@@ -35,12 +36,13 @@ export function TeamAccounts({member}: {member:TeamMember}){
   const identifier=String(data.get('identifier')??'').trim();
   const name=String(data.get('name')??'').trim();
   const password=String(data.get('password')??'');
+  const role=data.get('role')==='manager'?'manager':'worker';
   setFeedback('');
   if(!identifier.includes('@')&&!usernamePattern.test(identifier.toLowerCase())){setFormError(usernameHint);return;}
   setFormError('');
   setCreating(true);
   try{
-   await changeTeamAccount(existingAccount?{action:'link',identifier}:{action:'create',identifier,name,password});
+   await changeTeamAccount(existingAccount?{action:'link',identifier,role}:{action:'create',identifier,name,password,role});
    form.reset();
    setShowPassword(false);
    setFeedback(existingAccount?`Nalog ${identifier} ima pristup Stolariji.`:`Nalog za ${name} je napravljen.`);
@@ -69,9 +71,12 @@ export function TeamAccounts({member}: {member:TeamMember}){
    <label className="team-account-mode"><input type="checkbox" checked={existingAccount} disabled={creating} onChange={event=>{
     setExistingAccount(event.target.checked);setShowPassword(false);setFormError('');
    }}/>Postojeći nalog</label>
-   <p className="settings-note">{existingAccount?'Korisnik nastavlja da se prijavljuje istim korisničkim imenom i lozinkom.':'Novi nalog ima ulogu majstora.'}</p>
+   {existingAccount&&<p className="settings-note">Korisnik nastavlja da se prijavljuje istim korisničkim imenom i lozinkom.</p>}
    <form className="settings-fields" onSubmit={addAccount}>
     <Field label="Korisničko ime ili e-mail"><input name="identifier" required maxLength={254} autoComplete="off" autoCapitalize="none" spellCheck={false} disabled={creating}/></Field>
+    <Field label="Uloga"><select name="role" disabled={creating} defaultValue="worker">
+     <option value="worker">Majstor</option><option value="manager">Šef</option>
+    </select></Field>
     {!existingAccount&&<>
     <Field label="Ime i prezime"><input name="name" required maxLength={100} autoComplete="off" disabled={creating}/></Field>
     <div className="field">
@@ -97,8 +102,8 @@ export function TeamAccounts({member}: {member:TeamMember}){
    {accounts?.length===0&&<p>Nema korisnika.</p>}
    {Boolean(accounts?.length)&&<ul className="team-account-list">{accounts?.map(account=><li key={account.id}>
     <div><strong>{account.name}</strong><span>{account.email?.endsWith(usernameDomain)?account.email.slice(0,-usernameDomain.length):account.email}</span></div>
-    <div><span>{account.role==='manager'?'Administrator':'Majstor'}{account.id===member.id?' · Vaš nalog':''}{account.active?'':' · Pristup ukinut'}</span>
-     {account.id!==member.id&&<button type="button" className="field-button field-button-light" aria-label={`Obriši nalog za ${account.name}`}
+    <div><span>{roleLabels[account.role]}{account.id===member.id?' · Vaš nalog':''}{account.active?'':' · Pristup ukinut'}</span>
+     {account.id!==member.id&&account.role!=='admin'&&<button type="button" className="field-button field-button-light" aria-label={`Obriši nalog za ${account.name}`}
       onClick={()=>{setDeleteError('');setDeleting(account);}}><Trash2 size={17}/>Obriši</button>}
     </div>
    </li>)}</ul>}

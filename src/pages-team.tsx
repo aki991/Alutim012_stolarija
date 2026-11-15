@@ -45,13 +45,12 @@ export function AccountPage() {
  const navigate = useNavigate();
  const [actionError, setActionError] = useState('');
  if (!member) return null;
- const manager = member.role === 'manager';
 
  return <div className="team-page">
   <FieldHeader title="Nalog" back="/"/>
   <main className="team-content">
    <div className="team-account">
-    <div><strong>{member.name}</strong><small>{manager ? 'Šef' : 'Majstor'}</small></div>
+    <div><strong>{member.name}</strong><small>{member.is_admin ? 'Admin' : member.role === 'manager' ? 'Šef' : 'Majstor'}</small></div>
     <button type="button" className="field-button field-button-light" onClick={() => {
      void signOutTeam().then(() => navigate('/prijava', { replace: true })).catch(() => setActionError('Odjava trenutno nije uspela.'));
     }}><LogOut size={18}/>Odjavi se</button>

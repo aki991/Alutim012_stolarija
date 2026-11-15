@@ -26,7 +26,7 @@
 
 1. U Supabase SQL Editoru primenite [migraciju za administraciju](migrations/202611150001_team_admin.sql) nakon ranijih migracija tima. Postojeći aktivni nalozi sa ulogom `manager` dobijaju administratorski pristup.
 2. Iz korena repozitorijuma prijavite se komandom `npx.cmd --yes supabase@3.1.0 login`, pa objavite funkciju komandom `npx.cmd --yes supabase@3.1.0 functions deploy field-team-accounts --remote=KOD_PROJEKTA --use-api`. Zamenite `KOD_PROJEKTA` ID-jem postojećeg projekta Stolarije. Funkcija koristi ključeve iz okruženja Supabase-a i proverava ulogu prijavljenog korisnika pre svake izmene. Zatim objavite klijentsku verziju na Vercelu.
-3. Kao administrator otvorite **Podešavanja → Korisnici**. Za novi nalog unesite korisničko ime ili e-mail, ime i prezime i lozinku. Novi korisnik je majstor i može odmah da se prijavi. Brisanje ukida pristup i uklanja nalog sa liste, dok poslovi i poruke ostaju sačuvani. Po potrebi nedovršeno merenje dodelite drugom majstoru.
+3. Kao šef ili admin otvorite **Podešavanja → Korisnici**. Za novi nalog unesite korisničko ime ili e-mail, ime i prezime i lozinku, pa izaberite ulogu. Korisnik može odmah da se prijavi. Brisanje ukida pristup i uklanja nalog sa liste, dok poslovi i poruke ostaju sačuvani. Po potrebi nedovršeno merenje dodelite drugom majstoru.
 4. Ako ste ranije unosili svoje cene, na istom uređaju i u istom pregledaču otvorite **Cenovnik**, izaberite **Učitaj ranije cene sa ovog uređaja** i proverite iznose. Kliknite **Sačuvaj cenovnik** da bi ih dobio ceo tim. Uvoz je dostupan dok zajednički cenovnik nema sačuvanu izmenu.
 5. Proverite oba naloga. Administrator menja cenovnik, PDV i korekcije ponude. Majstor vidi iste cene i može da menja mere i opremu, što automatski preračunava ponudu. Baza proverava dozvole i za direktne zahteve.
 
@@ -37,6 +37,27 @@
 3. Za zaposlenog koji već ima nalog u Ogradama otvorite **Podešavanja → Korisnici**, označite **Postojeći nalog**, upišite njegovo korisničko ime ili e-mail i kliknite **Dodeli pristup**. Koristi se isti Supabase Auth nalog sa postojećom lozinkom. Novi povezani član dobija ulogu majstora u Stolariji.
 4. Otvorite posao, pa **Cena i ponuda → Ponuda za kupca** ili **Specifikacija za kancelariju**. PDF se čuva u privatnom Supabase Storage-u pri izradi. U odeljku **Sačuvani dokumenti** otvaraju se arhivirane verzije sa datumom izrade. Sačuvani PDF zadržava sadržaj i nakon kasnijih izmena posla ili cenovnika.
 5. Na drugom uređaju prijavite se istim nalogom i proverite dokument i sačuvane podrazumevane vrednosti iz podešavanja **Profili i materijali** i **Dokumenti**. Podešavanje prikaza cena takođe prati nalog.
+
+## Admin, šef i majstor
+
+1. Primenite [migraciju uloga](migrations/202611150007_team_account_roles.sql) posle prethodnih migracija Stolarije. Zatim objavite funkciju `field-team-accounts` i novu verziju aplikacije.
+2. Za svoj nalog izaberite **Authentication → Users → Add user → Create new user**. Unesite e-mail i lozinku, uključite **Auto Confirm User** i kopirajte **User UID**. Koristite zaseban nalog za administraciju ako ste prethodni nalog koristili kao šef.
+3. U **SQL Editor → New query** zamenite `OVDE-NALEPITE-USER-UID` kopiranim UID-om i `Ime i prezime` nazivom svog naloga, pa kliknite **Run**.
+
+   ```sql
+   begin;
+   insert into public.field_team_members (id, name, role, active)
+   values ('OVDE-NALEPITE-USER-UID', 'Ime i prezime', 'manager', true)
+   on conflict (id) do update set role = 'manager', active = true;
+
+   insert into field_team_private.app_admins (member_id)
+   values ('OVDE-NALEPITE-USER-UID')
+   on conflict (member_id) do nothing;
+   commit;
+   ```
+
+4. U Stolariji se prijavite tim nalogom i otvorite **Podešavanja → Korisnici**. Uz vaš nalog piše **Admin**. Šef na svojoj listi vidi ostale šefove i majstore. U porukama i obaveštenjima radnje admina nose naziv **ALU TIM 012**.
+5. Kao šef otvorite **Podešavanja → Korisnici**, unesite podatke i u polju **Uloga** izaberite **Šef** ili **Majstor**. Isti izbor važi i pri povezivanju naloga koji još nema pristup Stolariji. Svaki šef može da dodaje šefove i majstore i briše druge šefove ili majstore.
 
 Poslovi i arhivirani dokumenti prikazuju se u Stolariji prema postojećim pravima za posao. Stolarija i Ograde koriste isti Supabase Auth. Brisanje zajedničkog naloga ukida mogućnost prijave u obe aplikacije. Sačuvani poslovi i poruke ostaju povezani sa istorijom korisnika.
 

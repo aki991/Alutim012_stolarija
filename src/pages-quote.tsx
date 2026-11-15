@@ -68,7 +68,7 @@ export function Quote(){
  const editPrices=editable&&showPrices&&canEditPrices({teamMember});
  async function jobDocument(kind:JobDocumentKind){
   if(!job)throw new Error('Posao nije dostupan.');
-  const file=await createJobDocument(job,settings,kind,teamMember?.id);
+  const file=await createJobDocument(job,settings,kind,teamMember?.document_author??teamMember?.id);
   if(teamMember)refreshArchive(revision=>revision+1);
   return file;
  }
