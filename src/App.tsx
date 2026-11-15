@@ -24,7 +24,7 @@ export default function App(){
  const newJob=(choice?:CatalogChoice)=>setDraft({job:{...jobFromSettings(settings),...(teamMember?{status:'Merenje' as const}:{})},choice});
  useEffect(()=>{setDraft(null);setSearchOpen(false);setNotifications(false);},[location.pathname]);
  return <AppShell onNavigation={()=>{setDraft(null);setSearchOpen(false);setNotifications(false);}} onNew={()=>newJob()} onSearch={()=>setSearchOpen(true)} onNotifications={()=>setNotifications(true)}>
-  {storageError&&<div className="storage-error" role="alert"><span>{storageError}</span>{teamConflict?<button className="field-button field-button-light" onClick={()=>{if(confirm('Odbaciti neposlate izmene ovog posla i preuzeti verziju iz baze?'))discardConflictingTeamChange();}}>Preuzmi verziju iz baze</button>:<button className="field-button field-button-light" onClick={retrySave}>Pokušaj ponovo</button>}{!teamMember&&<Link to="/podesavanja/podaci">Rezervna kopija</Link>}</div>}
+  {storageError&&<div className="storage-error" role="alert"><span>{storageError}</span>{teamConflict?<button className="field-button field-button-light" onClick={()=>{if(confirm('Odbaciti neposlate izmene i preuzeti podatke iz baze?'))discardConflictingTeamChange();}}>Preuzmi verziju iz baze</button>:<button className="field-button field-button-light" onClick={retrySave}>Pokušaj ponovo</button>}{!teamMember&&<Link to="/podesavanja/podaci">Rezervna kopija</Link>}</div>}
   {teamPricingError&&<div className="storage-error" role="alert"><span>{teamPricingError}</span><button className="field-button field-button-light" onClick={()=>void refreshTeamPricing()}>Učitaj cenovnik ponovo</button></div>}
   <Routes>
    <Route path="/" element={<Dashboard onNew={()=>newJob()}/>}/>

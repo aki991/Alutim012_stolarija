@@ -30,13 +30,23 @@
 4. Ako ste ranije unosili svoje cene, na istom uređaju i u istom pregledaču otvorite **Cenovnik**, izaberite **Učitaj ranije cene sa ovog uređaja** i proverite iznose. Kliknite **Sačuvaj cenovnik** da bi ih dobio ceo tim. Uvoz je dostupan dok zajednički cenovnik nema sačuvanu izmenu.
 5. Proverite oba naloga. Administrator menja cenovnik, PDV i korekcije ponude. Majstor vidi iste cene i može da menja mere i opremu, što automatski preračunava ponudu. Baza proverava dozvole i za direktne zahteve.
 
+## Zajednička prijava sa Ogradama i arhiva Stolarije
+
+1. U postojećem Supabase projektu primenite redom [migraciju arhive](migrations/202611150002_job_document_archive.sql), [migraciju povezivanja naloga](migrations/202611150003_link_shared_accounts.sql) i [migraciju podešavanja naloga](migrations/202611150004_team_preferences.sql).
+2. Ponovo objavite Edge Function `field-team-accounts` prema prethodnom odeljku. Zatim objavite verziju Stolarije na Vercelu.
+3. Za zaposlenog koji već ima nalog u Ogradama otvorite **Podešavanja → Korisnici**, označite **Postojeći nalog**, upišite njegovo korisničko ime ili e-mail i kliknite **Dodeli pristup**. Koristi se isti Supabase Auth nalog sa postojećom lozinkom. Novi povezani član dobija ulogu majstora u Stolariji.
+4. Otvorite posao, pa **Cena i ponuda → Ponuda za kupca** ili **Specifikacija za kancelariju**. PDF se čuva u privatnom Supabase Storage-u pri izradi. U odeljku **Sačuvani dokumenti** otvaraju se arhivirane verzije sa datumom izrade. Sačuvani PDF zadržava sadržaj i nakon kasnijih izmena posla ili cenovnika.
+5. Na drugom uređaju prijavite se istim nalogom i proverite dokument i sačuvane podrazumevane vrednosti iz podešavanja **Profili i materijali** i **Dokumenti**. Podešavanje prikaza cena takođe prati nalog.
+
+Poslovi i arhivirani dokumenti prikazuju se u Stolariji prema postojećim pravima za posao. Stolarija i Ograde koriste isti Supabase Auth. Brisanje zajedničkog naloga ukida mogućnost prijave u obe aplikacije. Sačuvani poslovi i poruke ostaju povezani sa istorijom korisnika.
+
 ## Rad u aplikaciji
 
 - Šef na stranici **Dodeli merenje** bira majstora i unosi podatke o poslu. Majstor dobija obaveštenje o dodeli, a uputstvo može da otvori kroz **Poruke**. Za promenu majstora otvorite posao i izaberite **Promeni majstora**.
 - Ikonice **Obaveštenja** i **Poruke** otvaraju zasebne stranice. U razgovoru je samo poslednja primljena poruka nepročitana dok je korisnik ne vidi, ne označi kao pročitanu ili ne pošalje odgovor. Baza pamti pročitanost po nalogu. Za ovo je potrebna [migracija za pročitanost poruka](migrations/202611130002_team_message_reads.sql).
 - Za obaveštenja kada je aplikacija zatvorena otvorite **Nalog → Obaveštenja na uređaju → Uključi na ovom uređaju** i dozvolite obaveštenja. Ponovite na svakom uređaju na kom želite da ih primate. Na iPhone-u i iPad-u prvo dodajte aplikaciju na početni ekran i pokrenite je preko ikonice. Odjava isključuje obaveštenja na tom uređaju.
 - Dok je dodeljeni posao u statusu **Merenje**, šef vidi podatke o poslu i razgovor. Baza prikazuje elemente i mere samo dodeljenom majstoru. Kada majstor klikne **Merenje završeno**, posao prelazi u **Poslati ponudu** i šefu se otvaraju svi elementi i ponuda. Vraćanje u **Merenje** ponovo skriva elemente dok majstor ne preda ispravke.
-- Poslovi, elementi, poruke, obaveštenja i cenovnik čuvaju se u zajedničkoj bazi. Obaveštenja se osvežavaju u otvorenoj aplikaciji na svakih pet sekundi i odmah po povratku fokusa ili veze. Lična podešavanja prikaza i merenja čuvaju se na uređaju. Raniji lokalni poslovi ostaju dostupni u lokalnom režimu.
+- Poslovi, elementi, poruke, obaveštenja, cenovnik i podešavanja prijavljenog naloga čuvaju se u bazi. Obaveštenja se osvežavaju u otvorenoj aplikaciji na svakih pet sekundi i odmah po povratku fokusa ili veze. Nacrt elementa čuva se na uređaju dok majstor ne doda element u posao. Raniji lokalni poslovi ostaju dostupni u lokalnom režimu.
 
 ## Provera od merenja do završetka posla
 

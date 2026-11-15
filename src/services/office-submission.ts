@@ -9,9 +9,9 @@ export interface OfficeSubmission {
  metadata:{id:string;job_id:string;job_updated_at:string;customer_name:string;technician:string;position_count:number;total_amount:number;has_unpriced:boolean};
 }
 export function submissionSignature(job:Job,settings:Settings){return JSON.stringify({job,settings});}
-export async function prepareOfficeSubmission(job:Job,settings:Settings):Promise<OfficeSubmission>{
+export async function prepareOfficeSubmission(job:Job,settings:Settings,file?:File):Promise<OfficeSubmission>{
  const c=settings.showPrices===false?null:calculate(job,settings);
- return {signature:submissionSignature(job,settings),file:await makeDocument(job,settings,'kancelarija'),metadata:{id:crypto.randomUUID(),job_id:job.id,job_updated_at:job.updated,customer_name:job.customer.name,technician:job.technician,position_count:job.positions.length,total_amount:c?Number(c.total.toFixed(2)):0,has_unpriced:c?.hasUnpriced??true}};
+ return {signature:submissionSignature(job,settings),file:file??await makeDocument(job,settings,'kancelarija'),metadata:{id:crypto.randomUUID(),job_id:job.id,job_updated_at:job.updated,customer_name:job.customer.name,technician:job.technician,position_count:job.positions.length,total_amount:c?Number(c.total.toFixed(2)):0,has_unpriced:c?.hasUnpriced??true}};
 }
 export async function sendOfficeSubmission(submission:OfficeSubmission){
  if(!navigator.onLine)throw Error('Za slanje u app potreban je internet. Posao ostaje sačuvan na ovom uređaju.');

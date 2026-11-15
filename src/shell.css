@@ -138,5 +138,7 @@
 .team-account-password button{position:absolute;inset:5px 5px 5px auto;width:44px;display:grid;place-items:center;border:0;border-radius:7px;background:transparent;color:#515b67}
 .team-account-password button:hover:not(:disabled){color:#18191a;background:#f0f2f4}
 .team-account-password input::-ms-reveal{display:none}
+.team-account-mode{display:inline-flex;align-items:center;gap:8px;min-height:44px;cursor:pointer}
+.team-account-mode input{width:18px;height:18px;accent-color:#a40014}
 .unified-shell :is(.main-content,.module-content,.job-summary)>.empty{color:var(--workspace-muted)}
 .unified-shell :is(.main-content,.module-content,.job-summary)>.empty h3{color:var(--workspace-text)}

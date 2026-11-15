@@ -11,7 +11,9 @@ import { Modal } from './components/UI';
 import { FieldHeader } from './components/FieldHeader';
 import { Drawing } from './components/Drawing';
 import { MissingJob } from './pages-editor';
-import { downloadFile, makeDocument } from './services/documents';
+import { downloadFile } from './services/documents';
+import { createJobDocument, jobDocumentTitle, type JobDocumentKind } from './services/document-archive';
+import { JobDocumentArchive } from './components/JobDocumentArchive';
 import { prepareOfficeSubmission, sendOfficeSubmission, submissionSignature, type OfficeSubmission } from './services/office-submission';
 
 const DocumentPreview = lazy(() => import('./components/DocumentPreview'));
@@ -59,16 +61,23 @@ export function Quote(){
  const [officeNotice,setOfficeNotice]=useState<{text:string;kind:'progress'|'success'|'error'}|null>(null);
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[sharing,setSharing]=useState(false);
  const [preview,setPreview]=useState<{file:File;title:string}|null>(null);
+ const [archiveRevision,refreshArchive]=useState(0);
  if(!job)return <MissingJob/>;
  const showPrices=settings.showPrices!==false;
  const editPrices=showPrices&&canEditPrices({teamMember});
- async function previewDocument(kind:'kupac'|'kancelarija'){
+ async function jobDocument(kind:JobDocumentKind){
+  if(!job)throw new Error('Posao nije dostupan.');
+  const file=await createJobDocument(job,settings,kind,teamMember?.id);
+  if(teamMember)refreshArchive(revision=>revision+1);
+  return file;
+ }
+ async function previewDocument(kind:JobDocumentKind){
   if(!job)return;
   setBusy(true);
   setMessage('');
   try{
-   const file=await makeDocument(job,settings,kind);
-   setPreview({file,title:kind==='kupac'?'Ponuda za kupca':'Specifikacija za kancelariju'});
+   const file=await jobDocument(kind);
+   setPreview({file,title:jobDocumentTitle(kind)});
   }catch(error){
    setMessage(`Priprema dokumenta nije uspela: ${(error as Error).message}`);
   }finally{
@@ -76,9 +85,9 @@ export function Quote(){
   }
  }
  const result=calculate(job,settings),errors=job.positions.flatMap((p,i)=>validatePosition(p).map(e=>`Element ${i+1}: ${e}`)),ready=job.positions.length>0&&!errors.length;
- async function shareDocument(kind:'kupac'|'kancelarija'){
+ async function shareDocument(kind:JobDocumentKind){
   if(!job)return;setBusy(true);setMessage('');setOfficeNotice(null);
-  try{const file=await makeDocument(job,settings,kind);
+  try{const file=await jobDocument(kind);
    if(navigator.canShare?.({files:[file]})){await navigator.share({files:[file],title:`ALU TIM 012 · ${job.id}`});setMessage('Dokument je predat sistemskom dijalogu za deljenje.');}
    else{downloadFile(file);setMessage('Deljenje fajlova nije podržano. PDF je pripremljen za preuzimanje.');}
    setSharing(false);
@@ -90,7 +99,7 @@ export function Quote(){
   sending.current=true;setBusy(true);setOfficeNotice({kind:'progress',text:'Pripremam specifikaciju za kancelariju…'});
   try{
    const signature=submissionSignature(job,settings);
-   if(pendingSubmission.current?.signature!==signature)pendingSubmission.current=await prepareOfficeSubmission(job,settings);
+   if(pendingSubmission.current?.signature!==signature)pendingSubmission.current=await prepareOfficeSubmission(job,settings,await jobDocument('kancelarija'));
    await sendOfficeSubmission(pendingSubmission.current);
    setOfficeNotice({kind:'success',text:'Sačuvano'});
    // Keep the file and submission ID for safe retries of the same saved version.
@@ -102,7 +111,8 @@ export function Quote(){
   <strong className="quote-position-price">{positionPriceLabel(result.positions[i],p)}</strong>)}</article>)}
  {!job.positions.length&&<p className="field-empty-text">Dodajte element u posao da biste pripremili ponudu.</p>}
  </section>
- {editPrices&&<Link className="field-button field-button-yellow correction-entry" to={`/posao/${job.id}/korekcija`}>Korekcija cene</Link>}</div>
+ {editPrices&&<Link className="field-button field-button-yellow correction-entry" to={`/posao/${job.id}/korekcija`}>Korekcija cene</Link>}
+ {teamMember&&<JobDocumentArchive key={job.id} jobId={job.id} revision={archiveRevision} showPrices={showPrices} onPreview={(file,title)=>setPreview({file,title})}/>}</div>
  {showPrices&&<aside className="price-total"><div><span>Elementi i odabrani radovi</span><strong>{euro(result.elements)}</strong></div><div><span>Transport i dodatni radovi</span><strong>{euro(result.services)}</strong></div>{result.discount>0&&<div><span>Popust {job.discountMode==='amount'?'':`${job.discount}%`}</span><strong>−{euro(result.discount)}</strong></div>}<hr/>{result.surcharge>0&&<div><span>Uvećanje</span><strong>{euro(result.surcharge)}</strong></div>}{result.manual&&<p>Ručna ukupna cena — popust i uvećanje se ne primenjuju.</p>}<div><span>Osnovica</span><strong>{euro(result.net)}</strong></div><div><span>{result.vatMode==='none'?'Bez obračuna PDV-a':`PDV ${result.vat}%${result.vatMode==='inclusive'?' (uključen)':''}`}</span><strong>{euro(result.tax)}</strong></div><section><h2>{result.hasUnpriced?'Zbir poznatih stavki':'Okvirna cena'}</h2><strong data-testid="quote-total">{euro(result.total)}</strong></section><p>{result.hasUnpriced?jobReviewLabel(job,result)+'. Zbir obuhvata stavke sa izračunatom cenom.':'Demonstracione cene. Konačnu ponudu potvrđuje kancelarija.'}</p></aside>}
  {errors.length>0&&<div className="field-error" role="alert">{errors.map((e,i)=><p key={i}>{e}</p>)}<Link to={`/posao/${job.id}`}>Ispravite mere u poslu</Link></div>}
  {message&&!sharing&&<p className="field-message" role="status">{message}</p>}

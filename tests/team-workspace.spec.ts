@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import type { TeamAccount, TeamJob, TeamMember, TeamMessage, TeamNotification, TeamPricingRow } from '../src/services/team-api';
+import type { TeamAccount, TeamJob, TeamMember, TeamMessage, TeamNotification, TeamPreferencesRow, TeamPricingRow } from '../src/services/team-api';
 import type { Job } from '../src/models';
 
 test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({ browser, page }) => {
@@ -9,6 +9,8 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
  const people = [boss, worker];
  const accounts: TeamAccount[] = [{...boss,email:'manager@example.test'},{...worker,email:'milos@alutim012.local'}];
  let pricing: TeamPricingRow = {prices:{},porta_royal_prices:{},vat:20,vat_mode:'exclusive',revision:0};
+ const preferences = new Map<string,TeamPreferencesRow>();
+ const archived = new Map<string, {pdf:Buffer; createdAt:string}>();
  const jobs = new Map<string, TeamJob>();
  const inbox = new Map<string, TeamNotification[]>();
  const messages: TeamMessage[] = [];
@@ -21,12 +23,33 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
 
  // Supabase responses are intercepted. The browser still uses the real Auth and REST clients.
  async function mockSupabase(target: Page, member: TeamMember) {
-  await target.route(/\/(auth|rest|functions)\/v1\//, async route => {
+  await target.route(/\/(auth|rest|functions|storage)\/v1\//, async route => {
    const request = route.request(), url = new URL(request.url()), endpoint = url.pathname.split('/').pop();
    const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
    const reply = (json: unknown) => route.fulfill({ headers, json });
    const replyRow = (row: TeamJob) => reply(request.headers().accept?.includes('vnd.pgrst.object') ? row : [row]);
    if (request.method() === 'OPTIONS') return route.fulfill({ headers, status: 204 });
+   if(url.pathname.startsWith('/storage/v1/')){
+    if(url.pathname.startsWith('/storage/v1/object/list/')){
+     const {prefix,limit,offset}=request.postDataJSON();
+     const files=[...archived.entries()].filter(([path])=>path.startsWith(prefix+'/'));
+     return reply(files.slice(offset,offset+limit).map(([path,file])=>({id:path,name:path.split('/').at(-1),created_at:file.createdAt})));
+    }
+    const path=url.pathname.split('/alutim-job-documents/').at(-1)!;
+    const existing=archived.get(path);
+    if(request.method()==='HEAD')return route.fulfill({headers,status:existing?200:404});
+    if(request.method()==='POST'){
+     expect(path).toMatch(new RegExp('^stolarija/AT-[^/]+/kupac/'+member.id+'_cene_[a-f0-9]{64}\\.pdf$'));
+     expect(request.headers()['x-upsert']).toBe('false');
+     if(existing)return route.fulfill({headers,status:400,json:{message:'The resource already exists'}});
+     const multipart=await new Response(new Uint8Array(request.postDataBuffer()!),{headers:{'content-type':request.headers()['content-type']}}).formData();
+     const pdf=Buffer.from(await (multipart.get('') as File).arrayBuffer());
+     expect(pdf.subarray(0,5).toString()).toBe('%PDF-');
+     archived.set(path,{pdf,createdAt:now()});
+     return reply({Id:crypto.randomUUID(),Key:path});
+    }
+    return route.fulfill({headers,status:existing?200:404,contentType:'application/pdf',body:existing?.pdf});
+   }
    if (endpoint === 'token') {
     const { email, password } = request.postDataJSON();
     expect(email).toBe(member.role === 'manager' ? 'manager@example.test' : 'milos@alutim012.local');
@@ -41,6 +64,13 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
    switch (endpoint) {
     case 'field_team_members': return reply(url.searchParams.has('id') ? [member] : people.filter(person => person.role === 'worker'));
     case 'field_team_pricing': return reply(pricing);
+    case 'field_team_preferences': return reply(preferences.has(member.id)?[preferences.get(member.id)]:[]);
+    case 'field_team_save_preferences': {
+     const previous=preferences.get(member.id);
+     const next={data:{...previous?.data,...body.p_patch},revision:(previous?.revision??0)+1};
+     preferences.set(member.id,next);
+     return reply(next);
+    }
     case 'field_team_save_pricing': {
      expect(member.role).toBe('manager');
      expect(body.p_revision).toBe(pricing.revision);
@@ -57,6 +87,9 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
      if(body.action==='create'){
       expect(body).toEqual({action:'create',identifier:'petar',name:'Petar Petrović',password:'proba-1234'});
       accounts.push({id:crypto.randomUUID(),name:body.name,role:'worker',active:true,email:'petar@alutim012.local'});
+     }else if(body.action==='link'){
+      expect(body).toEqual({action:'link',identifier:'jelena'});
+      accounts.push({id:crypto.randomUUID(),name:'Jelena Ograde',role:'worker',active:true,email:'jelena@alutim012.local'});
      }else{
       const index=accounts.findIndex(account=>account.id===body.id&&account.name==='Petar Petrović');
       expect(index).toBeGreaterThan(-1);
@@ -160,6 +193,17 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
  await page.getByRole('dialog').getByRole('button', {name:'Obriši nalog',exact:true}).click();
  await expect(page.getByText('Nalog za Petar Petrović je obrisan.')).toBeVisible();
  await expect(page.getByText('petar', {exact:true})).toHaveCount(0);
+ await page.getByRole('checkbox',{name:'Postojeći nalog'}).check();
+ await expect(newPassword).toHaveCount(0);
+ await page.getByLabel('Korisničko ime ili e-mail').fill('jelena');
+ await page.getByRole('button',{name:'Dodeli pristup'}).click();
+ await expect(page.getByText('Jelena Ograde',{exact:true})).toBeVisible();
+ await page.goto('/podesavanja/dokumenti');
+ const validity=page.getByLabel('Važenje ponude');
+ await validity.fill('30 dana');
+ await expect.poll(()=>preferences.get(boss.id)?.data.documentDefaults?.validity).toBe('30 dana');
+ await page.reload();
+ await expect(validity).toHaveValue('30 dana');
  await page.goto('/cenovnik');
  await page.getByRole('spinbutton', {name:'PVC profil (€/m²)',exact:true}).fill('126');
  await page.getByRole('button', {name:'Sačuvaj cenovnik'}).click();
@@ -262,11 +306,25 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await page.goto(`${jobUrl}/ponuda`);
   await page.getByRole('button', { name: 'Ponuda za kupca', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Pregled: Ponuda za kupca' }).getByRole('button', { name: 'Preuzmi PDF' })).toBeVisible();
+  expect(archived.size).toBe(1);
   await mobile.goto(`${jobUrl}/korekcija`);
   await expect(mobile).toHaveURL(`${jobUrl}/ponuda`);
   await expect(mobile.getByRole('link', {name:'Korekcija cene'})).toHaveCount(0);
   await expect(mobile.getByRole('button', {name:/Auto za/})).toHaveCount(0);
   await expect(mobile.getByRole('region', {name:'Pregled cene'}).getByText(/€/)).toBeVisible();
+  await mobile.getByText('Sačuvani dokumenti',{exact:true}).click();
+  await mobile.locator('.job-document-archive').getByRole('button',{name:'Ponuda za kupca'}).click();
+  await expect(mobile.getByRole('dialog',{name:'Pregled: Ponuda za kupca'}).getByRole('button',{name:'Preuzmi PDF'})).toBeVisible();
+  expect(archived.size).toBe(1);
+  await mobile.goto('/podesavanja');
+  await mobile.getByRole('checkbox',{name:/Prikaži cene/}).uncheck();
+  await expect.poll(()=>preferences.get(worker.id)?.data.showPrices).toBe(false);
+  await mobile.goto(`${jobUrl}/ponuda`);
+  await mobile.getByText('Sačuvani dokumenti',{exact:true}).click();
+  await expect(mobile.getByText('Nema sačuvanih dokumenata za trenutni prikaz.')).toBeVisible();
+  await mobile.goto('/podesavanja');
+  await mobile.getByRole('checkbox',{name:/Prikaži cene/}).check();
+  await expect.poll(()=>preferences.get(worker.id)?.data.showPrices).toBe(true);
   await mobile.goto('/podesavanja/korisnici');
   await expect(mobile).toHaveURL(/\/podesavanja$/);
   await expect(mobile.getByRole('link', {name:/Korisnici/})).toHaveCount(0);

@@ -6,6 +6,8 @@ export type TeamMember={id:string;name:string;role:'manager'|'worker';active:boo
 export type TeamAccount=TeamMember&{email:string|null};
 export type PriceSettings=Pick<Settings,'prices'|'portaRoyalPrices'|'vat'|'vatMode'>;
 export type TeamPricingRow={prices:Partial<Settings['prices']>;porta_royal_prices:Record<string,number>;vat:number;vat_mode:Settings['vatMode'];revision:number};
+export type TeamPreferences=Pick<Settings,'showPrices'|'elementDefaults'|'documentDefaults'>;
+export type TeamPreferencesRow={data:TeamPreferences;revision:number};
 export type TeamJob={id:string;data:Job;assigned_to:string|null;assigned_by:string|null;revision:number};
 export type TeamMessage={id:string;job_id:string;sender_id:string|null;sender_name:string;body:string;created_at:string};
 export type TeamConversation=TeamMessage&{job_name:string;unread:boolean};
@@ -41,6 +43,16 @@ export async function fetchTeamPricing():Promise<TeamPricingRow>{
  return checkedPricing(check(await getSupabase().from('field_team_pricing').select('prices,porta_royal_prices,vat,vat_mode,revision').single<TeamPricingRow>()));
 }
 
+export async function fetchTeamPreferences():Promise<TeamPreferencesRow|null>{
+ return check(await getSupabase().from('field_team_preferences').select('data,revision').maybeSingle<TeamPreferencesRow>());
+}
+
+export async function saveTeamPreferences(patch:TeamPreferences):Promise<TeamPreferencesRow>{
+ const saved=check(await getSupabase().rpc('field_team_save_preferences',{p_patch:patch}).single<TeamPreferencesRow>());
+ if(!saved)throw new TeamRequestError('Baza nije vratila sačuvana podešavanja.');
+ return saved;
+}
+
 export async function saveTeamPricing(value:PriceSettings,revision:number):Promise<TeamPricingRow>{
  return checkedPricing(check(await getSupabase().rpc('field_team_save_pricing',{
   p_prices:value.prices,p_porta_royal_prices:value.portaRoyalPrices??{},p_vat:value.vat,p_vat_mode:value.vatMode,p_revision:revision,
@@ -62,7 +74,7 @@ export async function fetchTeamAccounts():Promise<TeamAccount[]>{
  }
 }
 
-export async function changeTeamAccount(body:{action:'create';identifier:string;name:string;password:string}|{action:'delete';id:string}){
+export async function changeTeamAccount(body:{action:'create';identifier:string;name:string;password:string}|{action:'link';identifier:string}|{action:'delete';id:string}){
  const {error}=await getSupabase().functions.invoke('field-team-accounts',{body});
  if(!error)return;
  if(error instanceof FunctionsHttpError){
