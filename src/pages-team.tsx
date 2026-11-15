@@ -4,13 +4,19 @@ import { Check, LogOut, MessageSquare, Send } from 'lucide-react';
 import { FieldHeader } from './components/FieldHeader';
 import { DeviceNotifications } from './components/DeviceNotifications';
 import { uid } from './catalog';
-import { acceptTeamJob, canEditJob, jobFromSettings, useStore } from './store';
+import { acceptTeamJob, canEditJob, jobFromSettings, todayInBelgrade, useStore } from './store';
 import type { Job } from './models';
-import { assignTeamJob, createTeamJob, fetchTeamMessages, fetchTeamWorkers, sendTeamMessage, type TeamMember, type TeamMessage } from './services/team-api';
+import { assignTeamJob, createTeamJob, fetchTeamMessages, fetchTeamWorkers, sendTeamMessage, TeamRequestError, type TeamMember, type TeamMessage } from './services/team-api';
 import { pollTeam, signOutTeam, useTeamInbox } from './team-session';
 
 const dateTime = new Intl.DateTimeFormat('sr-Latn-RS', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Belgrade' });
 const notificationLabels = { assignment: 'Dodeljeno merenje', status: 'Promena statusa' };
+const assignmentDateError = 'Datum merenja mora biti današnji ili budući.';
+
+function AssignmentDateInput({ defaultValue, onPastDate }: { defaultValue?: string; onPastDate: () => void }) {
+ return <label>Datum merenja<input name="date" type="date" min={todayInBelgrade()} defaultValue={defaultValue}
+  required={defaultValue !== undefined} onInvalid={event => { if (event.currentTarget.validity.rangeUnderflow) onPastDate(); }}/></label>;
+}
 
 function useWorkers(enabled: boolean) {
  const [workers, setWorkers] = useState<TeamMember[]>([]);
@@ -123,16 +129,18 @@ function NewAssignment({ member }: { member: TeamMember }) {
   const value = (name: string) => String(form.get(name) ?? '').trim();
   const worker = workers.find(person => person.id === assignee);
   const customer = { name: value('name'), address: value('address'), phone: value('phone'), email: value('email'), building: value('building') };
-  const date = value('date');
+  const today = todayInBelgrade();
+  const date = value('date') || today;
   const message = value('message');
   if (!worker || !customer.name || !customer.address || !message) {
    setError('Izaberite majstora i unesite naziv kupca, adresu i poruku.');
    return;
   }
+  if (date < today) { setError(assignmentDateError); return; }
   const key = JSON.stringify([assignee, customer, date, message, assigneeOnly]);
   if (pending.current?.key !== key) {
    const job = jobFromSettings(useStore.getState().settings);
-   pending.current = { key, job: { ...job, date: date || job.date, technician: worker.name, customer, status: 'Merenje' } };
+   pending.current = { key, job: { ...job, date, technician: worker.name, customer, status: 'Merenje' } };
   }
   setBusy(true);
   setError('');
@@ -140,8 +148,9 @@ function NewAssignment({ member }: { member: TeamMember }) {
    const row = await createTeamJob(pending.current.job, worker.id, message, assigneeOnly);
    acceptTeamJob(row, member.id);
    navigate(`/posao/${row.id}`);
-  } catch {
-   setError('Dodela merenja trenutno nije potvrđena. Proverite vezu i pokušajte ponovo.');
+  } catch (error) {
+   setError(error instanceof TeamRequestError && error.code === '22007' ? assignmentDateError
+    : 'Dodela merenja trenutno nije potvrđena. Proverite vezu i pokušajte ponovo.');
   } finally { setBusy(false); }
  }
 
@@ -159,7 +168,7 @@ function NewAssignment({ member }: { member: TeamMember }) {
     </div>
     <div className="team-form-columns">
      <label>Vrsta objekta<select name="building"><option value="">Nije navedeno</option><option>Porodična kuća</option><option>Stan</option><option>Poslovni prostor</option><option>Drugo</option></select></label>
-     <label>Datum merenja<input name="date" type="date"/></label>
+     <AssignmentDateInput onPastDate={() => setError(assignmentDateError)}/>
     </div>
     <label>Poruka majstoru<textarea name="message" required rows={3} maxLength={4000} placeholder="Šta treba izmeriti, termin i kako doći do objekta"/></label>
     {error && <p className="team-error" role="alert">{error}</p>}
@@ -205,18 +214,24 @@ function ExistingAssignment({ job, member, assignedTo, assigneeOnly }: { job: Jo
  const restricted = selectedVisibility ?? currentVisibility;
  const reassigning = assignee !== assignedTo;
  const hasChange = Boolean(assignee) && (reassigning || restricted !== currentVisibility);
+ const defaultDate = job.date >= todayInBelgrade() ? job.date : '';
 
  async function assign(event: FormEvent<HTMLFormElement>) {
   event.preventDefault();
   if (!hasChange || busy) return;
+  const date = reassigning ? String(new FormData(event.currentTarget).get('date') ?? '') : undefined;
+  if (date !== undefined && date < todayInBelgrade()) { setError(assignmentDateError); return; }
   setBusy(true);
   setError('');
   try {
-   const row = await assignTeamJob(id, assignee, reassigning ? instructions.trim() : '', restricted);
+   const row = await assignTeamJob(id, assignee, reassigning ? instructions.trim() : '', restricted, date);
    acceptTeamJob(row, member.id);
    refreshMessages();
    navigate(`/posao/${id}`);
-  } catch { setError('Dodela majstora trenutno nije potvrđena. Pokušajte ponovo.'); }
+  } catch (error) {
+   setError(error instanceof TeamRequestError && error.code === '22007' ? assignmentDateError
+    : 'Dodela majstora trenutno nije potvrđena. Pokušajte ponovo.');
+  }
   finally { setBusy(false); }
  }
 
@@ -227,7 +242,10 @@ function ExistingAssignment({ job, member, assignedTo, assigneeOnly }: { job: Jo
    <form className="team-form" onSubmit={assign}><fieldset disabled={busy}>
     <WorkerPicker workers={workers} value={assignee} onChange={setAssignee}/>
     <JobVisibility checked={restricted} onChange={setRestricted}/>
-    {reassigning && <label>Uputstvo za majstora<textarea value={instructions} onChange={event => setInstructions(event.target.value)} rows={2} maxLength={4000}/></label>}
+    {reassigning && <>
+     <AssignmentDateInput defaultValue={defaultDate} onPastDate={() => setError(assignmentDateError)}/>
+     <label>Uputstvo za majstora<textarea value={instructions} onChange={event => setInstructions(event.target.value)} rows={2} maxLength={4000}/></label>
+    </>}
     <button className="field-button field-button-light" disabled={!hasChange}>{reassigning ? 'Potvrdi dodelu' : 'Sačuvaj vidljivost'}</button>
    </fieldset></form>
   {error && <p className="team-error" role="alert">{error}</p>}

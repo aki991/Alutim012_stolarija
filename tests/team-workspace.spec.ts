@@ -139,8 +139,11 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
     case 'field_team_assign': {
      const row=jobs.get(body.p_id)!;
      expect(member.id).toBe(boss.id);
-     expect(body.p_assignee).toBe(row.assigned_to);
      expect(body.p_message).toBe('');
+     if (body.p_assignee !== row.assigned_to) {
+      row.assigned_to = body.p_assignee;
+      row.data = { ...row.data, date: body.p_date };
+     }
      row.assignee_only=body.p_assignee_only;
      row.revision++;
      return replyRow(view(row));
@@ -245,8 +248,16 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
  await page.getByLabel('Adresa merenja').fill('Glavna 12');
  await page.getByLabel('Telefon').fill('064111222');
  await page.getByLabel('Poruka majstoru').fill('Izmeri prozore u prizemlju.');
+ const measurementDate = page.getByLabel('Datum merenja');
+ const today = (await measurementDate.getAttribute('min'))!;
+ await measurementDate.fill('2000-01-01');
+ await page.getByRole('button', { name: 'Dodeli i pošalji' }).click();
+ await expect(page.getByText('Datum merenja mora biti današnji ili budući.')).toBeVisible();
+ expect(jobs.size).toBe(0);
+ await measurementDate.fill(today);
  await page.getByRole('button', { name: 'Dodeli i pošalji' }).click();
  await expect(page.getByRole('heading', { name: 'Posao: Porodica Test' })).toBeVisible();
+ expect([...jobs.values()][0].data.date).toBe(today);
  const jobUrl = page.url();
  const statusName = 'Status posla: Porodica Test';
  const bossStatus = page.getByRole('combobox', { name: statusName });
@@ -437,6 +448,19 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await expect(mobile.getByRole('heading',{name:'Posao: Privatno merenje'})).toBeVisible();
   await readonlyPage.goto(page.url());
   await expect(readonlyPage.getByRole('heading',{name:'Posao nije pronađen'})).toBeVisible();
+  await page.getByRole('link',{name:'Dodela i vidljivost'}).click();
+  await page.getByRole('combobox',{name:'Majstor',exact:true}).selectOption({label:'Ivan'});
+  await measurementDate.fill('2000-01-01');
+  await page.getByRole('button',{name:'Potvrdi dodelu'}).click();
+  await expect(page.getByText('Datum merenja mora biti današnji ili budući.')).toBeVisible();
+  const privateJob = [...jobs.values()].find(row => row.data.customer.name === 'Privatno merenje')!;
+  expect(privateJob.assigned_to).toBe(worker.id);
+  const tomorrow = new Date(Date.parse(today) + 86400000).toISOString().slice(0, 10);
+  await measurementDate.fill(tomorrow);
+  await page.getByRole('button',{name:'Potvrdi dodelu'}).click();
+  await expect(page.getByRole('heading',{name:'Posao: Privatno merenje'})).toBeVisible();
+  expect(privateJob.assigned_to).toBe(observer.id);
+  expect(privateJob.data.date).toBe(tomorrow);
   await mobile.goto('/nalog');
   await mobile.getByRole('button', { name: 'Odjavi se' }).click();
   await expect(mobile.getByRole('heading', { name: 'Prijava', exact: true })).toBeVisible();

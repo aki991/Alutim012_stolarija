@@ -113,9 +113,9 @@ export async function deleteTeamJob(job:Job){
  check(await getSupabase().rpc('field_team_delete_job',{p_id:job.id,p_expected:job}));
 }
 
-export async function assignTeamJob(id:string,assignee:string,message:string,assigneeOnly:boolean):Promise<TeamJob>{
+export async function assignTeamJob(id:string,assignee:string,message:string,assigneeOnly:boolean,date?:string):Promise<TeamJob>{
  return checkedJob(await getSupabase().rpc('field_team_assign',{
-  p_id:id,p_assignee:assignee,p_message:message,p_assignee_only:assigneeOnly,
+  p_id:id,p_assignee:assignee,p_message:message,p_assignee_only:assigneeOnly,...(date ? {p_date:date} : {}),
  }).single<TeamJob>());
 }
 
