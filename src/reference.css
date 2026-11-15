@@ -29,10 +29,9 @@
 .reference-app .main-nav svg{width:24px;height:24px;stroke-width:1.7}
 .reference-app .nav-count{font-family:Arial,sans-serif;font-size:11px}
 .reference-app .sidebar-bottom{position:relative;z-index:1}
-.reference-app .main-shell{background:#f4f4f4}
+.reference-app .main-shell{background:var(--workspace-background)}
 .reference-app.desktop-nav-hidden .sidebar{transform:translateX(-100%)}
 .reference-app.desktop-nav-hidden .main-shell{margin-left:0}
-.reference-home-page .main-shell{background:#191a1b}
 .reference-home-page .main-content{padding:0 16px 12px;max-width:none}
 
 /* The six category tiles come immediately after the facade, as in the reference. */
@@ -108,7 +107,6 @@
  .reference-bell i{width:calc(10 * var(--ref-u));height:calc(10 * var(--ref-u));right:calc(5 * var(--ref-u));top:calc(12 * var(--ref-u));box-shadow:none}
  .reference-app .sidebar{width:255px;padding-top:22px}.reference-app .sidebar .brand{display:flex}.reference-app .sidebar .brand svg{width:180px}.reference-app .sidebar .brand>span{display:none}.reference-app .sidebar-divider{margin:22px 0 10px;height:1px;background:#ffffff21}.reference-app .sidebar .main-nav>a,.reference-app .sidebar .main-nav>button{font-size:19px;min-height:57px}.reference-app.desktop-nav-hidden .main-shell{margin-left:0}
  .reference-home-page .main-content{padding:0;max-width:none}
- .reference-home-page .main-shell{background:#efefef}
  .reference-home{width:100%;max-width:none;padding:0}
  .reference-hero{min-height:0;height:calc(204 * var(--ref-u));border-radius:0}
  .reference-hero-photo svg{width:100%;height:100%}

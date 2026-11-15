@@ -1,8 +1,8 @@
 /* Tablet field work: large type, one task per screen, no desktop shell around measurements. */
 .field-flow>.sidebar,.field-flow .main-shell>.reference-header{display:none}
-.field-flow .main-shell{margin-left:0!important;background:#f7f7f7;min-height:100dvh}
+.field-flow .main-shell{margin-left:0!important;min-height:100dvh}
 .field-flow .main-content{max-width:none!important;padding:0!important;margin:0}
-.field-page{font:400 19px/1.35 AluNarrow,Arial,sans-serif;color:#1a1a1a;min-height:100dvh;background:#f7f7f7}
+.field-page{font:400 19px/1.35 AluNarrow,Arial,sans-serif;color:#1a1a1a;min-height:100dvh;background:var(--workspace-background)}
 .field-header{min-height:68px;display:flex;align-items:center;gap:16px;padding:10px 22px;background:linear-gradient(125deg,#94000e,#b90015 64%,#79000d);color:#fff;position:relative;isolation:isolate}
 .field-header:before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(130deg,transparent 79%,#7a0009 79%,#61000c 89%,#a50012 89%)}
 .field-header h1{font:700 28px/1.15 AluNarrow,Arial,sans-serif;letter-spacing:-.3px;overflow-wrap:anywhere;color:#fff;flex:1;min-width:0}

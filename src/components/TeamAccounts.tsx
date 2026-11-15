@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { Trash2, UserPlus } from 'lucide-react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
+import { Eye, EyeOff, Trash2, UserPlus } from 'lucide-react';
 import { usernameDomain, usernameHint, usernamePattern } from '../../supabase/functions/_shared/team-login';
 import { changeTeamAccount, fetchTeamAccounts, type TeamAccount, type TeamMember } from '../services/team-api';
 import { Field, Modal } from './UI';
@@ -12,6 +12,8 @@ export function TeamAccounts({member}: {member:TeamMember}){
  const [listError,setListError]=useState('');
  const [feedback,setFeedback]=useState('');
  const [creating,setCreating]=useState(false);
+ const [showPassword,setShowPassword]=useState(false);
+ const passwordId=useId();
  const [formError,setFormError]=useState('');
  const [deleting,setDeleting]=useState<TeamAccount|null>(null);
  const [busyDelete,setBusyDelete]=useState(false);
@@ -39,6 +41,7 @@ export function TeamAccounts({member}: {member:TeamMember}){
   try{
    await changeTeamAccount({action:'create',identifier,name,password});
    form.reset();
+   setShowPassword(false);
    setFeedback(`Nalog za ${name} je napravljen.`);
    setReload(value=>value+1);
   }catch(error){setFormError((error as Error).message);}
@@ -66,7 +69,16 @@ export function TeamAccounts({member}: {member:TeamMember}){
    <form className="settings-fields" onSubmit={create}>
     <Field label="Korisničko ime ili e-mail"><input name="identifier" required maxLength={254} autoComplete="off" autoCapitalize="none" spellCheck={false} disabled={creating}/></Field>
     <Field label="Ime i prezime"><input name="name" required maxLength={100} autoComplete="off" disabled={creating}/></Field>
-    <Field label="Lozinka" hint="Najmanje 8 znakova."><input name="password" type="password" required minLength={8} maxLength={72} autoComplete="new-password" disabled={creating}/></Field>
+    <div className="field">
+     <span><label htmlFor={passwordId}>Lozinka</label></span>
+     <div className="team-account-password">
+      <input id={passwordId} name="password" type={showPassword?'text':'password'} required minLength={8} maxLength={72}
+       autoComplete="new-password" autoCapitalize="none" spellCheck={false} disabled={creating} aria-describedby={`${passwordId}-hint`}/>
+      <button type="button" disabled={creating} aria-label={showPassword?'Sakrij lozinku':'Prikaži lozinku'} aria-controls={passwordId}
+       onClick={()=>setShowPassword(visible=>!visible)}>{showPassword?<EyeOff size={21} aria-hidden="true"/>:<Eye size={21} aria-hidden="true"/>}</button>
+     </div>
+     <small id={`${passwordId}-hint`}>Najmanje 8 znakova.</small>
+    </div>
     <button type="submit" className="field-button field-button-yellow team-account-create" disabled={creating}><UserPlus/>{creating?'Dodajem…':'Dodaj korisnika'}</button>
     {formError&&<p className="team-error team-account-feedback" role="alert">{formError}</p>}
    </form>

@@ -1,5 +1,22 @@
 import { test, expect } from '@playwright/test';
 
+test('Početna i radne stranice imaju istu tamnu pozadinu na računaru i telefonu', async ({page}) => {
+  for (const viewport of [{width:1366,height:900},{width:390,height:844}]) {
+    await page.setViewportSize(viewport);
+    for (const [route, surface] of [
+      ['/','.main-shell'],
+      ['/poslovi','.module-page'],
+      ['/katalog','.module-page'],
+      ['/podesavanja','.module-page'],
+      ['/posao/AT-2026-012/ponuda','.field-page'],
+      ['/posao/AT-2026-012/nov/nacrtaj','.custom-page'],
+    ]) {
+      await page.goto(route);
+      await expect(page.locator(surface)).toHaveCSS('background-color','rgb(25, 26, 27)');
+    }
+  }
+});
+
 test('Donje akcije ne prekrivaju skrolovanu radnu površinu', async ({page}) => {
   for (const viewport of [{width:1024,height:768},{width:768,height:1024},{width:390,height:844}]) {
     await page.setViewportSize(viewport);

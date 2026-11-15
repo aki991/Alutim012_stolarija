@@ -7,6 +7,7 @@ import { shutterTypes, type ShutterRate } from '../shutters';
 import { canEditPrices, localPricingForImport, refreshTeamPricing, saveWorkspacePricing, useStore } from '../store';
 import { NumberInput } from './NumberInput';
 import { PortaPriceSettings } from './PortaPriceSettings';
+import { PriceDisplay } from './PriceDisplay';
 import { Field } from './UI';
 
 const priceFields=(...keys:SupplementRate[]):[keyof Prices,string,string][]=>keys.map(key=>[key,supplementLabels[key][0],key==='profileColor'?'%':`€/${supplementLabels[key][1]}`]);
@@ -22,6 +23,11 @@ const groups:{title:string;note?:string;keys:[keyof Prices,string,string][]}[]=[
 ];
 
 const rate = (value:string) => Math.max(0,Math.min(100000,Number(value)));
+const vatModes:Record<Settings['vatMode'],string>={
+ exclusive:'Cene bez PDV-a · porez se dodaje',
+ inclusive:'Cene sa PDV-om · porez je uključen',
+ none:'Bez obračuna PDV-a',
+};
 
 export function PricingSettings({section}:{section:'cenovnik'|'pdv'}){
  const {settings,setSettings,teamMember,teamPricingRevision:revision,teamPricingError}=useStore();
@@ -83,28 +89,39 @@ export function PricingSettings({section}:{section:'cenovnik'|'pdv'}){
    {localPrices&&<button type="button" className="field-button field-button-light pricing-import" disabled={busy} onClick={()=>change(localPrices)}>Učitaj ranije cene sa ovog uređaja</button>}
    {groups.map(group=><section className="price-settings-group" key={group.title}>
     <h2>{group.title}</h2>{group.note&&<p className="settings-note">{group.note}</p>}
-    <div className="settings-fields">{group.keys.map(([key,label,unit])=><Field key={key} label={`${label} (${unit})`}>
-     <span className="price-input"><NumberInput clearToZero aria-label={`${label} (${unit})`} inputMode="decimal" min={0} max={100000} step="0.01"
-      readOnly={!editable||busy} value={values.prices[key]??defaults.prices[key]??0} onChange={event=>change({prices:{...values.prices,[key]:rate(event.target.value)}})}/><span>{unit}</span></span>
-    </Field>)}</div>
+    <div className="settings-fields">{group.keys.map(([key,name,unit])=>{
+     const label=`${name} (${unit})`,value=values.prices[key]??defaults.prices[key]??0;
+     return editable?<Field key={key} label={label}>
+      <span className="price-input"><NumberInput clearToZero aria-label={label} inputMode="decimal" min={0} max={100000} step="0.01"
+       disabled={busy} value={value} onChange={event=>change({prices:{...values.prices,[key]:rate(event.target.value)}})}/><span>{unit}</span></span>
+     </Field>:<PriceDisplay key={key} label={label} value={value}/>;
+    })}</div>
    </section>)}
    <section className="price-settings-group"><h2>Cene po tipu roletne</h2>
-    <p className="settings-note">Za prazno polje primenjuje se osnovna cena roletne.</p>
-    <div className="settings-fields">{Object.values(shutterTypes).map(({rate:key,label})=><Field key={key} label={`${label} (€/m²)`}>
-     <span className="price-input"><input aria-label={`${label} (€/m²)`} type="number" inputMode="decimal" min={0} max={100000} step="0.01" readOnly={!editable||busy}
-      value={values.prices[key]??''} placeholder={String(values.prices.shutter)} onChange={event=>{if(!event.target.validity.badInput)setShutterRate(key,event.target.value);}}/><span>€/m²</span></span>
-    </Field>)}</div>
+    <p className="settings-note">{editable?'Za prazno polje primenjuje se osnovna cena roletne.':'Za tipove bez posebne stope prikazana je osnovna cena roletne.'}</p>
+    <div className="settings-fields">{Object.values(shutterTypes).map(({rate:key,label:name})=>{
+     const label=`${name} (€/m²)`;
+     return editable?<Field key={key} label={label}>
+      <span className="price-input"><input aria-label={label} type="number" inputMode="decimal" min={0} max={100000} step="0.01" disabled={busy}
+       value={values.prices[key]??''} placeholder={String(values.prices.shutter)} onChange={event=>{if(!event.target.validity.badInput)setShutterRate(key,event.target.value);}}/><span>€/m²</span></span>
+     </Field>:<PriceDisplay key={key} label={label} value={values.prices[key]??values.prices.shutter}/>;
+    })}</div>
    </section>
-   <PortaPriceSettings rates={values.portaRoyalPrices} editable={editable&&!busy} onChange={portaRoyalPrices=>change({portaRoyalPrices})}/>
+   <PortaPriceSettings rates={values.portaRoyalPrices} editable={editable} busy={busy} onChange={portaRoyalPrices=>change({portaRoyalPrices})}/>
    {editable&&<button type="button" className="field-button field-button-light" disabled={busy} onClick={()=>{
     if(confirm('Vratiti početne demonstracione cene?'))change({prices:{...defaults.prices},portaRoyalPrices:undefined});
    }}>Vrati početni cenovnik</button>}
   </>:<div className="settings-fields">
-   <Field label="Način unosa cena"><select value={values.vatMode} disabled={!editable||busy} onChange={event=>change({vatMode:event.target.value as Settings['vatMode']})}>
-    <option value="exclusive">Cene bez PDV-a · porez se dodaje</option><option value="inclusive">Cene sa PDV-om · porez je uključen</option><option value="none">Bez obračuna PDV-a</option>
-   </select></Field>
-   <Field label="Stopa PDV-a (%)"><NumberInput clearToZero inputMode="decimal" min={0} max={100} readOnly={!editable||busy} value={values.vat}
-    onChange={event=>change({vat:Math.max(0,Math.min(100,Number(event.target.value)))})}/></Field>
+   {editable?<>
+    <Field label="Način unosa cena"><select value={values.vatMode} disabled={busy} onChange={event=>change({vatMode:event.target.value as Settings['vatMode']})}>
+     {Object.entries(vatModes).map(([mode,label])=><option key={mode} value={mode}>{label}</option>)}
+    </select></Field>
+    <Field label="Stopa PDV-a (%)"><NumberInput clearToZero inputMode="decimal" min={0} max={100} disabled={busy} value={values.vat}
+     onChange={event=>change({vat:Math.max(0,Math.min(100,Number(event.target.value)))})}/></Field>
+   </>:<>
+    <PriceDisplay label="Način obračuna" value={vatModes[values.vatMode]}/>
+    <PriceDisplay label="Stopa PDV-a (%)" value={values.vat}/>
+   </>}
    <p className="settings-note">Izabrani režim važi za sve cene, radove i ručne korekcije.</p>
   </div>}
  </>;

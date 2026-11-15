@@ -45,6 +45,8 @@
 }
 .team-login-card .team-actions { margin-top: 16px; }
 .team-content { width: min(100%, 1180px); margin: auto; padding: clamp(12px, 3vw, 32px); }
+.team-content > p { color: var(--workspace-text); }
+.team-content > .team-error { color: #ffb1b7; }
 .team-account, .team-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .team-account { justify-content: space-between; }
 .team-device-notifications { margin-top: 16px; }

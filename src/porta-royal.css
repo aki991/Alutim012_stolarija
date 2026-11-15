@@ -1,6 +1,6 @@
 .porta-page .module-content{padding-bottom:28px}
 .porta-filters{margin-bottom:10px}
-.porta-count{margin:10px 0 16px;color:#4c5660}
+.porta-count{margin:10px 0 16px;color:var(--workspace-muted)}
 .porta-series-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
 .porta-series-card{display:flex;flex-direction:column;min-width:0;padding:0;overflow:hidden;text-align:left;background:#fff;border:1px solid #d5d8dd;border-radius:12px;color:#20242a}
 .porta-series-card:hover,.porta-series-card:focus-visible{border-color:#ad071a}
@@ -58,7 +58,7 @@
 .porta-editor-preview{grid-area:preview;align-self:start;gap:12px;padding:12px}
 .porta-editor-preview .porta-photo{--porta-photo-scale:.29px}
 .porta-editor-preview .porta-technical{margin:0}
-.porta-size-hint{margin:0;color:#4c5660;font-size:15px}
+.porta-size-hint{margin:0;color:var(--workspace-muted);font-size:15px}
 .porta-equipment[open]>summary{margin-bottom:12px}
 .porta-equipment .porta-checks{margin:10px 0}
 .porta-equipment .field+.field{margin-top:0}
