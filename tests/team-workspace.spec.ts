@@ -3,11 +3,12 @@ import type { TeamAccount, TeamJob, TeamMember, TeamMessage, TeamNotification, T
 import type { Job } from '../src/models';
 
 test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({ browser, page }) => {
- test.setTimeout(90000);
+ test.setTimeout(110000);
  const boss = { id: '10000000-0000-4000-8000-000000000001', name: 'Šef', role: 'manager', active: true } as const;
  const worker = { id: '10000000-0000-4000-8000-000000000002', name: 'Miloš', role: 'worker', active: true } as const;
- const people = [boss, worker];
- const accounts: TeamAccount[] = [{...boss,email:'manager@example.test'},{...worker,email:'milos@alutim012.local'}];
+ const observer = { id: '10000000-0000-4000-8000-000000000003', name: 'Ivan', role: 'worker', active: true } as const;
+ const people = [boss, worker, observer];
+ const accounts: TeamAccount[] = [{...boss,email:'manager@example.test'},{...worker,email:'milos@alutim012.local'},{...observer,email:'ivan@alutim012.local'}];
  let pricing: TeamPricingRow = {prices:{},porta_royal_prices:{},vat:20,vat_mode:'exclusive',revision:0};
  const preferences = new Map<string,TeamPreferencesRow>();
  const archived = new Map<string, {pdf:Buffer; createdAt:string}>();
@@ -52,7 +53,7 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
    }
    if (endpoint === 'token') {
     const { email, password } = request.postDataJSON();
-    expect(email).toBe(member.role === 'manager' ? 'manager@example.test' : 'milos@alutim012.local');
+    expect(email).toBe(accounts.find(account=>account.id===member.id)?.email);
     if (password !== 'test-password') return route.fulfill({ status: 400, headers, json: { code: 'invalid_credentials', message: 'Invalid login credentials' } });
     const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
     const token = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: member.id, exp: Math.floor(Date.now() / 1000) + 3600 })}.signature`;
@@ -60,7 +61,10 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
    }
    if (endpoint === 'logout') return route.fulfill({ headers, status: 204 });
    const body = request.postDataJSON() ?? {};
-   const visible = [...jobs.values()].filter(row => member.role === 'manager' || row.assigned_to === member.id);
+   const participates = (row:TeamJob) => member.role==='manager'||row.assigned_to===member.id;
+   const visible = [...jobs.values()].filter(row => participates(row)||!row.assignee_only);
+   const view = (row:TeamJob) => row.assigned_to && row.data.status==='Merenje' &&
+    (member.role==='manager'||row.assigned_to!==member.id)?{...row,data:{...row.data,positions:[]}}:row;
    switch (endpoint) {
     case 'field_team_members': return reply(url.searchParams.has('id') ? [member] : people.filter(person => person.role === 'worker'));
     case 'field_team_pricing': return reply(pricing);
@@ -97,11 +101,10 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
      }
      return reply({ok:true});
     }
-    case 'field_team_visible_jobs': return reply(visible.map(row => member.role === 'manager' && row.assigned_to && row.data.status === 'Merenje'
-     ? { ...row, data: { ...row.data, positions: [] } } : row));
+    case 'field_team_visible_jobs': return reply(visible.map(view));
     case 'field_team_messages': return reply(messages.filter(message => `eq.${message.job_id}` === url.searchParams.get('job_id')).reverse());
     case 'field_team_notifications': return reply(inbox.get(member.id) ?? []);
-    case 'field_team_message_inbox': return reply(visible.flatMap(job => {
+    case 'field_team_message_inbox': return reply(visible.filter(participates).flatMap(job => {
      const last = messages.findLast(message => message.job_id === job.id);
      return last ? [{ ...last, job_name: job.data.customer.name, unread: last.sender_id !== member.id && reads.get(`${member.id}/${job.id}`) !== last.id }] : [];
     }));
@@ -113,20 +116,30 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
      const data: Job = body.p_job;
      expect(body.p_assignee).toBe(worker.id);
      expect(data.status).toBe('Merenje');
-     expect(data.customer).toMatchObject({ name: 'Porodica Test', address: 'Glavna 12', phone: '064111222' });
-     const row = { id: data.id, data, assigned_to: body.p_assignee, assigned_by: member.id, revision: 1 };
+     const privateJob=data.customer.name==='Privatno merenje';
+     if(!privateJob)expect(data.customer).toMatchObject({ name: 'Porodica Test', address: 'Glavna 12', phone: '064111222' });
+     expect(body.p_assignee_only).toBe(privateJob);
+     const row:TeamJob = { id: data.id, data, assigned_to: body.p_assignee, assigned_by: member.id, revision: 1, assignee_only: body.p_assignee_only };
      jobs.set(row.id, row);
      messages.push({ id: crypto.randomUUID(), job_id: row.id, sender_id: member.id, sender_name: member.name, body: body.p_message, created_at: now() });
      notify(worker, member, row, 'assignment', body.p_message);
-     return replyRow(row);
+     return replyRow(view(row));
+    }
+    case 'field_team_assign': {
+     const row=jobs.get(body.p_id)!;
+     expect(member.id).toBe(boss.id);
+     expect(body.p_assignee).toBe(row.assigned_to);
+     expect(body.p_message).toBe('');
+     row.assignee_only=body.p_assignee_only;
+     row.revision++;
+     return replyRow(view(row));
     }
     case 'field_team_update_job': {
      const row = jobs.get(body.p_id)!;
      row.data = { ...row.data, ...body.p_patch, updated: now() };
      row.revision++;
      if (body.p_patch.status) notify(member.role === 'worker' ? boss : worker, member, row, 'status', body.p_patch.status);
-     return replyRow(member.role === 'manager' && row.assigned_to && row.data.status === 'Merenje'
-      ? { ...row, data: { ...row.data, positions: [] } } : row);
+     return replyRow(view(row));
     }
     case 'field_team_send_message': {
      const row = jobs.get(body.p_id)!;
@@ -152,7 +165,7 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await expect(target.getByRole('button', { name: 'Nastavi bez interneta (gost)' })).toHaveCount(0);
   const identifier = target.getByLabel('E-mail ili korisničko ime');
   const password = target.getByLabel('Lozinka', { exact: true });
-  await identifier.fill(member.role === 'manager' ? ' Manager@Example.test ' : ' MiLoS ');
+  await identifier.fill(member.id === boss.id ? ' Manager@Example.test ' : member.id === worker.id ? ' MiLoS ' : ' ivan ');
   if (member.role === 'manager') {
    await password.fill('wrong-password');
    await target.getByRole('button', { name: 'Prijavi se' }).click();
@@ -211,6 +224,8 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
  await expect(page.getByLabel('Majstor', { exact: true })).toHaveCount(0);
  await page.getByRole('navigation', { name: 'Glavna navigacija' }).getByRole('link', { name: 'Dodeli merenje' }).click();
  await expect(page.getByRole('heading', { name: 'Dodeli merenje' })).toBeVisible();
+ const visibilityLabel='Samo dodeljeni majstor vidi posao';
+ await expect(page.getByRole('checkbox',{name:visibilityLabel})).not.toBeChecked();
  await page.getByRole('combobox', { name: 'Majstor', exact: true }).selectOption({ label: 'Miloš' });
  await page.getByLabel('Naziv firme ili ime kupca').fill('Porodica Test');
  await page.getByLabel('Adresa merenja').fill('Glavna 12');
@@ -223,6 +238,7 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
  const bossStatus = page.getByRole('combobox', { name: statusName });
 
  const workerContext = await browser.newContext({ baseURL: page.url(), viewport: { width: 390, height: 844 } });
+ const observerContext = await browser.newContext({ baseURL: page.url() });
  try {
   const mobile = await workerContext.newPage();
   await login(mobile, worker);
@@ -252,6 +268,14 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await mobile.getByRole('button', { name: 'Dodaj u posao' }).click();
   await expect(mobile.getByRole('region', { name: 'Elementi posla' })).toBeVisible();
   await expect.poll(() => [...jobs.values()][0].data.positions.length).toBe(1);
+  const readonlyPage=await observerContext.newPage();
+  await login(readonlyPage,observer);
+  await expect(readonlyPage.getByText('Nema obaveštenja.')).toBeVisible();
+  await readonlyPage.goto('/poslovi');
+  await readonlyPage.getByRole('link',{name:'Otvori Porodica Test'}).click();
+  await expect(readonlyPage.getByRole('heading',{name:'Merenje je u toku'})).toBeVisible();
+  await expect(readonlyPage.getByRole('button',{name:'Merenje završeno'})).toHaveCount(0);
+  await expect(readonlyPage.getByRole('link',{name:'Poruke o poslu'})).toHaveCount(0);
   await page.goto(`${jobUrl}/ponuda`);
   await expect(page).toHaveURL(jobUrl);
   await expect(page.getByRole('heading', { name: 'Merenje je u toku' })).toBeVisible();
@@ -263,6 +287,11 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await expect(mobile.getByRole('combobox', { name: statusName })).toHaveValue('Poslati ponudu');
   await expect(bossStatus).toHaveValue('Poslati ponudu', { timeout: 10000 });
   await expect(page.getByRole('region', { name: 'Elementi posla' })).toBeVisible();
+  await expect(readonlyPage.getByRole('region',{name:'Elementi posla'})).toBeVisible({timeout:10000});
+  await expect(readonlyPage.getByRole('combobox',{name:statusName})).toBeDisabled();
+  await expect(readonlyPage.getByRole('link',{name:'Dodaj element'})).toHaveCount(0);
+  await readonlyPage.goto(`${jobUrl}/dodaj`);
+  await expect(readonlyPage).toHaveURL(jobUrl);
 
   await bossStatus.selectOption('Merenje');
   await expect(page.getByRole('heading', { name: 'Merenje je u toku' })).toBeVisible();
@@ -351,10 +380,29 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await mobile.goto('/obavestenja');
   await expect(mobile.getByRole('link', { name: /Promena statusa.*U izradi/ })).toBeVisible();
   await expect(mobile.getByRole('link', { name: /Promena statusa.*Završeno/ })).toBeVisible();
+  await page.getByRole('link',{name:'Dodela i vidljivost'}).click();
+  await page.getByRole('checkbox',{name:visibilityLabel}).check();
+  await page.getByRole('button',{name:'Sačuvaj vidljivost'}).click();
+  await expect(page.getByText('Vidljivost posla · Samo dodeljeni majstor')).toBeVisible();
+  await expect(readonlyPage.getByRole('heading',{name:'Posao nije pronađen'})).toBeVisible({timeout:10000});
+  await mobile.goto(jobUrl);
+  await expect(mobile.getByRole('heading',{name:'Posao: Porodica Test'})).toBeVisible();
+  await page.goto('/dodeli-merenje');
+  await page.getByRole('combobox',{name:'Majstor',exact:true}).selectOption({label:'Miloš'});
+  await page.getByRole('checkbox',{name:visibilityLabel}).check();
+  await page.getByLabel('Naziv firme ili ime kupca').fill('Privatno merenje');
+  await page.getByLabel('Adresa merenja').fill('Sporedna 5');
+  await page.getByLabel('Poruka majstoru').fill('Izmeri vrata.');
+  await page.getByRole('button',{name:'Dodeli i pošalji'}).click();
+  await expect(page.getByRole('heading',{name:'Posao: Privatno merenje'})).toBeVisible();
+  await mobile.goto(page.url());
+  await expect(mobile.getByRole('heading',{name:'Posao: Privatno merenje'})).toBeVisible();
+  await readonlyPage.goto(page.url());
+  await expect(readonlyPage.getByRole('heading',{name:'Posao nije pronađen'})).toBeVisible();
   await mobile.goto('/nalog');
   await mobile.getByRole('button', { name: 'Odjavi se' }).click();
   await expect(mobile.getByRole('heading', { name: 'Prijava', exact: true })).toBeVisible();
   await workerContext.setOffline(true);
   await expect(mobile.getByRole('button', { name: 'Nastavi bez interneta (gost)' })).toHaveCount(0);
- } finally { await workerContext.close(); }
+ } finally { await Promise.all([workerContext.close(),observerContext.close()]); }
 });

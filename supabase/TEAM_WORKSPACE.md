@@ -40,9 +40,16 @@
 
 Poslovi i arhivirani dokumenti prikazuju se u Stolariji prema postojećim pravima za posao. Stolarija i Ograde koriste isti Supabase Auth. Brisanje zajedničkog naloga ukida mogućnost prijave u obe aplikacije. Sačuvani poslovi i poruke ostaju povezani sa istorijom korisnika.
 
+## Vidljivost dodeljenih poslova
+
+1. U SQL Editoru primenite [migraciju vidljivosti poslova](migrations/202611150005_team_job_visibility.sql), pa objavite novu verziju Stolarije na Vercelu.
+2. Otvorite **Dodeli merenje** i izaberite majstora. Podrazumevano posao vide svi aktivni majstori. Označite **Samo dodeljeni majstor vidi posao** za privatni posao.
+3. Za promenu vidljivosti sačuvanog posla otvorite **Dodela i vidljivost**, promenite opciju i kliknite **Sačuvaj vidljivost**. Ranije dodeljeni poslovi počinju sa privatnom vidljivošću.
+4. Dodeljeni majstor radi na poslu i prima poruke i obaveštenja o dodeli. Ostali majstori imaju pristup pregledu deljenog posla. Mere i dokumenti dostupni su im po završetku merenja.
+
 ## Rad u aplikaciji
 
-- Šef na stranici **Dodeli merenje** bira majstora i unosi podatke o poslu. Majstor dobija obaveštenje o dodeli, a uputstvo može da otvori kroz **Poruke**. Za promenu majstora otvorite posao i izaberite **Promeni majstora**.
+- Šef na stranici **Dodeli merenje** bira majstora i unosi podatke o poslu. Majstor dobija obaveštenje o dodeli, a uputstvo može da otvori kroz **Poruke**. Za promenu majstora otvorite posao i izaberite **Dodela i vidljivost**.
 - Ikonice **Obaveštenja** i **Poruke** otvaraju zasebne stranice. U razgovoru je samo poslednja primljena poruka nepročitana dok je korisnik ne vidi, ne označi kao pročitanu ili ne pošalje odgovor. Baza pamti pročitanost po nalogu. Za ovo je potrebna [migracija za pročitanost poruka](migrations/202611130002_team_message_reads.sql).
 - Za obaveštenja kada je aplikacija zatvorena otvorite **Nalog → Obaveštenja na uređaju → Uključi na ovom uređaju** i dozvolite obaveštenja. Ponovite na svakom uređaju na kom želite da ih primate. Na iPhone-u i iPad-u prvo dodajte aplikaciju na početni ekran i pokrenite je preko ikonice. Odjava isključuje obaveštenja na tom uređaju.
 - Dok je dodeljeni posao u statusu **Merenje**, šef vidi podatke o poslu i razgovor. Baza prikazuje elemente i mere samo dodeljenom majstoru. Kada majstor klikne **Merenje završeno**, posao prelazi u **Poslati ponudu** i šefu se otvaraju svi elementi i ponuda. Vraćanje u **Merenje** ponovo skriva elemente dok majstor ne preda ispravke.

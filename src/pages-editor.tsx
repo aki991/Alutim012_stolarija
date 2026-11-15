@@ -3,7 +3,7 @@ import { fmt } from './custom/geometry';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowDown, ArrowRight, ArrowUp, Check, ChevronRight, Copy, Expand, Minus, MoreVertical, Pencil, Plus, RotateCcw, Settings2, Trash2, UserRound, X } from 'lucide-react';
-import { canEditPrices, hasPositionPriceCorrection, assignedMeasurement, awaitingMeasurements, useStore, workspaceDraftKey, withPositionPrice } from './store';
+import { canEditJob, canEditPrices, hasPositionPriceCorrection, assignedMeasurement, awaitingMeasurements, useStore, workspaceDraftKey, withPositionPrice } from './store';
 import type { Opening, Position } from './models';
 import { uid } from './catalog';
 import { calculate, euro, positionCost, validatePosition, positionPriceLabel, jobReviewLabel } from './services/calculation';
@@ -42,7 +42,8 @@ export function Editor(){
  const {id}=useParams(),state=useStore(),{jobs,settings,updateJob,saveState,teamMember}=state,job=jobs.find(j=>j.id===id);
  const [dataOpen,setDataOpen]=useState(false),[deleting,setDeleting]=useState<Position|null>(null);
  if(!job)return <MissingJob/>;
- const waiting=awaitingMeasurements(state,job),statusLocked=assignedMeasurement(state,job);
+ const editable=canEditJob(state,job),waiting=awaitingMeasurements(state,job);
+ const statusLocked=!editable||assignedMeasurement(state,job);
  const total=calculate(job,settings);
  const editPrices=canEditPrices(state);
  function duplicate(p:Position){
@@ -52,28 +53,30 @@ export function Editor(){
  function move(index:number,by:number){const positions=[...job!.positions];[positions[index],positions[index+by]]=[positions[index+by],positions[index]];updateJob(job!.id,{positions});}
  return <div className="field-page summary-page"><FieldHeader title={`Posao: ${job.customer.name}`} back="/poslovi"/>
  <main className="job-summary">
-  <div className="summary-customer"><button aria-label="Podaci o kupcu" className="summary-customer-info" onClick={()=>setDataOpen(true)}><UserRound/><span><strong>{job.customer.name}</strong><small>{job.customer.address||'Dodaj podatke o kupcu'}</small></span><Pencil size={18}/></button><JobStatus value={job.status} name={job.customer.name} locked={statusLocked} onChange={status=>{updateJob(job.id,{status});useStore.getState().retrySave();}}/></div><div className="summary-toolbar"><Saved state={saveState} shared={Boolean(teamMember)}/></div>
+  <div className="summary-customer"><button aria-label="Podaci o kupcu" className="summary-customer-info" onClick={()=>setDataOpen(true)}><UserRound/><span><strong>{job.customer.name}</strong><small>{job.customer.address||(editable?'Dodaj podatke o kupcu':'Adresa nije navedena')}</small></span>{editable&&<Pencil size={18}/>}</button><JobStatus value={job.status} name={job.customer.name} locked={statusLocked} onChange={status=>{updateJob(job.id,{status});useStore.getState().retrySave();}}/></div><div className="summary-toolbar"><Saved state={saveState} shared={Boolean(teamMember)}/></div>
   {waiting?<section className="team-card team-measurement-wait"><h2>Merenje je u toku</h2><p>Elementi, mere i ponuda biće dostupni kad majstor potvrdi završetak merenja.</p></section>:
-  !job.positions.length?<Empty title="Dodajte prvi element" action={<Link className="field-button field-button-red" to={`/posao/${job.id}/dodaj`}><Plus/>Dodaj element</Link>}/>:
+  !job.positions.length?<Empty title={editable?"Dodajte prvi element":"Nema sačuvanih elemenata"} action={editable&&<Link className="field-button field-button-red" to={`/posao/${job.id}/dodaj`}><Plus/>Dodaj element</Link>}/>:
   <div className={settings.showPrices===false?"summary-grid without-prices":"summary-grid"}><section className="job-lines" aria-label="Elementi posla"><div className="job-line-head"><span>#</span><span>Element</span><span>Dimenzije (mm)</span><span>Kom.</span>{settings.showPrices!==false&&<span>Cena</span>}<span/></div>
-   {job.positions.map((p,i)=><article className="job-line" key={p.id}>
+   {job.positions.map((p,i)=>{
+    const element=<><span className="line-sketch"><Drawing position={p} compact/></span><strong>{p.name}</strong></>;
+    return <article className="job-line" key={p.id}>
     <span className="line-number">{i+1}.</span>
-    <Link className="line-element" to={`/posao/${job.id}/element/${p.id}`}><span className="line-sketch"><Drawing position={p} compact/></span><strong>{p.name}</strong></Link>
+    {editable?<Link className="line-element" to={`/posao/${job.id}/element/${p.id}`}>{element}</Link>:<div className="line-element">{element}</div>}
     <span className="line-dimensions">{fmt(p.width)} × {fmt(p.height+openingBoxHeight(p))}<span className="line-quantity-inline">{p.quantity} kom.</span><small>{p.portaRoyal?`Tip ${portaRoyalTypes[p.portaRoyal.type]}`:p.modelLayout?`${p.modelLayout.rows.reduce((n,row)=>n+row.cells.filter(cell=>cell.infill!=='space').length,0)} polja`:`${p.segments.length} ${p.segments.length===1?'krilo':'krila'}`}</small></span>
     <span className="line-quantity">{p.quantity}<small> kom.</small></span>
     {settings.showPrices!==false&&<strong className="line-price">{positionPriceLabel(total.positions[i],p)}</strong>}
-    <div className="line-tools"><Link to={`/posao/${job.id}/element/${p.id}`} className="field-icon-button" aria-label={`Izmeni element ${i+1}`}><Pencil/></Link><details className="line-menu"><summary className="field-icon-button" aria-label={`Meni elementa ${i+1}`}><MoreVertical/></summary><div>
+    {editable&&<div className="line-tools"><Link to={`/posao/${job.id}/element/${p.id}`} className="field-icon-button" aria-label={`Izmeni element ${i+1}`}><Pencil/></Link><details className="line-menu"><summary className="field-icon-button" aria-label={`Meni elementa ${i+1}`}><MoreVertical/></summary><div>
       <button onClick={e=>{duplicate(p);e.currentTarget.closest('details')?.removeAttribute('open');}}><Copy/>Dupliraj</button>
       <button disabled={i===0} onClick={e=>{move(i,-1);e.currentTarget.closest('details')?.removeAttribute('open');}}><ArrowUp/>Pomeri gore</button>
       <button disabled={i===job.positions.length-1} onClick={e=>{move(i,1);e.currentTarget.closest('details')?.removeAttribute('open');}}><ArrowDown/>Pomeri dole</button>
       {(editPrices||!hasPositionPriceCorrection(p))&&<button onClick={e=>{setDeleting(p);e.currentTarget.closest('details')?.removeAttribute('open');}}><Trash2/>Obriši</button>}
-    </div></details></div>
-   </article>)}
+    </div></details></div>}
+   </article>;})}
   </section>{settings.showPrices!==false&&<aside className="summary-price"><div><span>{(total.manual||total.vatMode==='inclusive')?'Osnovica bez PDV-a':'Elementi, radovi i transport'}</span><strong>{euro(total.manual||total.vatMode==='inclusive'?total.net:total.subtotal)}</strong></div>{total.discount>0&&<div><span>Popust {job.discountMode==='amount'?'':`${job.discount}%`}</span><strong>−{euro(total.discount)}</strong></div>}<>{total.surcharge>0&&<div><span>Uvećanje</span><strong>{euro(total.surcharge)}</strong></div>}{total.manual&&<p>Ručna ukupna cena</p>}</><div><span>{total.vatMode==='none'?'Bez obračuna PDV-a':`PDV ${total.vat}%${total.vatMode==='inclusive'?' (uključen)':''}`}</span><strong>{euro(total.tax)}</strong></div><section><h2>{total.hasUnpriced?'Zbir poznatih stavki':'Okvirna cena'}</h2><strong data-testid="job-total">{euro(total.total)}</strong></section><p>{total.hasUnpriced?jobReviewLabel(job,total)+'. Zbir obuhvata stavke sa izračunatom cenom.':'Demonstracione cene. Konačnu ponudu potvrđuje kancelarija.'}</p></aside>}</div>}
   <TeamJobPanel job={job}/>
  </main>
- {!waiting&&<footer className="field-bottom-actions job-quick-actions"><Link className="field-button field-button-red" to={`/posao/${job.id}/dodaj`}><Plus/>Dodaj element</Link>{settings.showPrices!==false&&editPrices&&<Link className="field-button field-button-light" to={`/posao/${job.id}/korekcija`}><Settings2/>Korekcija cene</Link>}<Link className="field-button field-button-yellow summary-more-offer" to={`/posao/${job.id}/ponuda`}>{settings.showPrices===false?"Pregledaj i podeli dokument":"Pogledaj cenu i podeli dokument"} <ArrowRight size={18}/></Link></footer>}
- {dataOpen&&<JobForm job={job} statusLocked={statusLocked} onClose={()=>setDataOpen(false)} onSave={(j,baseline)=>{updateJob(job.id,j,baseline);setDataOpen(false);}}/>}
+ {!waiting&&<footer className="field-bottom-actions job-quick-actions">{editable&&<Link className="field-button field-button-red" to={`/posao/${job.id}/dodaj`}><Plus/>Dodaj element</Link>}{settings.showPrices!==false&&editPrices&&<Link className="field-button field-button-light" to={`/posao/${job.id}/korekcija`}><Settings2/>Korekcija cene</Link>}<Link className="field-button field-button-yellow summary-more-offer" to={`/posao/${job.id}/ponuda`}>{!editable?"Pogledaj ponudu":settings.showPrices===false?"Pregledaj i podeli dokument":"Pogledaj cenu i podeli dokument"} <ArrowRight size={18}/></Link></footer>}
+ {dataOpen&&<JobForm job={job} readOnly={!editable} statusLocked={statusLocked} onClose={()=>setDataOpen(false)} onSave={(j,baseline)=>{updateJob(job.id,j,baseline);setDataOpen(false);}}/>}
  {deleting&&<Modal title="Obriši element?" onClose={()=>setDeleting(null)}><p>{deleting.name}</p><div className="modal-footer"><button className="field-button field-button-light" onClick={()=>setDeleting(null)}>Otkaži</button><button className="field-button field-button-red" onClick={()=>{updateJob(job.id,{positions:job.positions.filter(p=>p.id!==deleting.id)});setDeleting(null);}}>Obriši element</button></div></Modal>}
  </div>;
 }

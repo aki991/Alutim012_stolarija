@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Calculator, ChevronRight, FileText, MapPin, Plus } from 'lucide-react';
 import { isActiveJob } from './models';
-import { awaitingMeasurements, useStore } from './store';
+import { awaitingMeasurements, canEditJob, useStore } from './store';
 import { Button, CategoryIcon, Empty, Saved } from './components/UI';
 import { categories } from './catalog';
 
@@ -11,7 +11,7 @@ export function Dashboard({ onNew }: { onNew: () => void }) {
   const { jobs, saveState, settings, teamMember } = state;
   const navigate = useNavigate();
   const active = jobs.filter(isActiveJob);
-  const last = active.find(job => !awaitingMeasurements(state,job));
+  const last = active.find(job => canEditJob(state,job)&&!awaitingMeasurements(state,job));
 
   return <div className="reference-home">
     <section className="reference-hero" aria-labelledby="reference-title">

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { ArrowRight, BriefcaseBusiness, Calculator, ClipboardList, FileText, House, LayoutGrid, LogIn, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Play, Settings, UserRound } from 'lucide-react';
 import { isActiveJob } from '../models';
-import { awaitingMeasurements, useStore } from '../store';
+import { awaitingMeasurements, canEditJob, useStore } from '../store';
 import { useNavigation } from '../navigation';
 import { Modal } from './UI';
 import { ReferenceHeader } from './ReferenceHeader';
@@ -18,7 +18,7 @@ export function AppShell({children,onNew,onSearch,onNotifications,onNavigation}:
  if(teamMember?.role==='manager')visibleLinks.splice(3,0,{to:'/dodeli-merenje',label:'Dodeli merenje',Icon:ClipboardList});
  const field=location.pathname.startsWith('/posao/'),home=location.pathname==='/';
  const compact=navigation.sidebar==='auto'?(width<1000||field):navigation.sidebar==='compact';
- const activeJob=jobs.find(j=>j.id===navigation.jobId&&isActiveJob(j)&&!awaitingMeasurements(state,j));
+ const activeJob=jobs.find(j=>j.id===navigation.jobId&&isActiveJob(j)&&canEditJob(state,j)&&!awaitingMeasurements(state,j));
  const resume=activeJob&&navigation.workPath?.startsWith(`/posao/${activeJob.id}`)?navigation.workPath:activeJob?`/posao/${activeJob.id}`:null;
  useEffect(()=>{const resize=()=>setWidth(window.innerWidth);window.addEventListener('resize',resize);return()=>window.removeEventListener('resize',resize);},[]);
  useEffect(()=>{
@@ -33,7 +33,7 @@ export function AppShell({children,onNew,onSearch,onNotifications,onNavigation}:
   if(catalog&&location.hash==='#catalog-model-browser')document.getElementById('catalog-model-browser')?.scrollIntoView();
  },[location.pathname,location.search]);
  const routeJobId=location.pathname.match(/^\/posao\/([^/]+)/)?.[1];
- const activeRouteJobId=jobs.find(j=>j.id===routeJobId&&isActiveJob(j)&&!awaitingMeasurements(state,j))?.id;
+ const activeRouteJobId=jobs.find(j=>j.id===routeJobId&&isActiveJob(j)&&canEditJob(state,j)&&!awaitingMeasurements(state,j))?.id;
  const {jobId,clearJob,remember}=navigation;
  useEffect(()=>{if(jobId&&!activeJob)clearJob();},[activeJob,jobId,clearJob]);
  useEffect(()=>{

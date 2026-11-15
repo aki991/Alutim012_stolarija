@@ -8,7 +8,7 @@ export type PriceSettings=Pick<Settings,'prices'|'portaRoyalPrices'|'vat'|'vatMo
 export type TeamPricingRow={prices:Partial<Settings['prices']>;porta_royal_prices:Record<string,number>;vat:number;vat_mode:Settings['vatMode'];revision:number};
 export type TeamPreferences=Pick<Settings,'showPrices'|'elementDefaults'|'documentDefaults'>;
 export type TeamPreferencesRow={data:TeamPreferences;revision:number};
-export type TeamJob={id:string;data:Job;assigned_to:string|null;assigned_by:string|null;revision:number};
+export type TeamJob={id:string;data:Job;assigned_to:string|null;assigned_by:string|null;revision:number;assignee_only:boolean};
 export type TeamMessage={id:string;job_id:string;sender_id:string|null;sender_name:string;body:string;created_at:string};
 export type TeamConversation=TeamMessage&{job_name:string;unread:boolean};
 export type TeamNotification={
@@ -90,7 +90,7 @@ export async function fetchTeamJobs(known:ReadonlyMap<string,TeamJob>):Promise<T
  for(let offset=0;;offset+=pageSize){
   const versions=check(await api.from('field_team_visible_jobs').select('id,revision').order('id').range(offset,offset+pageSize-1))??[];
   const changed=versions.filter(row=>known.get(row.id)?.revision!==row.revision).map(row=>row.id);
-  const fetched:TeamJob[]=changed.length?check(await api.from('field_team_visible_jobs').select('id,data,assigned_to,assigned_by,revision').in('id',changed))??[]:[];
+  const fetched:TeamJob[]=changed.length?check(await api.from('field_team_visible_jobs').select('id,data,assigned_to,assigned_by,revision,assignee_only').in('id',changed))??[]:[];
   for(const row of versions){
    const result=known.get(row.id)?.revision===row.revision?known.get(row.id):fetched.find(job=>job.id===row.id);
    if(result)rows.push(result);
@@ -99,8 +99,10 @@ export async function fetchTeamJobs(known:ReadonlyMap<string,TeamJob>):Promise<T
  }
 }
 
-export async function createTeamJob(job:Job,assignee?:string,message?:string):Promise<TeamJob>{
- return checkedJob(await getSupabase().rpc('field_team_create_job',{p_job:job,p_assignee:assignee??null,p_message:message??''}).single<TeamJob>());
+export async function createTeamJob(job:Job,assignee?:string,message?:string,assigneeOnly=false):Promise<TeamJob>{
+ return checkedJob(await getSupabase().rpc('field_team_create_job',{
+  p_job:job,p_assignee:assignee??null,p_message:message??'',p_assignee_only:assigneeOnly,
+ }).single<TeamJob>());
 }
 
 export async function updateTeamJob(id:string,patch:Partial<Job>,expected:Partial<Job>):Promise<TeamJob>{
@@ -111,8 +113,10 @@ export async function deleteTeamJob(job:Job){
  check(await getSupabase().rpc('field_team_delete_job',{p_id:job.id,p_expected:job}));
 }
 
-export async function assignTeamJob(id:string,assignee:string,message:string):Promise<TeamJob>{
- return checkedJob(await getSupabase().rpc('field_team_assign',{p_id:id,p_assignee:assignee,p_message:message}).single<TeamJob>());
+export async function assignTeamJob(id:string,assignee:string,message:string,assigneeOnly:boolean):Promise<TeamJob>{
+ return checkedJob(await getSupabase().rpc('field_team_assign',{
+  p_id:id,p_assignee:assignee,p_message:message,p_assignee_only:assigneeOnly,
+ }).single<TeamJob>());
 }
 
 export async function fetchTeamMessages(id:string):Promise<TeamMessage[]>{

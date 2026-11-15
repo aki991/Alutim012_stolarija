@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowRight, FolderOpen, Search } from 'lucide-react';
-import { awaitingMeasurements, canEditPrices, discardConflictingTeamChange, jobFromSettings, refreshTeamPricing, useStore } from './store';
+import { awaitingMeasurements, canEditJob, canEditPrices, discardConflictingTeamChange, jobFromSettings, refreshTeamPricing, useStore } from './store';
 import type { Job } from './models';
 import { Empty, Modal } from './components/UI';
 import { NewJobDialog } from './components/NewJobDialog';
@@ -43,11 +43,11 @@ export default function App(){
    <Route path="/podesavanja/:section" element={<SettingsPage/>}/>
    <Route path="/cenovnik" element={<SettingsPage forcedSection="cenovnik"/>}/>
    <Route path="/posao/:id" element={<Editor/>}/>
-   <Route path="/posao/:id/dodaj" element={<MeasurementAccess><TypeChooser/></MeasurementAccess>}/>
-   <Route path="/posao/:id/modeli" element={<MeasurementAccess><Catalog onUse={newJob}/></MeasurementAccess>}/>
-   <Route path="/posao/:id/sobna-vrata" element={<MeasurementAccess><PortaCatalog/></MeasurementAccess>}/>
-   <Route path="/posao/:id/nov/:type" element={<MeasurementAccess><PositionEditor key={location.pathname+location.search}/></MeasurementAccess>}/>
-   <Route path="/posao/:id/element/:positionId" element={<MeasurementAccess><PositionEditor key={location.pathname+location.search}/></MeasurementAccess>}/>
+   <Route path="/posao/:id/dodaj" element={<MeasurementAccess editing><TypeChooser/></MeasurementAccess>}/>
+   <Route path="/posao/:id/modeli" element={<MeasurementAccess editing><Catalog onUse={newJob}/></MeasurementAccess>}/>
+   <Route path="/posao/:id/sobna-vrata" element={<MeasurementAccess editing><PortaCatalog/></MeasurementAccess>}/>
+   <Route path="/posao/:id/nov/:type" element={<MeasurementAccess editing><PositionEditor key={location.pathname+location.search}/></MeasurementAccess>}/>
+   <Route path="/posao/:id/element/:positionId" element={<MeasurementAccess editing><PositionEditor key={location.pathname+location.search}/></MeasurementAccess>}/>
    <Route path="/posao/:id/korekcija" element={<MeasurementAccess>{settings.showPrices===false||!canEditPrices({teamMember})?<Navigate to="../ponuda" relative="path" replace/>:<Correction/>}</MeasurementAccess>}/>
    <Route path="/posao/:id/ponuda" element={<MeasurementAccess><Quote/></MeasurementAccess>}/>
    <Route path="*" element={<Empty title="Stranica nije pronađena" action={<Link to="/" className="field-button field-button-yellow">Vrati se na početnu</Link>}/>}/>
@@ -58,10 +58,10 @@ export default function App(){
  </AppShell>;
 }
 
-function MeasurementAccess({children}:{children:ReactNode}){
+function MeasurementAccess({children,editing=false}:{children:ReactNode;editing?:boolean}){
  const {id}=useParams();
- const waiting=useStore(state=>state.jobs.some(job=>job.id===id&&awaitingMeasurements(state,job)));
- return waiting?<Navigate to={`/posao/${id}`} replace/>:children;
+ const blocked=useStore(state=>state.jobs.some(job=>job.id===id&&(awaitingMeasurements(state,job)||editing&&!canEditJob(state,job))));
+ return blocked?<Navigate to={`/posao/${id}`} replace/>:children;
 }
 
 function PositionEditor(){

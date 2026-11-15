@@ -2,7 +2,7 @@ import { fmt } from './custom/geometry';
 import { lazy, Suspense, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { CheckCircle2, FileText, Share2 } from 'lucide-react';
-import { canEditPrices, useStore } from './store';
+import { canEditJob, canEditPrices, useStore } from './store';
 import { calculate, euro, validatePosition, jobReviewLabel, positionReviewLabel, positionPriceLabel } from './services/calculation';
 import type { Position } from './models';
 import { openingBoxHeight } from './shutters';
@@ -56,7 +56,7 @@ function QuotePositionPrice({position, price, onChange}: {
 }
 
 export function Quote(){
- const {id}=useParams(),{jobs,settings,teamMember,updatePosition}=useStore(),job=jobs.find(j=>j.id===id);
+ const {id}=useParams(),state=useStore(),{jobs,settings,teamMember,updatePosition}=state,job=jobs.find(j=>j.id===id);
  const pendingSubmission=useRef<OfficeSubmission|null>(null),sending=useRef(false);
  const [officeNotice,setOfficeNotice]=useState<{text:string;kind:'progress'|'success'|'error'}|null>(null);
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[sharing,setSharing]=useState(false);
@@ -64,7 +64,8 @@ export function Quote(){
  const [archiveRevision,refreshArchive]=useState(0);
  if(!job)return <MissingJob/>;
  const showPrices=settings.showPrices!==false;
- const editPrices=showPrices&&canEditPrices({teamMember});
+ const editable=canEditJob(state,job);
+ const editPrices=editable&&showPrices&&canEditPrices({teamMember});
  async function jobDocument(kind:JobDocumentKind){
   if(!job)throw new Error('Posao nije dostupan.');
   const file=await createJobDocument(job,settings,kind,teamMember?.id);
@@ -107,9 +108,11 @@ export function Quote(){
  }
  return <div className="field-page price-page"><FieldHeader title={`${showPrices?"Cena i ponuda":"Dokumenti"}: ${job.customer.name}`} back={`/posao/${job.id}`}/>
  <main className={showPrices?"price-workspace":"price-workspace without-prices"}><div className="price-content"><section className="price-lines" aria-label={showPrices?"Pregled cene":"Pregled elemenata"}><div className="price-line-head"><span>Element</span><span>Kom.</span>{showPrices&&<span>Cena</span>}</div>
- {job.positions.map((p,i)=><article className="price-line" key={p.id}><Link className="price-element" to={`/posao/${job.id}/element/${p.id}`}><span className="price-sketch"><Drawing position={p} compact/></span><span><strong>{p.name}</strong><small>{fmt(p.width)} × {fmt(p.height+openingBoxHeight(p))} mm · {p.portaRoyal?`Tip ${portaRoyalTypes[p.portaRoyal.type]} · ${portaDecorName(p.portaRoyal)}`:p.material}</small></span></Link><span>{p.quantity}</span>{showPrices&&(editPrices?<QuotePositionPrice position={p} price={result.positions[i]} onChange={manualPrice=>updatePosition(job.id,p.id,{manualPrice})}/>:
-  <strong className="quote-position-price">{positionPriceLabel(result.positions[i],p)}</strong>)}</article>)}
- {!job.positions.length&&<p className="field-empty-text">Dodajte element u posao da biste pripremili ponudu.</p>}
+ {job.positions.map((p,i)=>{
+  const element=<><span className="price-sketch"><Drawing position={p} compact/></span><span><strong>{p.name}</strong><small>{fmt(p.width)} × {fmt(p.height+openingBoxHeight(p))} mm · {p.portaRoyal?`Tip ${portaRoyalTypes[p.portaRoyal.type]} · ${portaDecorName(p.portaRoyal)}`:p.material}</small></span></>;
+  return <article className="price-line" key={p.id}>{editable?<Link className="price-element" to={`/posao/${job.id}/element/${p.id}`}>{element}</Link>:<div className="price-element">{element}</div>}<span>{p.quantity}</span>{showPrices&&(editPrices?<QuotePositionPrice position={p} price={result.positions[i]} onChange={manualPrice=>updatePosition(job.id,p.id,{manualPrice})}/>:
+  <strong className="quote-position-price">{positionPriceLabel(result.positions[i],p)}</strong>)}</article>;})}
+ {!job.positions.length&&<p className="field-empty-text">{editable?'Dodajte element u posao da biste pripremili ponudu.':'Nema sačuvanih elemenata.'}</p>}
  </section>
  {editPrices&&<Link className="field-button field-button-yellow correction-entry" to={`/posao/${job.id}/korekcija`}>Korekcija cene</Link>}
  {teamMember&&<JobDocumentArchive key={job.id} jobId={job.id} revision={archiveRevision} showPrices={showPrices} onPreview={(file,title)=>setPreview({file,title})}/>}</div>
@@ -117,12 +120,12 @@ export function Quote(){
  {errors.length>0&&<div className="field-error" role="alert">{errors.map((e,i)=><p key={i}>{e}</p>)}<Link to={`/posao/${job.id}`}>Ispravite mere u poslu</Link></div>}
  {message&&!sharing&&<p className="field-message" role="status">{message}</p>}
  </main>
- <footer className="field-bottom-actions document-actions"><button className="field-button field-button-light" disabled={!ready||busy} onClick={()=>previewDocument('kupac')}><FileText/>{busy?'Pripremam…':'Ponuda za kupca'}</button><button className="field-button field-button-light" disabled={!ready||busy} onClick={()=>previewDocument('kancelarija')}><FileText/>Specifikacija za kancelariju</button><button className="field-button field-button-yellow" aria-label="Podeli dokument" disabled={!ready||busy} onClick={()=>{setMessage('');setOfficeNotice(null);setSharing(true);}}><Share2/><span>Podeli</span></button></footer>
+ {editable&&<footer className="field-bottom-actions document-actions"><button className="field-button field-button-light" disabled={!ready||busy} onClick={()=>previewDocument('kupac')}><FileText/>{busy?'Pripremam…':'Ponuda za kupca'}</button><button className="field-button field-button-light" disabled={!ready||busy} onClick={()=>previewDocument('kancelarija')}><FileText/>Specifikacija za kancelariju</button><button className="field-button field-button-yellow" aria-label="Podeli dokument" disabled={!ready||busy} onClick={()=>{setMessage('');setOfficeNotice(null);setSharing(true);}}><Share2/><span>Podeli</span></button></footer>}
  {preview&&<Modal wide title={`Pregled: ${preview.title}`} onClose={()=>setPreview(null)}>
   <Suspense fallback={<p role="status">Učitavam pregled…</p>}>
    <DocumentPreview file={preview.file}/>
   </Suspense>
  </Modal>}
- {sharing&&<Modal title="Podeli dokument" onClose={()=>{setSharing(false);setOfficeNotice(null);}}><div className="share-choices"><button className="field-button field-button-light share-document-choice" aria-label="Ponuda za kupca" disabled={busy} onClick={()=>shareDocument('kupac')}><FileText/><span>Ponuda za kupca</span><ShareAppIcons/></button><button className="field-button field-button-light share-document-choice" aria-label="Specifikacija za kancelariju" disabled={busy} onClick={()=>shareDocument('kancelarija')}><FileText/><span>Specifikacija za kancelariju</span><ShareAppIcons/></button><button className="field-button field-button-light share-document-choice" aria-label="Pošalji u app" disabled={busy} onClick={sendToOffice}><FileText/><span>{busy?'Šaljem…':'Pošalji u app'}</span><img className="share-company-logo" src="/assets/logo.png" alt="ALU TIM 012"/></button><p>Za slanje izaberite Viber ili WhatsApp u sistemskom meniju, ako su instalirani na uređaju. Ako deljenje nije podržano, dokument se preuzima.</p><p>Pošalji u app čuva specifikaciju za kancelariju u bazi. Za to je potreban internet.</p>{officeNotice?<p role="status" className={`office-notice office-notice-${officeNotice.kind}`}>{officeNotice.kind==='success'&&<CheckCircle2 aria-hidden="true"/>}{officeNotice.text}</p>:message&&<p role="status">{message}</p>}</div></Modal>}
+ {editable&&sharing&&<Modal title="Podeli dokument" onClose={()=>{setSharing(false);setOfficeNotice(null);}}><div className="share-choices"><button className="field-button field-button-light share-document-choice" aria-label="Ponuda za kupca" disabled={busy} onClick={()=>shareDocument('kupac')}><FileText/><span>Ponuda za kupca</span><ShareAppIcons/></button><button className="field-button field-button-light share-document-choice" aria-label="Specifikacija za kancelariju" disabled={busy} onClick={()=>shareDocument('kancelarija')}><FileText/><span>Specifikacija za kancelariju</span><ShareAppIcons/></button><button className="field-button field-button-light share-document-choice" aria-label="Pošalji u app" disabled={busy} onClick={sendToOffice}><FileText/><span>{busy?'Šaljem…':'Pošalji u app'}</span><img className="share-company-logo" src="/assets/logo.png" alt="ALU TIM 012"/></button><p>Za slanje izaberite Viber ili WhatsApp u sistemskom meniju, ako su instalirani na uređaju. Ako deljenje nije podržano, dokument se preuzima.</p><p>Pošalji u app čuva specifikaciju za kancelariju u bazi. Za to je potreban internet.</p>{officeNotice?<p role="status" className={`office-notice office-notice-${officeNotice.kind}`}>{officeNotice.kind==='success'&&<CheckCircle2 aria-hidden="true"/>}{officeNotice.text}</p>:message&&<p role="status">{message}</p>}</div></Modal>}
  </div>;
 }

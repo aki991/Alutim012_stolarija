@@ -25,13 +25,18 @@ type SaveState='saved'|'dirty'|'error';
 interface AppState {
  jobs:Job[];settings:Settings;saveState:SaveState;storageError:string;
  teamMember:TeamMember|null;teamConflict:boolean;teamAssignments:Record<string,string|null>;
+ teamAssigneeOnly:Record<string,boolean>;
  teamPricingRevision:number|null;teamPricingError:string;
  updateJob:(id:string,patch:Partial<Job>,baseline?:Job)=>void;addJob:(job:Job)=>void;deleteJob:(id:string)=>void;duplicateJob:(id:string)=>string;
  updatePosition:(job:string,id:string,patch:Partial<Position>)=>void;setSettings:(patch:Partial<Settings>)=>void;
  importData:(data:unknown)=>void;retrySave:()=>void;
 }
 export const assignedMeasurement=(state:Pick<AppState,'teamAssignments'>,job:Job)=>job.status==='Merenje'&&Boolean(state.teamAssignments[job.id]);
-export const awaitingMeasurements=(state:Pick<AppState,'teamAssignments'|'teamMember'>,job:Job)=>state.teamMember?.role==='manager'&&assignedMeasurement(state,job);
+type JobAccess=Pick<AppState,'teamAssignments'|'teamMember'>;
+export const canEditJob=(state:JobAccess,job:Pick<Job,'id'>)=>state.teamMember?.role!=='worker'
+ ||!Object.hasOwn(state.teamAssignments,job.id)||state.teamAssignments[job.id]===state.teamMember.id;
+export const awaitingMeasurements=(state:JobAccess,job:Job)=>assignedMeasurement(state,job)
+ &&(state.teamMember?.role==='manager'||!canEditJob(state,job));
 export const canEditPrices=(state:Pick<AppState,'teamMember'>)=>state.teamMember?.role!=='worker';
 export const hasPositionPriceCorrection=(p:Position)=>p.manualPrice!=null||Boolean(p.extraCost);
 export const withPositionPrice=(p:Position,source?:Position)=>({...p,manualPrice:source?.manualPrice??null,extraCost:source?.extraCost??0});
@@ -69,11 +74,11 @@ export function localPricingForImport(){
 }
 export const useStore=create<AppState>((set,get)=>({
  ...initial,saveState:initialError?'error':'saved',storageError:initialError,
- teamMember:null,teamConflict:false,teamAssignments:{},teamPricingRevision:null,teamPricingError:'',
+ teamMember:null,teamConflict:false,teamAssignments:{},teamAssigneeOnly:{},teamPricingRevision:null,teamPricingError:'',
  updateJob:(id,patch,baseline)=>{
   if(workspace){
    const job=get().jobs.find(j=>j.id===id);
-   if(!job)return;
+   if(!job||!canEditJob(get(),job))return;
    const previous=baseline??job;
    if(workspace.member.role==='worker'&&patch.positions){
     const positions=new Map(job.positions.map(p=>[p.id,p]));
@@ -148,7 +153,8 @@ function publishWorkspace(w:TeamWorkspace){
   else if(change.type==='delete')jobs.delete(change.job.id);
   else if(change.type==='update'){
    const job=jobs.get(change.id);
-   if(job)jobs.set(change.id,{...job,...change.patch,updated:change.updated});
+   const row=w.rows.get(change.id);
+   if(job&&(!row||w.member.role==='manager'||row.assigned_to===w.member.id))jobs.set(change.id,{...job,...change.patch,updated:change.updated});
   }
  }
  const error=w.mutationError||w.connectionError||w.preferencesError||w.draftError;
@@ -161,6 +167,7 @@ function publishWorkspace(w:TeamWorkspace){
   return {
    jobs:[...jobs.values()].sort((a,b)=>Date.parse(b.updated)-Date.parse(a.updated)),
    teamAssignments:Object.fromEntries([...w.rows].map(([id,row])=>[id,row.assigned_to])),
+   teamAssigneeOnly:Object.fromEntries([...w.rows].map(([id,row])=>[id,row.assignee_only])),
    settings:settingsChanged?{...settings,showPrices,elementDefaults,documentDefaults}:settings,
    saveState:error?'error':w.pending.length?'dirty':'saved',storageError:error,teamConflict:w.conflict,
   };
@@ -268,7 +275,7 @@ export async function beginTeamWorkspace(member:TeamMember){
 export function endTeamWorkspace(){
  if(!workspace)return;
  workspace=undefined;
- useStore.setState({jobs:localJobs,settings:localSettings,teamMember:null,teamAssignments:{},teamConflict:false,teamPricingRevision:null,teamPricingError:'',storageError:'',saveState:'saved'});
+ useStore.setState({jobs:localJobs,settings:localSettings,teamMember:null,teamAssignments:{},teamAssigneeOnly:{},teamConflict:false,teamPricingRevision:null,teamPricingError:'',storageError:'',saveState:'saved'});
 }
 export function workspaceDraftKey(key:string){return workspace?`alu-team-draft:${workspace.member.id}:${key}`:key;}
 export function acceptTeamJob(row:TeamJob,memberId:string){
