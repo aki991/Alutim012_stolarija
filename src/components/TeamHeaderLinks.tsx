@@ -5,10 +5,10 @@ import { useTeamInbox } from '../team-session';
 
 export function TeamHeaderLinks() {
  const member = useStore(state => state.teamMember);
- const { items, conversations } = useTeamInbox();
+ const { items, messageAlerts, conversations } = useTeamInbox();
  if (!member) return null;
  const links = [
-  { to: '/obavestenja', label: 'Obaveštenja', Icon: Bell, count: items.filter(item => !item.read_at).length },
+  { to: '/obavestenja', label: 'Obaveštenja', Icon: Bell, count: items.filter(item => !item.read_at).length + messageAlerts.length },
   { to: '/poruke', label: 'Poruke', Icon: MessageSquare, count: conversations.filter(item => item.unread).length },
  ];
  return <nav className="team-header-links" aria-label="Poruke i obaveštenja">{links.map(({ to, label, Icon, count }) => (

@@ -21,7 +21,7 @@ export async function removeDeviceNotifications() {
  await saveSubscription(subscription, false);
 }
 
-export function DeviceNotifications() {
+export function DeviceNotifications({ compact = false }: { compact?: boolean }) {
  const [registration, setRegistration] = useState<ServiceWorkerRegistration>();
  const [subscription, setSubscription] = useState<PushSubscription | null>(null);
  const [key, setKey] = useState('');
@@ -79,9 +79,11 @@ export function DeviceNotifications() {
   finally { setBusy(false); }
  }
 
+ if (compact && (!supported || enabled || (!key && !error))) return null;
+
  return <section className="team-card team-device-notifications">
   <h2><Bell size={20}/>Obaveštenja na uređaju</h2>
-  <p>{enabled ? 'Uključena su za poruke i obaveštenja i kad je aplikacija zatvorena.' : 'Primajte poruke i obaveštenja i kad je aplikacija zatvorena.'}</p>
+  <p>{enabled ? 'Uključena su za poruke i obaveštenja i kad je aplikacija zatvorena.' : 'Uključite obaveštenja da biste ih primali i kad je aplikacija zatvorena.'}</p>
   {supported ? <button type="button" className="field-button field-button-light" disabled={!key || busy} onClick={() => void toggle()}>
    {enabled ? 'Isključi na ovom uređaju' : 'Uključi na ovom uređaju'}
   </button> : <p>Na iPhone-u i iPad-u dodajte aplikaciju na početni ekran i otvorite je odatle. Na drugim uređajima koristite pregledač koji podržava sistemska obaveštenja.</p>}

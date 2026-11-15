@@ -14,12 +14,14 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
  const archived = new Map<string, {pdf:Buffer; createdAt:string}>();
  const jobs = new Map<string, TeamJob>();
  const inbox = new Map<string, TeamNotification[]>();
+ const messageNotices = new Map<string, Pick<TeamMessage,'job_id'|'body'|'created_at'>[]>();
  const messages: TeamMessage[] = [];
  const reads = new Map<string, string>();
+ const pushDevices = new Set<string>();
  const now = () => new Date().toISOString();
 
- function notify(recipient: TeamMember, actor: TeamMember, row: TeamJob, kind: TeamNotification['kind'], body: string) {
-  inbox.set(recipient.id, [{ id: crypto.randomUUID(), job_id: row.id, kind, actor_name: actor.name, job_name: row.data.customer.name, body, read_at: null, created_at: now() }, ...(inbox.get(recipient.id) ?? [])]);
+ function notify(recipient: TeamMember, actor: TeamMember, row: TeamJob, kind: TeamNotification['kind'], body: string, createdAt = now()) {
+  inbox.set(recipient.id, [{ id: crypto.randomUUID(), job_id: row.id, kind, actor_name: actor.name, job_name: row.data.customer.name, body, read_at: null, created_at: createdAt }, ...(inbox.get(recipient.id) ?? [])]);
  }
 
  // Supabase responses are intercepted. The browser still uses the real Auth and REST clients.
@@ -103,7 +105,15 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
     }
     case 'field_team_visible_jobs': return reply(visible.map(view));
     case 'field_team_messages': return reply(messages.filter(message => `eq.${message.job_id}` === url.searchParams.get('job_id')).reverse());
-    case 'field_team_notifications': return reply(inbox.get(member.id) ?? []);
+    case 'field_team_notifications': return reply(url.searchParams.get('kind') === 'eq.message'
+     ? messageNotices.get(member.id) ?? [] : inbox.get(member.id) ?? []);
+    case 'field_team_push_key': return reply('test-public-key');
+    case 'field_team_push_enabled': return reply(pushDevices.has(member.id));
+    case 'field_team_push_device': {
+     if (body.p_p256dh && body.p_auth) pushDevices.add(member.id);
+     else pushDevices.delete(member.id);
+     return reply(pushDevices.has(member.id));
+    }
     case 'field_team_message_inbox': return reply(visible.filter(participates).flatMap(job => {
      const last = messages.findLast(message => message.job_id === job.id);
      return last ? [{ ...last, job_name: job.data.customer.name, unread: last.sender_id !== member.id && reads.get(`${member.id}/${job.id}`) !== last.id }] : [];
@@ -121,8 +131,9 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
      expect(body.p_assignee_only).toBe(privateJob);
      const row:TeamJob = { id: data.id, data, assigned_to: body.p_assignee, assigned_by: member.id, revision: 1, assignee_only: body.p_assignee_only };
      jobs.set(row.id, row);
-     messages.push({ id: crypto.randomUUID(), job_id: row.id, sender_id: member.id, sender_name: member.name, body: body.p_message, created_at: now() });
-     notify(worker, member, row, 'assignment', body.p_message);
+     const createdAt = now();
+     messages.push({ id: crypto.randomUUID(), job_id: row.id, sender_id: member.id, sender_name: member.name, body: body.p_message, created_at: createdAt });
+     notify(worker, member, row, 'assignment', body.p_message, createdAt);
      return replyRow(view(row));
     }
     case 'field_team_assign': {
@@ -143,7 +154,10 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
     }
     case 'field_team_send_message': {
      const row = jobs.get(body.p_id)!;
-     messages.push({ id: body.p_message_id, job_id: row.id, sender_id: member.id, sender_name: member.name, body: body.p_body, created_at: now() });
+     const notice = { job_id: row.id, body: body.p_body, created_at: now() };
+     messages.push({ ...notice, id: body.p_message_id, sender_id: member.id, sender_name: member.name });
+     const recipient = member.id === boss.id ? worker : boss;
+     messageNotices.set(recipient.id, [notice, ...(messageNotices.get(recipient.id) ?? [])]);
      reads.set(`${member.id}/${row.id}`, body.p_message_id);
      return reply(null);
     }
@@ -241,9 +255,31 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
  const observerContext = await browser.newContext({ baseURL: page.url() });
  try {
   const mobile = await workerContext.newPage();
+  await mobile.addInitScript(() => {
+   let subscribed = false;
+   const subscription = {
+    endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+    toJSON: () => ({ keys: { p256dh: 'test-device-key', auth: 'test-device-auth' } }),
+    unsubscribe: async () => { subscribed = false; return true; },
+   };
+   const registration = { pushManager: {
+    getSubscription: async () => subscribed ? subscription : null,
+    subscribe: async () => { subscribed = true; return subscription; },
+   } };
+   Object.defineProperty(Notification, 'permission', { get: () => subscribed ? 'granted' : 'default' });
+   Object.defineProperty(navigator.serviceWorker, 'ready', { value: Promise.resolve(registration) });
+   Object.defineProperty(navigator.serviceWorker, 'getRegistration', { value: async () => registration });
+  });
   await login(mobile, worker);
   await expect(mobile.getByRole('heading', { name: 'Dodeli merenje' })).toHaveCount(0);
   const assignment = mobile.getByRole('listitem').filter({ hasText: 'Dodeljeno merenje' });
+  await expect(assignment.getByText(/Izmeri prozore u prizemlju/)).toBeVisible();
+  await expect(assignment.getByRole('link', { name: 'Otvori razgovor' })).toHaveAttribute('href', /\/poruke\/AT-/);
+  await expect(mobile.getByRole('link', { name: 'Obaveštenja (1 novih)' })).toBeVisible();
+  await expect(mobile.getByText('Nova poruka', { exact: false })).toHaveCount(0);
+  await mobile.getByRole('button', { name: 'Uključi na ovom uređaju' }).click();
+  await expect.poll(() => pushDevices.has(worker.id)).toBe(true);
+  await expect(mobile.getByRole('button', { name: 'Uključi na ovom uređaju' })).toHaveCount(0);
   await assignment.getByRole('button', { name: 'Označi kao pročitano' }).click();
   await expect(assignment.getByRole('button', { name: 'Označi kao pročitano' })).toHaveCount(0);
   await expect(mobile.getByRole('link', { name: 'Poruke (1 novih)' })).toBeVisible();
@@ -309,6 +345,8 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await mobile.getByRole('button', { name: 'Pošalji poruku' }).click();
   await expect(mobile.getByText('Svi prozori izmereni.')).toBeVisible();
   await mobile.getByRole('link', { name: 'Otvori posao' }).click();
+  await page.getByRole('link', { name: /^Obaveštenja/ }).click();
+  await expect(page.getByRole('link', { name: /Nova poruka.*Porodica Test/ })).toBeVisible({ timeout: 10000 });
   await page.getByRole('link', { name: 'Poruke (1 novih)' }).click();
   await expect(page.getByRole('heading', { name: 'Poruke', exact: true })).toBeVisible();
   const messagePreview = page.getByRole('listitem').filter({ hasText: 'Svi prozori izmereni.' });

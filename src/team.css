@@ -69,7 +69,7 @@
 .team-list { list-style: none; margin: 0; padding: 0; overflow-wrap: anywhere; }
 .team-list li + li { margin-top: 8px; }
 .team-notice { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 4px 12px; border: 1px solid #d8dade; border-radius: 9px; background: #fff; }
-.team-notice > a { flex: 1 1 210px; min-width: 0; padding: 8px 0; display: grid; gap: 4px; }
+.team-notice > a:not(.team-mark-read) { flex: 1 1 210px; min-width: 0; padding: 8px 0; display: grid; gap: 4px; }
 .team-notice > a > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .team-notice.unread { border-inline-start: 4px solid #b60018; background: #fff8ee; }
 .team-mark-read, .team-open-job { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: #930012; font-weight: 650; text-decoration: underline; }

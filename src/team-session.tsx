@@ -2,14 +2,14 @@ import { createContext, useCallback, useContext, useEffect, useState, type FormE
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, LogIn } from 'lucide-react';
 import { beginTeamWorkspace, endTeamWorkspace, refreshTeamWorkspace, useStore } from './store';
-import { fetchTeamConversations, fetchTeamMember, fetchTeamNotifications, markTeamMessagesRead, markTeamNotificationRead, type TeamConversation, type TeamNotification } from './services/team-api';
+import { fetchTeamConversations, fetchTeamMember, fetchTeamMessageNotices, fetchTeamNotifications, markTeamMessagesRead, markTeamNotificationRead, type TeamConversation, type TeamNotification } from './services/team-api';
 import { getSupabase, isSupabaseConfigured } from './services/supabase';
 import { removeDeviceNotifications } from './components/DeviceNotifications';
 import { loginEmail, usernameHint, usernamePattern } from '../supabase/functions/_shared/team-login';
 
 const teamLoginRequired = (import.meta.env.PROD && import.meta.env.MODE !== 'test') ||
  import.meta.env.VITE_TEAM_LOGIN_REQUIRED === 'true';
-const TeamInbox = createContext({ items: [] as TeamNotification[], error: '', markRead: async (_id: string) => {},
+const TeamInbox = createContext({ items: [] as TeamNotification[], messageAlerts: [] as TeamConversation[], error: '', markRead: async (_id: string) => {},
  conversations: [] as TeamConversation[], messagesError: '', readMessages: async (_jobId: string, _messageId: string) => {}, refreshMessages: () => {} });
 export const useTeamInbox = () => useContext(TeamInbox);
 
@@ -23,11 +23,14 @@ export function pollTeam(refresh: (isCurrent: () => boolean) => Promise<void>) {
  };
  void tick();
  const timer = window.setInterval(tick, 5000);
+ const onVisibilityChange = () => { if (document.visibilityState === 'visible') void tick(); };
+ document.addEventListener('visibilitychange', onVisibilityChange);
  window.addEventListener('focus', tick);
  window.addEventListener('online', tick);
  return () => {
   current = false;
   clearInterval(timer);
+  document.removeEventListener('visibilitychange', onVisibilityChange);
   window.removeEventListener('focus', tick);
   window.removeEventListener('online', tick);
  };
@@ -37,13 +40,15 @@ function TeamInboxProvider({ children }: { children: ReactNode }) {
  const [items, setItems] = useState<TeamNotification[]>([]);
  const [error, setError] = useState('');
  const [conversations, setConversations] = useState<TeamConversation[]>([]);
+ const [messageNotices, setMessageNotices] = useState<Awaited<ReturnType<typeof fetchTeamMessageNotices>>>([]);
  const [messagesError, setMessagesError] = useState('');
  const [messagesRevision, setMessagesRevision] = useState(0);
  useEffect(() => pollTeam(async isCurrent => {
   void refreshTeamWorkspace();
   try {
-   const next = await fetchTeamNotifications();
+   const [next, notices] = await Promise.all([fetchTeamNotifications(), fetchTeamMessageNotices()]);
    if (!isCurrent()) return;
+   setMessageNotices(notices);
    setItems(previous => {
     const read = new Map(previous.filter(item => item.read_at).map(item => [item.id, item.read_at]));
     return next.map(item => ({ ...item, read_at: item.read_at ?? read.get(item.id) ?? null }));
@@ -71,7 +76,9 @@ function TeamInboxProvider({ children }: { children: ReactNode }) {
   setConversations(previous => previous.map(item => item.job_id === jobId && item.id === messageId ? { ...item, unread: false } : item));
  }, []);
  const refreshMessages = useCallback(() => setMessagesRevision(revision => revision + 1), []);
- return <TeamInbox.Provider value={{ items, error, markRead, conversations, messagesError, readMessages, refreshMessages }}>{children}</TeamInbox.Provider>;
+ const messageAlerts = conversations.filter(message => message.unread && messageNotices.some(item =>
+  item.job_id === message.job_id && item.created_at === message.created_at && item.body === message.body));
+ return <TeamInbox.Provider value={{ items, messageAlerts, error, markRead, conversations, messagesError, readMessages, refreshMessages }}>{children}</TeamInbox.Provider>;
 }
 
 export function TeamGate({ children }: { children: ReactNode }) {

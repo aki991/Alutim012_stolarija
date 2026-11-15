@@ -134,6 +134,11 @@ export async function fetchTeamNotifications():Promise<TeamNotification[]>{
   .neq('kind','message').order('created_at',{ascending:false}).limit(100))??[];
 }
 
+export async function fetchTeamMessageNotices():Promise<Pick<TeamMessage,'job_id'|'body'|'created_at'>[]> {
+ return check(await getSupabase().from('field_team_notifications').select('job_id,body,created_at')
+  .eq('kind','message').is('read_at',null).order('created_at',{ascending:false}).limit(100))??[];
+}
+
 export async function markTeamNotificationRead(id:string){
  check(await getSupabase().rpc('field_team_read_notification',{p_id:id}));
 }

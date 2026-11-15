@@ -57,23 +57,33 @@ export function AccountPage() {
 }
 
 export function NotificationsPage() {
- const { items, error, markRead } = useTeamInbox();
+ const { items, messageAlerts, error, markRead, readMessages } = useTeamInbox();
  const [readError, setReadError] = useState('');
- function read(id: string) {
+ function read(action: () => Promise<void>) {
   setReadError('');
-  void markRead(id).catch(() => setReadError('Označavanje obaveštenja nije uspelo. Pokušajte ponovo.'));
+  void action().catch(() => setReadError('Označavanje kao pročitano nije uspelo. Pokušajte ponovo.'));
  }
+ const notices = [...items.map(item => ({ ...item, path: `/posao/${item.job_id}`, label: notificationLabels[item.kind],
+  mark: () => markRead(item.id) })), ...messageAlerts.map(message => ({
+  id: message.id, job_id: message.job_id, kind: 'message', actor_name: message.sender_name, job_name: message.job_name,
+  body: '', created_at: message.created_at, read_at: null, path: `/poruke/${message.job_id}`, label: 'Nova poruka',
+  mark: () => readMessages(message.job_id, message.id),
+ }))].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
  return <div className="team-page"><FieldHeader title="Obaveštenja" back="/"/>
   <main className="team-content">
    {(error || readError) && <p className="team-error" role="alert">{error || readError}</p>}
-   {!error && !items.length && <p>Nema obaveštenja.</p>}
-   <ul className="team-list">{items.map(item => <li key={item.id} className={`team-notice${item.read_at ? '' : ' unread'}`}>
-    <Link to={`/posao/${item.job_id}`} onClick={() => { if (!item.read_at) read(item.id); }}>
-     <small>{notificationLabels[item.kind]} · {dateTime.format(new Date(item.created_at))}{!item.read_at && ' · Novo'}</small>
-     <strong>{item.job_name}</strong><span>{item.actor_name}{item.kind === 'status' && ` · ${item.body}`}</span>
+   {!error && !notices.length && <p>Nema obaveštenja.</p>}
+   <ul className="team-list">{notices.map(item => <li key={item.id} className={`team-notice${item.read_at ? '' : ' unread'}`}>
+    <Link to={item.path} onClick={() => { if (!item.read_at && item.kind !== 'message') read(item.mark); }}>
+     <small>{item.label} · {dateTime.format(new Date(item.created_at))}{!item.read_at && ' · Novo'}</small>
+     <strong>{item.job_name}</strong><span>{item.actor_name}{item.body && ` · ${item.body}`}</span>
     </Link>
-    {!item.read_at && <button className="team-mark-read" type="button" onClick={() => read(item.id)}><Check size={16}/>Označi kao pročitano</button>}
+    {item.kind === 'assignment' && <Link className="team-mark-read" to={`/poruke/${item.job_id}`} onClick={() => { if (!item.read_at) read(item.mark); }}>
+     <MessageSquare size={16}/>Otvori razgovor
+    </Link>}
+    {!item.read_at && <button className="team-mark-read" type="button" onClick={() => read(item.mark)}><Check size={16}/>Označi kao pročitano</button>}
    </li>)}</ul>
+   <DeviceNotifications compact/>
   </main>
  </div>;
 }
