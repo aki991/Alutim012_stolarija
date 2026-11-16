@@ -6,7 +6,7 @@ import { parseBackup } from './services/storage';
 import { createTeamJob, deleteTeamJob, fetchTeamJobs, fetchTeamPreferences, fetchTeamPricing, saveTeamPreferences, saveTeamPricing, updateTeamJob, type PriceSettings, type TeamJob, type TeamMember, type TeamPreferences, type TeamPreferencesRow, type TeamPricingRow } from './services/team-api';
 const KEY='alu-tim-teren-v1';
 export const todayInBelgrade=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Europe/Belgrade'});
-export function emptyJob(technician:string): Job {return {id:'AT-'+new Date().getFullYear()+'-'+uid().slice(0,8).toUpperCase(),customer:{name:'',phone:'',email:'',address:'',building:'Porodična kuća'},date:todayInBelgrade(),createdAt:new Date().toISOString(),technician,notes:'',status:'U izradi',positions:[],package:'Standard',discount:0,transport:defaults.prices.transport,extraWork:'',extraCost:0,validity:'15 dana',delivery:'Po dogovoru, nakon tehničke provere',payment:'50% avans, ostatak po montaži',updated:new Date().toISOString()};}
+export function emptyJob(technician:string): Job {return {id:'AT-'+new Date().getFullYear()+'-'+uid().slice(0,8).toUpperCase(),customer:{name:'',phone:'',email:'',address:'',building:'Porodična kuća'},date:todayInBelgrade(),createdAt:new Date().toISOString(),technician,notes:'',status:'Merenje',positions:[],package:'Standard',discount:0,transport:defaults.prices.transport,extraWork:'',extraCost:0,validity:'15 dana',delivery:'Po dogovoru, nakon tehničke provere',payment:'50% avans, ostatak po montaži',updated:new Date().toISOString()};}
 export function jobFromSettings(settings:Settings):Job {
  return {...emptyJob(settings.technician),transport:settings.prices.transport,...settings.documentDefaults};
 }
@@ -138,7 +138,7 @@ export const useStore=create<AppState>((set,get)=>({
   const worker=state.teamMember?.role==='worker';
   const pricing=worker?workerJobPricing(fresh.transport):{};
   const copy={...job,...pricing,id:fresh.id,customer:{...job.customer,name:job.customer.name+' (kopija)'},
-   status:fresh.status,createdAt:fresh.createdAt,updated:fresh.updated,
+   status:'U izradi' as const,createdAt:fresh.createdAt,updated:fresh.updated,
    positions:job.positions.map(p=>({...p,id:uid()}))};
   state.addJob(copy);
   return copy.id;

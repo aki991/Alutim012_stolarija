@@ -24,7 +24,7 @@ import type { ReactNode } from 'react';
 export default function App(){
  const {jobs,settings,addJob,storageError,retrySave,teamMember,teamConflict,teamPricingError}=useStore(),navigate=useNavigate(),location=useLocation();
  const [draft,setDraft]=useState<{job:Job;choice?:CatalogChoice}|null>(null),[searchOpen,setSearchOpen]=useState(false),[search,setSearch]=useState(''),[notifications,setNotifications]=useState(false);
- const newJob=(choice?:CatalogChoice)=>setDraft({job:{...jobFromSettings(settings),...(teamMember?{status:'Merenje' as const}:{})},choice});
+ const newJob=(choice?:CatalogChoice)=>setDraft({job:jobFromSettings(settings),choice});
  useEffect(()=>{setDraft(null);setSearchOpen(false);setNotifications(false);},[location.pathname]);
  return <AppShell onNavigation={()=>{setDraft(null);setSearchOpen(false);setNotifications(false);}} onNew={()=>newJob()} onSearch={()=>setSearchOpen(true)} onNotifications={()=>setNotifications(true)}>
   {storageError&&<div className="storage-error" role="alert"><span>{storageError}</span>{teamConflict?<button className="field-button field-button-light" onClick={()=>{if(confirm('Odbaciti neposlate izmene i preuzeti podatke iz baze?'))discardConflictingTeamChange();}}>Preuzmi verziju iz baze</button>:<button className="field-button field-button-light" onClick={retrySave}>Pokušaj ponovo</button>}{!teamMember&&<Link to="/podesavanja/podaci">Rezervna kopija</Link>}</div>}

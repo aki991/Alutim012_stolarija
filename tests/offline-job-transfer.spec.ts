@@ -78,19 +78,27 @@ test('Poslovi prikazuju lokalno merenje posle prijave i prenose ga na zahtev', a
  await expect(page.getByRole('heading', { name: 'Posao: ' + customer })).toBeVisible();
  const jobUrl = page.url();
  const transfer = page.getByRole('button', { name: 'Dodaj u bazu' });
+ await expect(page.getByRole('combobox', { name: 'Status posla: ' + customer })).toHaveValue('Merenje');
 
  await context.setOffline(true);
  await transfer.click();
  await expect(page.getByRole('alert')).toContainText('Povežite se na internet');
  expect(creates).toBe(0);
  await context.setOffline(false);
- await page.getByRole('button', { name: 'Više', exact: true }).click();
- await page.getByRole('dialog', { name: 'Više' }).getByRole('link', { name: 'Prijava zaposlenih' }).click();
+ await expect(page.getByText('Sačuvano lokalno')).toBeVisible();
+ await page.evaluate(() => {
+  for (const value of ['hidden', 'visible']) {
+   Object.defineProperty(document, 'visibilityState', { configurable: true, value });
+   document.dispatchEvent(new Event('visibilitychange'));
+  }
+  Reflect.deleteProperty(document, 'visibilityState');
+ });
+ await expect(page.getByRole('heading', { name: 'Prijava', exact: true })).toBeVisible();
  await page.getByLabel('E-mail ili korisničko ime').fill('milos');
  await page.getByLabel('Lozinka', { exact: true }).fill('test-password');
  await page.getByRole('button', { name: 'Prijavi se' }).click();
  const showJobs = () => page.getByRole('navigation', { name: 'Donja navigacija' }).getByRole('link', { name: 'Poslovi' }).click();
- await showJobs();
+ await expect(page).toHaveURL(/\/poslovi$/);
  const localCard = page.getByRole('article').filter({ has: page.getByText('Na telefonu', { exact: true }) });
  await expect(localCard).toContainText(customer);
  await expect(page.getByRole('heading', { name: 'Porodica Petrović' })).toHaveCount(0);
@@ -139,6 +147,10 @@ test('Poslovi prikazuju lokalno merenje posle prijave i prenose ga na zahtev', a
  const localJob = page.getByRole('heading', { name: customer, exact: true });
  await page.getByRole('link').filter({ has: localJob }).click();
  await expect(page.getByText('Sačuvano lokalno')).toBeVisible();
+ await page.goto('/');
+ await expect(page.getByLabel('Lozinka', { exact: true })).toBeVisible();
+ await offlineWork.click();
+ await page.getByRole('link').filter({ has: localJob }).click();
  await page.getByRole('button', { name: 'Otvori u timu' }).click();
  await expect(page.getByText('Sačuvano u bazi')).toBeVisible();
  expect(creates).toBe(2);

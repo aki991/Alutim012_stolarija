@@ -95,9 +95,11 @@ export function TeamGate({ children }: { children: ReactNode }) {
   try { return localStorage.getItem(offlineModeKey) === 'true'; }
   catch { return false; }
  });
+ const [loginAfterOffline, setLoginAfterOffline] = useState(() => offlineMode && navigator.onLine);
  const loginPath = /^\/prijava\/?$/.test(location.pathname);
  const startingOffline = location.pathname === '/radi-bez-interneta';
- const offline = startingOffline || (offlineMode && !loginPath);
+ const promptingLogin = loginAfterOffline && !startingOffline;
+ const offline = startingOffline || (offlineMode && !loginPath && !promptingLogin);
  const selectMode = useCallback((value: boolean) => {
   try {
    if (value) localStorage.setItem(offlineModeKey, 'true');
@@ -112,15 +114,34 @@ export function TeamGate({ children }: { children: ReactNode }) {
 
  useLayoutEffect(() => {
   if (offline) endTeamWorkspace();
-  if (startingOffline) selectMode(true);
+  if (startingOffline) {
+   setLoginAfterOffline(false);
+   selectMode(true);
+  }
  }, [member, offline, selectMode, startingOffline]);
+ useEffect(() => {
+  if (!offline || startingOffline) return;
+  const resume = () => {
+   if (document.visibilityState === 'visible' && navigator.onLine) setLoginAfterOffline(true);
+  };
+  document.addEventListener('visibilitychange', resume);
+  return () => document.removeEventListener('visibilitychange', resume);
+ }, [offline, startingOffline]);
+
  const localJobId = startingOffline && typeof location.state?.localJobId === 'string' ? location.state.localJobId : null;
  const localDestination = localJobId && findLocalJob(localJobId) ? `/posao/${encodeURIComponent(localJobId)}` : '/poslovi';
- const localPage = startingOffline || teamOnlyPath.test(location.pathname) ? <Navigate to={localDestination} replace/> : children;
- return <OfflineWork.Provider value={{ offline, openOffline }}>
-  {offline ? (member ? null : localPage)
-   : <TeamSession loginPath={loginPath} onTeamReady={onTeamReady}>{children}</TeamSession>}
- </OfflineWork.Provider>;
+ let screen: ReactNode;
+ if (promptingLogin) {
+  screen = loginPath && location.state?.from
+   ? <Login onSignedIn={() => setLoginAfterOffline(false)}/>
+   : <Navigate to="/prijava" state={{ from: '/poslovi' }} replace/>;
+ } else if (offline) {
+  const redirect = startingOffline || teamOnlyPath.test(location.pathname);
+  screen = member ? null : redirect ? <Navigate to={localDestination} replace/> : children;
+ } else {
+  screen = <TeamSession loginPath={loginPath} onTeamReady={onTeamReady}>{children}</TeamSession>;
+ }
+ return <OfflineWork.Provider value={{ offline, openOffline }}>{screen}</OfflineWork.Provider>;
 }
 
 function TeamSession({ children, loginPath, onTeamReady }: { children: ReactNode; loginPath: boolean; onTeamReady: () => void }) {
@@ -229,7 +250,7 @@ function OfflineWorkButton() {
  </>;
 }
 
-function Login() {
+function Login({ onSignedIn }: { onSignedIn?: () => void }) {
  const { state } = useLocation();
  const transferring = state?.from === offlineJobTransferPath && typeof state.localJobId === 'string';
  const [identifier, setIdentifier] = useState('');
@@ -251,7 +272,7 @@ function Login() {
   setError('');
   try {
    const { error: failure } = await getSupabase().auth.signInWithPassword({ email, password });
-   if (!failure) return;
+   if (!failure) { onSignedIn?.(); return; }
    setPassword('');
    if (failure.name === 'AuthRetryableFetchError' || !navigator.onLine) {
     setError('Nema veze sa serverom. Proverite internet vezu i pokušajte ponovo.');
@@ -264,7 +285,7 @@ function Login() {
    setError('Prijava trenutno nije dostupna. Pokušajte ponovo.');
   } finally { setBusy(false); }
  }
- return <LoginFrame homeLink={!teamLoginRequired}><h1>Prijava</h1>
+ return <LoginFrame homeLink={!teamLoginRequired && !onSignedIn}><h1>Prijava</h1>
   <p className="team-login-subtitle">{transferring ? 'Prijavite se da biste prebacili izabrani posao u tim.' : 'Merenje stolarije i izrada ponuda'}</p>
   {!isSupabaseConfigured && <p className="team-login-alert" role="alert">Prijava zaposlenih zahteva podešenu vezu sa bazom podataka.</p>}
   <form className="team-login-form" onSubmit={submit} noValidate>

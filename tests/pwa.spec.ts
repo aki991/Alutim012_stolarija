@@ -36,12 +36,14 @@ test('Rad bez interneta čuva posao i nacrt posle zatvaranja aplikacije', async 
  await expect(reopened.getByText(/1730 ×/)).toBeVisible();
  await context.setOffline(false);
  await expect(reopened.getByText('Sačuvano lokalno')).toBeVisible();
- await reopened.getByRole('link', { name: 'Prijava zaposlenih', exact: true }).click();
- await expect(reopened.getByRole('heading', { name: 'Prijava', exact: true })).toBeVisible();
- await reopened.getByRole('button', { name: 'Radi bez interneta', exact: true }).click();
- await expect(reopened.getByRole('link', { name: 'Otvori ' + customer })).toBeVisible();
- await reopened.getByRole('link', { name: 'Otvori ' + customer }).click();
- await expect(reopened.getByText(/1730 ×/)).toBeVisible();
+ await reopened.close();
+
+ const onlinePage = await context.newPage();
+ await onlinePage.goto(origin);
+ await expect(onlinePage.getByRole('heading', { name: 'Prijava', exact: true })).toBeVisible();
+ await onlinePage.getByRole('button', { name: 'Radi bez interneta', exact: true }).click();
+ await onlinePage.getByRole('link', { name: 'Otvori ' + customer }).click();
+ await expect(onlinePage.getByText(/1730 ×/)).toBeVisible();
 });
 
 test('Google Chrome ne prijavljuje greške za PWA instalaciju',async()=>{
