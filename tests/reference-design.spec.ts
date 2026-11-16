@@ -79,3 +79,25 @@ test('Mobilni meni, kategorije, posao i obaveštenja ostaju funkcionalni', async
   await page.getByRole('button', { name: 'Obaveštenja' }).click();
   await expect(page.getByRole('dialog', { name: 'Obaveštenja' })).toBeVisible();
 });
+
+test('Svi nazivi statusa staju na detaljima i spisku poslova', async ({ page }) => {
+  for (const width of [320, 390, 768, 1366]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const route of ['/posao/AT-2026-012', '/poslovi']) {
+      await page.goto(route);
+      await page.evaluate(() => document.fonts.ready);
+      const control = page.getByRole('combobox', { name: 'Status posla: Porodica Petrović', exact: true });
+      await control.selectOption('Poslati ponudu');
+      await expect(control).toHaveValue('Poslati ponudu');
+      const fits = await control.evaluate(select => {
+        const style = getComputedStyle(select);
+        const canvas = document.createElement('canvas').getContext('2d')!;
+        canvas.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+        const available = select.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        return [...(select as HTMLSelectElement).options].every(option => canvas.measureText(option.text).width <= available);
+      });
+      expect(fits, `${route} at ${width}px`).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+  }
+});

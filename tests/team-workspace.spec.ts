@@ -10,7 +10,7 @@ async function openInbox(page: Page, label: 'Obaveštenja' | 'Poruke') {
 }
 
 test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i statuse', async ({ browser, page }) => {
- test.setTimeout(135000);
+ test.setTimeout(155000);
  const boss = { id: '10000000-0000-4000-8000-000000000001', name: 'Šef', role: 'manager', active: true } as const;
  const worker = { id: '10000000-0000-4000-8000-000000000002', name: 'Miloš', role: 'worker', active: true } as const;
  const observer = { id: '10000000-0000-4000-8000-000000000003', name: 'Ivan', role: 'worker', active: true } as const;
@@ -22,6 +22,8 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
  const archived = new Map<string, {pdf:Buffer; createdAt:string}>();
  const jobs = new Map<string, TeamJob>();
  const deletedJobs = new Map<string, string>();
+ const purgingJobs = new Set<string>();
+ let failDocumentPurge = false;
  const inbox = new Map<string, TeamNotification[]>();
  const messageNotices = new Map<string, Pick<TeamMessage,'job_id'|'body'|'created_at'>[]>();
  const messages: TeamMessage[] = [];
@@ -42,6 +44,16 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
    const replyRow = (row: TeamJob) => reply(request.headers().accept?.includes('vnd.pgrst.object') ? row : [row]);
    if (request.method() === 'OPTIONS') return route.fulfill({ headers, status: 204 });
    if(url.pathname.startsWith('/storage/v1/')){
+    if(request.method()==='DELETE'&&url.pathname.endsWith('/object/alutim-job-documents')){
+     expect(member.role).toBe('manager');
+     const {prefixes}=request.postDataJSON() as {prefixes:string[]};
+     for(const path of prefixes)expect(purgingJobs.has(path.split('/')[1])).toBe(true);
+     if(failDocumentPurge){
+      return route.fulfill({headers,status:503,json:{message:'Storage temporarily unavailable'}});
+     }
+     for(const path of prefixes)archived.delete(path);
+     return reply(prefixes.map(name=>({name})));
+    }
     if(url.pathname.startsWith('/storage/v1/object/list/')){
      const {prefix,limit,offset}=request.postDataJSON();
      const files=[...archived.entries()].filter(([path])=>path.startsWith(prefix+'/'));
@@ -118,7 +130,7 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
     case 'field_team_visible_jobs': return reply(visible.map(view));
     case 'field_team_trashed_jobs': return reply(member.role === 'manager' ? [...deletedJobs].map(([id, deleted_at]) => {
      const { name, address } = jobs.get(id)!.data.customer;
-     return { id, name, address, deleted_at };
+     return { id, name, address, deleted_at, purge_started: purgingJobs.has(id) };
     }) : []);
     case 'field_team_visible_messages': return reply(messages.filter(message => !deletedJobs.has(message.job_id) && `eq.${message.job_id}` === url.searchParams.get('job_id')).reverse());
     case 'field_team_notifications': return reply(url.searchParams.get('kind') === 'eq.message'
@@ -195,6 +207,25 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
      deletedJobs.delete(row.id);
      row.revision++;
      return replyRow(view(row));
+    }
+    case 'field_team_begin_job_purge':
+    case 'field_team_finish_job_purge': {
+     expect(member.role).toBe('manager');
+     const targets=body.p_jobs as {id:string;deleted_at:string}[];
+     for(const target of targets)expect(target.deleted_at).toBe(deletedJobs.get(target.id));
+     const paths=[...archived.keys()].filter(path=>targets.some(target=>path.startsWith(`stolarija/${target.id}/`)));
+     if(endpoint==='field_team_begin_job_purge'){
+      for(const {id} of targets)purgingJobs.add(id);
+      return reply(paths);
+     }
+     expect(paths).toHaveLength(0);
+     for(const {id} of targets){
+      expect(purgingJobs.has(id)).toBe(true);
+      deletedJobs.delete(id);
+      purgingJobs.delete(id);
+      jobs.delete(id);
+     }
+     return reply(null);
     }
     case 'field_team_send_message': {
      const row = jobs.get(body.p_id)!;
@@ -292,6 +323,8 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
   await chiefPage.getByRole('dialog').getByRole('button',{name:'Obriši nalog',exact:true}).click();
   await expect(chiefPage.getByText('Nalog za Jelena Ograde je obrisan.')).toBeVisible();
   await chiefPage.goto('/nalog');
+  await expect(chiefPage.locator('.team-account strong')).toHaveCSS('font-size','27px');
+  await expect(chiefPage.locator('.team-account small')).toHaveCSS('font-size','16px');
   await chiefPage.getByRole('button',{name:'Odjavi se'}).click();
   const adminPage = await accountsContext.newPage();
   await login(adminPage,admin);
@@ -653,6 +686,30 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
    await expect(chiefPage.getByRole('region', { name: 'Elementi posla' })).toBeVisible();
    await chiefPage.getByRole('link', { name: 'Poruke o poslu' }).click();
    await expect(chiefPage.getByText('Preuzimam merenje.', { exact: true })).toBeVisible();
+
+   for(const name of ['Merenje za šefa','Porodica Test']){
+    await page.getByLabel(`Meni posla ${name}`,{exact:true}).click();
+    await page.getByRole('button',{name:`Obriši ${name}`,exact:true}).click();
+    await page.getByRole('dialog',{name:'Obriši posao?'}).getByRole('button',{name:'Obriši posao'}).click();
+   }
+   await expect.poll(()=>deletedJobs.size).toBe(2);
+   await chiefPage.goto('/korpa');
+   const confirmation=chiefPage.getByRole('dialog',{name:'Trajno brisanje'});
+   async function purgeAll() {
+    await chiefPage.getByRole('button',{name:'Selektuj sve',exact:true}).click();
+    await chiefPage.getByRole('button',{name:'Trajno obriši sve',exact:true}).click();
+    await confirmation.getByRole('button',{name:'Trajno obriši',exact:true}).click();
+   }
+   failDocumentPurge=true;
+   await purgeAll();
+   await expect(chiefPage.getByRole('alert')).toHaveText('Trajno brisanje nije završeno. Pokušajte ponovo.');
+   await expect(chiefPage.getByRole('button',{name:'Vrati posao Porodica Test',exact:true})).toBeDisabled();
+   expect(archived.size).toBe(1);
+   failDocumentPurge=false;
+   await purgeAll();
+   await expect(chiefPage.getByText('Korpa je prazna')).toBeVisible();
+   expect(archived.size).toBe(0);
+   expect(jobs.has(chiefJob.id)).toBe(false);
   } finally { await chiefContext.close(); }
 
   await mobile.goto('/nalog');

@@ -28,6 +28,7 @@ interface AppState {
  teamAssigneeOnly:Record<string,boolean>;
  teamPricingRevision:number|null;teamPricingError:string;
  updateJob:(id:string,patch:Partial<Job>,baseline?:Job)=>void;addJob:(job:Job)=>void;deleteJob:(id:string)=>void;restoreLocalJob:(id:string)=>void;duplicateJob:(id:string)=>string;
+ purgeLocalJobs:(ids:ReadonlySet<string>)=>void;
  updatePosition:(job:string,id:string,patch:Partial<Position>)=>void;setSettings:(patch:Partial<Settings>)=>void;
  importData:(data:unknown)=>void;retrySave:()=>void;
 }
@@ -119,6 +120,12 @@ export const useStore=create<AppState>((set,get)=>({
    const entry=s.trash.find(item=>item.job.id===id);
    return entry?{jobs:[entry.job,...s.jobs],trash:s.trash.filter(item=>item!==entry),saveState:'dirty'}:s;
   });
+ },
+ purgeLocalJobs:ids=>{
+  if(workspace)return;
+  const trash=get().trash.filter(({job})=>!ids.has(job.id));
+  if(!saveLocal(trash))throw new Error('Korpa nije sačuvana na uređaju.');
+  set({trash});
  },
  duplicateJob:id=>{
   const state=get(),original=state.jobs.find(j=>j.id===id)!;
@@ -311,7 +318,7 @@ export function discardConflictingTeamChange(){
 }
 
 let timer:ReturnType<typeof setTimeout>;
-function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify({jobs:localJobs,trash:localTrash,settings:localSettings}));if(!workspace)useStore.setState({saveState:'saved',storageError:''});}catch{if(!workspace)useStore.setState({saveState:'error',storageError:'Nema dovoljno lokalnog prostora ili je čuvanje blokirano. Izvezite rezervnu kopiju i uklonite velike fotografije.'});}}
+function saveLocal(trash=localTrash){try{localStorage.setItem(KEY,JSON.stringify({jobs:localJobs,trash,settings:localSettings}));if(!workspace)useStore.setState({saveState:'saved',storageError:''});return true;}catch{if(!workspace)useStore.setState({saveState:'error',storageError:'Nema dovoljno lokalnog prostora ili je čuvanje blokirano. Izvezite rezervnu kopiju i uklonite velike fotografije.'});return false;}}
 useStore.subscribe((s,prev)=>{
  if(workspace)return;
  if(s.jobs!==prev.jobs)localJobs=s.jobs;

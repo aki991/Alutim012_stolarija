@@ -48,6 +48,34 @@ test('Dupliranje, brisanje elemenata i vraćanje posla iz lokalne korpe',async({
  await page.getByRole('heading',{name:'Porodica Petrović (kopija)',exact:true}).click();
  await expect(page.locator('.job-line')).toHaveCount(3);
 });
+test('Trajno brisanje jednog ili svih poslova iz lokalne korpe',async({page})=>{
+ await page.setViewportSize({width:320,height:780});
+ await page.goto('/poslovi');
+ for(const name of ['Jovanović d.o.o.','Milan Zorić','Ana Nikolić']){
+  await page.getByLabel(`Meni posla ${name}`,{exact:true}).click();
+  await page.getByRole('button',{name:`Obriši ${name}`,exact:true}).click();
+  await page.getByRole('dialog',{name:'Obriši posao?'}).getByRole('button',{name:'Obriši posao'}).click();
+ }
+ await page.goto('/korpa');
+ const row=page.getByRole('listitem').filter({hasText:'Jovanović d.o.o.'});
+ const deleteRow=row.getByRole('button',{name:'Trajno obriši posao Jovanović d.o.o.'});
+ const confirmation=page.getByRole('dialog',{name:'Trajno brisanje'});
+ await deleteRow.click();
+ await confirmation.getByRole('button',{name:'Otkaži'}).click();
+ await expect(row).toBeVisible();
+ await deleteRow.click();
+ await confirmation.getByRole('button',{name:'Trajno obriši',exact:true}).click();
+ await expect(row).toHaveCount(0);
+ await page.getByRole('button',{name:'Selektuj sve'}).click();
+ await expect(page.getByRole('checkbox',{checked:true})).toHaveCount(2);
+ await page.getByRole('button',{name:'Trajno obriši sve'}).click();
+ await confirmation.getByRole('button',{name:'Trajno obriši',exact:true}).click();
+ await expect(page.getByText('Korpa je prazna')).toBeVisible();
+ await page.reload();
+ await expect(page.getByText('Korpa je prazna')).toBeVisible();
+ await page.goto('/poslovi');
+ await expect(page.locator('.job-card')).toHaveCount(1);
+});
 test('Netačan zbir segmenata se čuva kao nacrt i blokira dodavanje',async({page})=>{
  await openFirstElement(page);await page.getByRole('button',{name:'Dodatne opcije'}).click();await page.locator('.options-section>summary').filter({hasText:'Raspored krila'}).click();await page.getByLabel('Krilo 1 (mm)',{exact:true}).fill('-100');await page.getByRole('button',{name:'Gotovo'}).click();await expect(page.getByRole('button',{name:'Sačuvaj izmene'})).toBeDisabled();await page.reload();await expect(page.getByRole('alert')).toContainText('Zbir širina');await page.getByRole('button',{name:'Dodatne opcije'}).click();await page.locator('.options-section>summary').filter({hasText:'Raspored krila'}).click();await expect(page.getByLabel('Krilo 1 (mm)',{exact:true})).toHaveValue('-100');await page.getByRole('button',{name:'Izjednači'}).click();await page.getByRole('button',{name:'Gotovo'}).click();await expect(page.getByRole('button',{name:'Sačuvaj izmene'})).toBeEnabled();
 });

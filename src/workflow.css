@@ -1,4 +1,5 @@
 /* Quick status and customer details share the same controls across screens. */
+:root{--job-status-width:166px}
 .reference-active .empty h3{font:700 26px/1.25 AluNarrow,Arial,sans-serif;color:#525b65}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .job-status-select{
@@ -27,11 +28,11 @@
 .job-status-dot,.job-status-arrow{position:absolute;top:50%;transform:translateY(-50%);pointer-events:none}
 .job-status-dot{left:11px;width:8px;height:8px;border-radius:50%;background:var(--control-accent);box-shadow:0 0 8px var(--control-border)}
 .job-status-arrow{right:8px;width:16px;height:16px;color:var(--control-accent)}
-.job-card-status .job-status-select{width:100%}
+.job-card-status .job-status-select{width:var(--job-status-width)}
 .summary-customer{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 16px;border:1px solid #dedfe4;border-radius:13px;background:#fff;margin-bottom:12px}
 .summary-customer-info{display:flex;align-items:center;gap:14px;min-width:0;flex:1;background:none;border:0;text-align:left;padding:0;color:inherit;min-height:48px}
 .summary-customer-info>svg{flex-shrink:0}.summary-customer-info span{min-width:0}.summary-customer-info strong{display:block;font:700 24px/1.2 AluNarrow,Arial,sans-serif;overflow-wrap:anywhere}.summary-customer-info small{display:block;font:400 17px/1.3 AluNarrow,Arial,sans-serif;color:#58616d;margin-top:4px}
-.summary-customer>.job-status-select{flex:0 0 142px}
+.summary-customer>.job-status-select{flex:0 0 var(--job-status-width)}
 .unified-shell .job-quick-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .unified-shell .job-quick-actions>.field-button{font-size:20px;min-width:0;padding:10px;gap:8px}
 .summary-more-offer{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:32px;font-size:17px}
@@ -48,19 +49,19 @@
 .correction-total>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0}.correction-total>div:last-of-type{background:#fff0d3;margin:8px -6px 0;padding:14px 10px;border-radius:9px}.correction-total h2{font-size:22px;margin:0}.correction-total [data-testid]{font-size:29px;color:#ac0014;white-space:nowrap}.correction-advanced{grid-column:1/-1}.correction-advanced>summary{cursor:pointer;font:700 24px AluNarrow,Arial,sans-serif;min-height:34px}.advanced-content{padding-top:18px}.advanced-content .form-grid{margin-top:20px}.correction-save{position:static;flex-shrink:0;flex-wrap:wrap}.correction-save>span{flex:1 1 100%;font-size:16px;color:#58616d;text-align:center}.correction-save>.field-button{flex:1}
 @media(max-width:1100px){.correction-workspace{grid-template-columns:1fr}.correction-settings{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.correction-total{position:sticky;top:0}}
 @media(max-width:700px){
- .summary-customer{padding:12px;gap:8px}.summary-customer-info{gap:9px}.summary-customer-info strong{font-size:21px}.summary-customer-info small{font-size:16px}.summary-customer>.job-status-select{flex-basis:125px}.summary-toolbar .saved{margin-left:auto}
- .unified-shell .job-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:8px 10px}.unified-shell .job-quick-actions>.field-button{min-height:52px;font-size:19px;padding:8px}.summary-more-offer{min-height:28px;font-size:16px}.job-card-open{grid-template-columns:38px minmax(0,1fr) 102px}.job-card-status .job-status-select{width:132px;max-width:none}.job-card-open>a:last-child{display:none}
+ .summary-customer{padding:12px;gap:8px}.summary-customer-info{gap:9px}.summary-customer-info strong{font-size:21px}.summary-customer-info small{font-size:16px}.summary-toolbar .saved{margin-left:auto}
+ .unified-shell .job-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:8px 10px}.unified-shell .job-quick-actions>.field-button{min-height:52px;font-size:19px;padding:8px}.summary-more-offer{min-height:28px;font-size:16px}
+ .job-card-status{grid-column:2/-1}.job-card-value{grid-row:1}
  .customer-contacts,.customer-form .form-grid{grid-template-columns:1fr}.customer-section{padding:12px}.customer-form .modal-footer{bottom:-16px}.customer-form .modal-footer>.btn{flex:1;min-width:0;white-space:normal}
  .correction-workspace{padding:12px;gap:14px}.correction-settings{grid-template-columns:1fr}.correction-card,.correction-elements,.correction-total{padding:14px}.correction-total{position:static}.correction-element{grid-template-columns:32px minmax(0,1fr);gap:10px}.correction-element .price-sketch{width:32px}.correction-element>.field{grid-column:2}.correction-element>.field input{max-width:180px}.correction-workspace .form-grid{grid-template-columns:1fr}.correction-element strong{font-size:20px}.correction-save{gap:8px;padding:8px 10px}.correction-save>.field-button{font-size:19px;min-height:50px}
 }
-@media(max-width:360px){.summary-customer-info>svg{display:none}.summary-customer>.job-status-select{flex-basis:112px}.summary-customer-info strong{font-size:19px}.unified-shell .job-quick-actions>.field-button{font-size:17px;gap:5px}.unified-shell .job-quick-actions>.field-button svg{width:20px;flex-shrink:0}}
+@media(max-width:360px){.summary-customer-info>svg{display:none}.summary-customer-info strong{font-size:19px}.unified-shell .job-quick-actions>.field-button{font-size:17px;gap:5px}.unified-shell .job-quick-actions>.field-button svg{width:20px;flex-shrink:0}}
 
 .badge-rejected{background:#f9dbdd;color:#a21422}
 .summary-toolbar{justify-content:flex-end;margin-bottom:8px}.summary-customer-info>svg:last-child:not(:first-child){margin-left:auto;color:#66707c;flex-shrink:0}
 .correction-sticky-total{flex:1 1 100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 8px;font:400 19px AluNarrow,Arial,sans-serif}.correction-sticky-total strong{color:#aa0014;font-size:28px;white-space:nowrap}
-@media(min-width:701px) and (max-width:1100px){.job-card-open{grid-template-columns:48px minmax(0,1fr) 132px 130px 16px}}
 @media(max-width:700px){.correction-element{grid-template-columns:32px minmax(0,1fr) 100px;gap:9px;padding:12px 0}.correction-element>.field{grid-column:auto}.correction-element .field>span{font-size:15px}.correction-element .field input{font-size:20px}.correction-element strong{font-size:19px}.price-mode-note{font-size:16px}.summary-customer-info>svg:last-child:not(:first-child){display:none}}
-@media(max-width:370px){.job-card-status .job-status-select{width:110px}.job-status-select select{font-size:15px;padding-inline:22px 22px}.job-status-dot{left:8px}.job-status-arrow{right:5px}.correction-element{grid-template-columns:26px minmax(0,1fr) 84px;gap:6px}.correction-element .price-sketch{width:26px}}
+@media(max-width:370px){.correction-element{grid-template-columns:26px minmax(0,1fr) 84px;gap:6px}.correction-element .price-sketch{width:26px}}
 
 /* Job summary leads to the document screen; downloads stay on that screen. */
 .unified-shell .job-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -109,7 +110,7 @@
 .unified-shell .reference-active header a:has(>svg.lucide-chevron-right),
 .unified-shell .reference-local-state>a:has(>svg.lucide-chevron-right){padding:4px 8px}
 .unified-shell .job-card-open>a:last-child:has(>svg.lucide-chevron-right){display:grid;place-items:center;min-height:32px}
-@media(min-width:701px){.unified-shell .job-card-open{grid-template-columns:48px minmax(0,1fr) 142px 130px 32px}}
+@media(min-width:701px){.unified-shell .job-card-open{grid-template-columns:48px minmax(0,1fr) var(--job-status-width) 130px 32px}}
 @media(max-width:700px){.unified-shell .job-card-open>a:last-child:has(>svg.lucide-chevron-right){display:none}}
 .job-document-archive{margin-top:16px;border:1px solid #dddfe4;border-radius:12px;background:#fff;color:#222}
 .job-document-archive>summary{padding:12px 16px;cursor:pointer;font-weight:700}

@@ -9,7 +9,7 @@ export type TeamPricingRow={prices:Partial<Settings['prices']>;porta_royal_price
 export type TeamPreferences=Pick<Settings,'showPrices'|'elementDefaults'|'documentDefaults'>;
 export type TeamPreferencesRow={data:TeamPreferences;revision:number};
 export type TeamJob={id:string;data:Job;assigned_to:string|null;assigned_by:string|null;revision:number;assignee_only:boolean};
-export type TrashedTeamJob={id:string;name:string;address:string;deleted_at:string};
+export type TrashedTeamJob={id:string;name:string;address:string;deleted_at:string;purge_started:boolean};
 export type TeamMessage={id:string;job_id:string;sender_id:string|null;sender_name:string;body:string;created_at:string};
 export type TeamConversation=TeamMessage&{job_name:string;unread:boolean};
 export type TeamNotification={
@@ -118,7 +118,7 @@ export async function fetchTeamTrash():Promise<TrashedTeamJob[]>{
  const rows:TrashedTeamJob[]=[];
  const pageSize=100;
  for(let offset=0;;offset+=pageSize){
-  const page=check(await getSupabase().from('field_team_trashed_jobs').select('id,name,address,deleted_at')
+  const page=check(await getSupabase().from('field_team_trashed_jobs').select('id,name,address,deleted_at,purge_started')
    .order('deleted_at',{ascending:false}).order('id').range(offset,offset+pageSize-1))??[];
   rows.push(...page);
   if(page.length<pageSize)return rows;
@@ -127,6 +127,18 @@ export async function fetchTeamTrash():Promise<TrashedTeamJob[]>{
 
 export async function restoreTeamJob(job:TrashedTeamJob):Promise<TeamJob>{
  return checkedJob(await getSupabase().rpc('field_team_restore_job',{p_id:job.id,p_deleted_at:job.deleted_at}).single<TeamJob>());
+}
+
+export async function purgeTeamJobs(jobs:TrashedTeamJob[]){
+ const api=getSupabase();
+ const args={p_jobs:jobs.map(({id,deleted_at})=>({id,deleted_at}))};
+ const paths=check(await api.rpc('field_team_begin_job_purge',args)) as string[];
+ const storage=api.storage.from('alutim-job-documents');
+ const batchSize=1000;
+ for(let offset=0;offset<paths.length;offset+=batchSize){
+  check(await storage.remove(paths.slice(offset,offset+batchSize)));
+ }
+ check(await api.rpc('field_team_finish_job_purge',args));
 }
 
 export async function assignTeamJob(id:string,assignee:string,message:string,assigneeOnly:boolean,date?:string):Promise<TeamJob>{
