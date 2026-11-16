@@ -54,6 +54,12 @@ test('Početna prati referentni raspored na telefonu i tabletu', async ({ page }
 test('Mobilni meni, kategorije, posao i obaveštenja ostaju funkcionalni', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
+  const navigation = page.getByRole('navigation', { name: 'Donja navigacija' });
+  await navigation.getByRole('button', { name: 'Više', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Više' })).toBeVisible();
+  await navigation.getByRole('link', { name: 'Početna', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Više' })).toHaveCount(0);
+  await expect(navigation.getByRole('link', { name: 'Početna', exact: true })).toHaveAttribute('aria-current', 'page');
   await page.getByRole('navigation', { name: 'Vrste stolarije' }).getByRole('link', { name: 'Prozori', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Katalog elemenata' })).toBeVisible();
   await page.getByRole('navigation', { name: 'Donja navigacija' }).getByRole('link', { name: 'Početna', exact: true }).click();

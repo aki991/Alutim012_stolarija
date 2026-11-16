@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Check, LogOut, MessageSquare, Send } from 'lucide-react';
 import { FieldHeader } from './components/FieldHeader';
@@ -6,7 +6,7 @@ import { DeviceNotifications } from './components/DeviceNotifications';
 import { uid } from './catalog';
 import { acceptTeamJob, canEditJob, jobFromSettings, todayInBelgrade, useStore } from './store';
 import type { Job } from './models';
-import { assignTeamJob, createTeamJob, fetchTeamMessages, fetchTeamWorkers, sendTeamMessage, TeamRequestError, type TeamMember, type TeamMessage } from './services/team-api';
+import { assignTeamJob, createTeamJob, fetchTeamAssignees, fetchTeamMessages, sendTeamMessage, TeamRequestError, type TeamMember, type TeamMessage } from './services/team-api';
 import { pollTeam, signOutTeam, teamNotificationLabels, useTeamInbox } from './team-session';
 
 const dateTime = new Intl.DateTimeFormat('sr-Latn-RS', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Belgrade' });
@@ -17,25 +17,29 @@ function AssignmentDateInput({ defaultValue, onPastDate }: { defaultValue?: stri
   required={defaultValue !== undefined} onInvalid={event => { if (event.currentTarget.validity.rangeUnderflow) onPastDate(); }}/></label>;
 }
 
-function useWorkers(enabled: boolean) {
- const [workers, setWorkers] = useState<TeamMember[]>([]);
+function useAssignees() {
+ const [assignees, setAssignees] = useState<TeamMember[]>([]);
  const [error, setError] = useState('');
  const [retry, setRetry] = useState(0);
  useEffect(() => {
-  if (!enabled) return;
   let current = true;
-  void fetchTeamWorkers().then(rows => {
-   if (current) { setWorkers(rows); setError(''); }
-  }).catch(() => { if (current) setError('Spisak majstora trenutno nije dostupan.'); });
+  void fetchTeamAssignees().then(rows => {
+   if (current) { setAssignees(rows); setError(''); }
+  }).catch(() => { if (current) setError('Spisak zaposlenih trenutno nije dostupan.'); });
   return () => { current = false; };
- }, [enabled, retry]);
- return { workers, error, retry: () => setRetry(value => value + 1) };
+ }, [retry]);
+ return { assignees, error, retry: () => setRetry(value => value + 1) };
 }
 
-function WorkerPicker({ workers, value, onChange }: { workers: TeamMember[]; value: string; onChange: (value: string) => void }) {
- return <label>Majstor<select required value={value} onChange={event => onChange(event.target.value)}>
-  <option value="">Izaberite majstora</option>
-  {workers.map(worker => <option value={worker.id} key={worker.id}>{worker.name}</option>)}
+function AssigneePicker({ assignees, value, onChange }: { assignees: TeamMember[]; value: string; onChange: (value: string) => void }) {
+ return <label>Zadužena osoba<select required value={value} onChange={event => onChange(event.target.value)}>
+  <option value="">Izaberite osobu</option>
+  {([['worker', 'Majstori'], ['manager', 'Šefovi']] as const).map(([role, label]) => {
+   const people = assignees.filter(person => person.role === role);
+   return people.length > 0 && <optgroup key={role} label={label}>
+    {people.map(person => <option value={person.id} key={person.id}>{person.name}</option>)}
+   </optgroup>;
+  })}
  </select></label>;
 }
 
@@ -107,12 +111,13 @@ export function AssignmentPage() {
 function JobVisibility({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
  return <label className="team-job-visibility">
   <input type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)}/>
-  <span>Samo dodeljeni majstor vidi posao</span>
+  <span>Prikaži posao samo zaduženoj osobi i šefovima</span>
  </label>;
 }
 
 function NewAssignment({ member }: { member: TeamMember }) {
- const { workers, error: workersError, retry } = useWorkers(true);
+ const { assignees, error: assigneesError, retry } = useAssignees();
+ const candidates = assignees.filter(person => person.id !== member.id);
  const [assignee, setAssignee] = useState('');
  const [assigneeOnly, setAssigneeOnly] = useState(false);
  const [busy, setBusy] = useState(false);
@@ -125,25 +130,25 @@ function NewAssignment({ member }: { member: TeamMember }) {
   if (busy) return;
   const form = new FormData(event.currentTarget);
   const value = (name: string) => String(form.get(name) ?? '').trim();
-  const worker = workers.find(person => person.id === assignee);
+  const recipient = candidates.find(person => person.id === assignee);
   const customer = { name: value('name'), address: value('address'), phone: value('phone'), email: value('email'), building: value('building') };
   const today = todayInBelgrade();
   const date = value('date') || today;
   const message = value('message');
-  if (!worker || !customer.name || !customer.address || !message) {
-   setError('Izaberite majstora i unesite naziv kupca, adresu i poruku.');
+  if (!recipient || !customer.name || !customer.address || !message) {
+   setError('Izaberite zaduženu osobu i unesite naziv kupca, adresu i uputstvo.');
    return;
   }
   if (date < today) { setError(assignmentDateError); return; }
   const key = JSON.stringify([assignee, customer, date, message, assigneeOnly]);
   if (pending.current?.key !== key) {
    const job = jobFromSettings(useStore.getState().settings);
-   pending.current = { key, job: { ...job, date, technician: worker.name, customer, status: 'Merenje' } };
+   pending.current = { key, job: { ...job, date, technician: recipient.name, customer, status: 'Merenje' } };
   }
   setBusy(true);
   setError('');
   try {
-   const row = await createTeamJob(pending.current.job, worker.id, message, assigneeOnly);
+   const row = await createTeamJob(pending.current.job, recipient.id, message, assigneeOnly);
    acceptTeamJob(row, member.id);
    navigate(`/posao/${row.id}`);
   } catch (error) {
@@ -153,10 +158,10 @@ function NewAssignment({ member }: { member: TeamMember }) {
  }
 
  return <section className="team-card">
-  {workersError && <p className="team-error" role="alert">{workersError} <button type="button" onClick={retry}>Učitaj ponovo</button></p>}
+  {assigneesError && <p className="team-error" role="alert">{assigneesError} <button type="button" onClick={retry}>Učitaj ponovo</button></p>}
   <form className="team-form" onSubmit={submit}>
    <fieldset disabled={busy}>
-    <WorkerPicker workers={workers} value={assignee} onChange={setAssignee}/>
+    <AssigneePicker assignees={candidates} value={assignee} onChange={setAssignee}/>
     <JobVisibility checked={assigneeOnly} onChange={setAssigneeOnly}/>
     <label>Naziv firme ili ime kupca<input name="name" required maxLength={100}/></label>
     <label>Adresa merenja<input name="address" required maxLength={250}/></label>
@@ -168,9 +173,9 @@ function NewAssignment({ member }: { member: TeamMember }) {
      <label>Vrsta objekta<select name="building"><option value="">Nije navedeno</option><option>Porodična kuća</option><option>Stan</option><option>Poslovni prostor</option><option>Drugo</option></select></label>
      <AssignmentDateInput onPastDate={() => setError(assignmentDateError)}/>
     </div>
-    <label>Poruka majstoru<textarea name="message" required rows={3} maxLength={4000} placeholder="Šta treba izmeriti, termin i kako doći do objekta"/></label>
+    <label>Uputstvo za merenje<textarea name="message" required rows={3} maxLength={4000} placeholder="Šta treba izmeriti, termin i kako doći do objekta"/></label>
     {error && <p className="team-error" role="alert">{error}</p>}
-    <button className="field-button field-button-red" disabled={!workers.length}><Send size={17}/>{busy ? 'Dodeljujem…' : 'Dodeli i pošalji'}</button>
+    <button className="field-button field-button-red" disabled={!candidates.length}><Send size={17}/>{busy ? 'Dodeljujem…' : 'Dodeli i pošalji'}</button>
    </fieldset>
   </form>
  </section>;
@@ -185,8 +190,8 @@ export function TeamJobPanel({ job }: { job: Job }) {
  const manager = member.role === 'manager';
  const assignedTo = assignments[job.id];
  return <section className="team-card team-conversation" aria-label="Merenje i dodela">
-  {manager && assignedTo && <p className="team-current-worker">Vidljivost posla · {assigneeOnly ? 'Samo dodeljeni majstor' : 'Svi majstori'}</p>}
-  {job.status === 'Merenje' && (!manager || !assignedTo) && <div className="team-measure-action">
+  {manager && assignedTo && <p className="team-current-worker">Vidljivost posla · {assigneeOnly ? 'Zadužena osoba i šefovi' : 'Ceo tim'}</p>}
+  {job.status === 'Merenje' && (!assignedTo || assignedTo === member.id) && <div className="team-measure-action">
    <button type="button" className="field-button field-button-yellow" disabled={!job.positions.length} onClick={() => useStore.getState().updateJob(job.id, { status: 'Poslati ponudu' })}><Check size={19}/>Merenje završeno</button>
    {!job.positions.length && <small>Dodajte izmerene elemente pre završetka merenja.</small>}
   </div>}
@@ -198,7 +203,8 @@ export function TeamJobPanel({ job }: { job: Job }) {
 }
 
 function ExistingAssignment({ job, member, assignedTo, assigneeOnly }: { job: Job; member: TeamMember; assignedTo: string | null; assigneeOnly?: boolean }) {
- const { workers, error: workersError, retry } = useWorkers(true);
+ const { assignees, error: assigneesError, retry } = useAssignees();
+ const candidates = assignees.filter(person => person.id !== member.id || person.id === assignedTo);
  const [selectedAssignee, setAssignee] = useState<string | null>(null);
  const [selectedVisibility, setRestricted] = useState<boolean | null>(null);
  const [instructions, setInstructions] = useState('');
@@ -228,21 +234,21 @@ function ExistingAssignment({ job, member, assignedTo, assigneeOnly }: { job: Jo
    navigate(`/posao/${id}`);
   } catch (error) {
    setError(error instanceof TeamRequestError && error.code === '22007' ? assignmentDateError
-    : 'Dodela majstora trenutno nije potvrđena. Pokušajte ponovo.');
+    : 'Dodela merenja trenutno nije potvrđena. Pokušajte ponovo.');
   }
   finally { setBusy(false); }
  }
 
  return <section className="team-card">
    <h2>{job.customer.name}</h2>
-   {assignedTo && <p className="team-current-worker">Trenutno dodeljeno: {workers.find(worker => worker.id === assignedTo)?.name ?? job.technician}</p>}
-   {workersError && <p className="team-error" role="alert">{workersError} <button type="button" onClick={retry}>Učitaj ponovo</button></p>}
+   {assignedTo && <p className="team-current-worker">Trenutno dodeljeno: {assignees.find(person => person.id === assignedTo)?.name ?? job.technician}</p>}
+   {assigneesError && <p className="team-error" role="alert">{assigneesError} <button type="button" onClick={retry}>Učitaj ponovo</button></p>}
    <form className="team-form" onSubmit={assign}><fieldset disabled={busy}>
-    <WorkerPicker workers={workers} value={assignee} onChange={setAssignee}/>
+    <AssigneePicker assignees={candidates} value={assignee} onChange={setAssignee}/>
     <JobVisibility checked={restricted} onChange={setRestricted}/>
     {reassigning && <>
      <AssignmentDateInput defaultValue={defaultDate} onPastDate={() => setError(assignmentDateError)}/>
-     <label>Uputstvo za majstora<textarea value={instructions} onChange={event => setInstructions(event.target.value)} rows={2} maxLength={4000}/></label>
+     <label>Uputstvo za merenje<textarea value={instructions} onChange={event => setInstructions(event.target.value)} rows={2} maxLength={4000}/></label>
     </>}
     <button className="field-button field-button-light" disabled={!hasChange}>{reassigning ? 'Potvrdi dodelu' : 'Sačuvaj vidljivost'}</button>
    </fieldset></form>
@@ -288,6 +294,8 @@ function JobConversation({ job, member, assignedTo }: { job: Job; member: TeamMe
  const [loadError, setLoadError] = useState('');
  const [reload, setReload] = useState(0);
  const messageId = useRef<string | null>(null);
+ const messageList = useRef<HTMLOListElement>(null);
+ const followNewest = useRef(true);
  const lastMessageElement = useRef<HTMLLIElement>(null);
  const id = job.id;
  const latest = messages.at(-1);
@@ -295,9 +303,19 @@ function JobConversation({ job, member, assignedTo }: { job: Job; member: TeamMe
  useEffect(() => pollTeam(async isCurrent => {
   try {
    const next = await fetchTeamMessages(id);
-   if (isCurrent()) { setMessages(next); setLoadError(''); }
+   if (isCurrent()) {
+    const list = messageList.current;
+    followNewest.current = !list || list.scrollHeight - list.clientHeight - list.scrollTop <= 32;
+    setMessages(next);
+    setLoadError('');
+   }
   } catch { if (isCurrent()) setLoadError('Razgovor trenutno nije dostupan.'); }
  }), [id, reload]);
+
+ useLayoutEffect(() => {
+  const list = messageList.current;
+  if (list && followNewest.current) list.scrollTop = list.scrollHeight;
+ }, [latest?.id]);
 
  useEffect(() => {
   const element = lastMessageElement.current;
@@ -332,6 +350,9 @@ function JobConversation({ job, member, assignedTo }: { job: Job; member: TeamMe
   messageId.current ??= uid();
   try {
    await sendTeamMessage(id, messageId.current, message.trim());
+   followNewest.current = true;
+   const list = messageList.current;
+   if (list) list.scrollTop = list.scrollHeight;
    setMessage('');
    messageId.current = null;
    setReload(n => n + 1);
@@ -343,11 +364,11 @@ function JobConversation({ job, member, assignedTo }: { job: Job; member: TeamMe
  return <section className="team-card" aria-label="Razgovor o poslu">
   <Link className="team-open-job" to={`/posao/${id}`}>Otvori posao</Link>
   {loadError && <p className="team-error" role="alert">{loadError}</p>}
-  <ol className="team-list team-messages" aria-label="Poruke o poslu">{[...messages].reverse().map(item => <li ref={item.id === latest?.id ? lastMessageElement : undefined} className={item.sender_id === member.id ? 'mine' : ''} key={item.id}>
+  <ol className="team-list team-messages" ref={messageList} aria-label="Poruke o poslu" tabIndex={0}>{messages.map(item => <li ref={item.id === latest?.id ? lastMessageElement : undefined} className={item.sender_id === member.id ? 'mine' : ''} key={item.id}>
    <small><strong>{item.sender_name}</strong> · {dateTime.format(new Date(item.created_at))}</small><p>{item.body}</p>
   </li>)}</ol>
   {(!manager || assignedTo) && <form className="team-form" onSubmit={reply}>
-   <label>{manager ? 'Poruka majstoru' : 'Poruka šefu'}<textarea value={message} disabled={busy} onChange={event => { messageId.current = null; setMessage(event.target.value); }} rows={2} required maxLength={4000}/></label>
+   <label>Poruka<textarea value={message} disabled={busy} onChange={event => { messageId.current = null; setMessage(event.target.value); }} rows={2} required maxLength={4000}/></label>
    <button className="field-button field-button-light" disabled={busy || !message.trim()}><Send size={17}/>Pošalji poruku</button>
   </form>}
   {error && <p className="team-error" role="alert">{error}</p>}

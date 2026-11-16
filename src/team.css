@@ -72,12 +72,15 @@
 .team-notice > a:not(.team-mark-read) { flex: 1 1 210px; min-width: 0; padding: 8px 0; display: grid; gap: 4px; }
 .team-notice > a > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .team-notice.unread { border-inline-start: 4px solid #b60018; background: #fff8ee; }
+.trash-job { padding: 10px 12px; }
+.trash-job-details { display: grid; gap: 2px; flex: 1 1 190px; min-width: 0; }
+.trash-feedback { margin-bottom: 12px; }
 .team-mark-read, .team-open-job { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: #930012; font-weight: 650; text-decoration: underline; }
 .team-open-job { margin-bottom: 10px; }
 .team-conversation { margin-top: 20px; }
 .team-current-worker { margin-bottom: 12px; }
 .team-measure-action { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-.team-messages { display: grid; gap: 8px; margin: 0 0 14px; }
+.team-messages { display: grid; gap: 8px; margin: 0 0 14px; max-height: min(32rem, 50dvh); overflow-y: auto; }
 .team-messages li, .team-messages li + li { justify-self: start; background: #f3f4f6; border-radius: 9px; padding: 8px 12px; margin: 0; max-width: 85%; }
 .team-messages li.mine { justify-self: end; background: #fff1d2; }
 .team-messages p { margin: 4px 0 0; white-space: pre-wrap; }

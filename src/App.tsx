@@ -16,6 +16,7 @@ import { Correction } from './pages-correction';
 import { findCatalogModel } from './catalog-models';
 import { PortaCatalog, PortaEditor } from './pages-porta-royal';
 import { AccountPage, AssignmentPage, MessagesPage, NotificationsPage } from './pages-team';
+import { TrashPage } from './pages-trash';
 import type { ReactNode } from 'react';
 
 export default function App(){
@@ -36,6 +37,7 @@ export default function App(){
    <Route path="/dodeli-merenje/:id" element={<AssignmentPage/>}/>
    <Route path="/nalog" element={<AccountPage/>}/>
    <Route path="/poslovi" element={<Jobs onNew={()=>newJob()}/>}/>
+   <Route path="/korpa" element={<TrashPage/>}/>
    <Route path="/ponude" element={<Jobs offers onNew={()=>newJob()}/>}/>
    <Route path="/katalog" element={<Catalog onUse={newJob}/>}/>
    <Route path="/katalog/sobna-vrata" element={<PortaCatalog/>}/>

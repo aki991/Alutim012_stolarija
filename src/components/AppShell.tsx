@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { ArrowRight, BriefcaseBusiness, Calculator, ClipboardList, FileText, House, LayoutGrid, LogIn, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Play, Settings, UserRound } from 'lucide-react';
+import { ArrowRight, BriefcaseBusiness, Calculator, ClipboardList, FileText, House, LayoutGrid, LogIn, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Play, Settings, Trash2, UserRound } from 'lucide-react';
 import { isActiveJob } from '../models';
 import { awaitingMeasurements, canEditJob, useStore } from '../store';
 import { useNavigation } from '../navigation';
 import { Modal } from './UI';
 import { ReferenceHeader } from './ReferenceHeader';
 const links=[{to:'/',label:'Početna',Icon:House},{to:'/poslovi',label:'Poslovi',Icon:BriefcaseBusiness},{to:'/katalog',label:'Katalog',Icon:LayoutGrid},{to:'/ponude',label:'Ponude',Icon:FileText},{to:'/cenovnik',label:'Cenovnik',Icon:Calculator},{to:'/podesavanja',label:'Podešavanja',Icon:Settings}];
+const trashLink={to:'/korpa',label:'Korpa',Icon:Trash2};
 function activeSection(path:string,to:string){return to==='/'?path==='/':to==='/poslovi'?path.startsWith('/poslovi')||path.startsWith('/posao/'):to==='/cenovnik'?path.startsWith('/cenovnik')||path==='/podesavanja/cenovnik':to==='/podesavanja'?path.startsWith('/podesavanja')&&path!=='/podesavanja/cenovnik':path.startsWith(to);}
 export function AppShell({children,onNew,onSearch,onNotifications,onNavigation}:{children:ReactNode;onNew:()=>void;onSearch:()=>void;onNotifications:()=>void;onNavigation:()=>void}){
  const location=useLocation(),state=useStore(),{jobs,settings,teamMember}=state,navigation=useNavigation();
@@ -16,6 +17,11 @@ export function AppShell({children,onNew,onSearch,onNotifications,onNavigation}:
  const previousPath=useRef('');
  const visibleLinks=links.filter(link=>settings.showPrices!==false||link.to!=='/cenovnik');
  if(teamMember?.role==='manager')visibleLinks.splice(3,0,{to:'/dodeli-merenje',label:'Dodeli merenje',Icon:ClipboardList});
+ const moreLinks=[accountLink,...visibleLinks.slice(3)];
+ if(teamMember?.role!=='worker'){
+  visibleLinks.push(trashLink);
+  moreLinks.splice(1,0,trashLink);
+ }
  const field=location.pathname.startsWith('/posao/'),home=location.pathname==='/';
  const compact=navigation.sidebar==='auto'?(width<1000||field):navigation.sidebar==='compact';
  const activeJob=jobs.find(j=>j.id===navigation.jobId&&isActiveJob(j)&&canEditJob(state,j)&&!awaitingMeasurements(state,j));
@@ -53,9 +59,9 @@ export function AppShell({children,onNew,onSearch,onNotifications,onNavigation}:
    <div className={`main-content ${field?'work-content':''}`}>{children}</div>
   </div>
   <nav className="mobile-bottom-nav" aria-label="Donja navigacija">
-   {links.slice(0,3).map(({to,label,Icon})=><Link key={to} to={to} className={!more&&activeSection(location.pathname,to)?'active':''} aria-current={activeSection(location.pathname,to)?'page':undefined} onClick={onNavigation}><Icon aria-hidden="true"/><span>{label}</span></Link>)}
-   <button className={more||['/ponude','/podesavanja','/cenovnik','/nalog','/dodeli-merenje'].some(p=>location.pathname.startsWith(p))?'active':''} aria-expanded={more} aria-label="Više" onClick={()=>{onNavigation();setMore(!more);}}><MoreHorizontal aria-hidden="true"/><span>Više</span></button>
+   {links.slice(0,3).map(({to,label,Icon})=><Link key={to} to={to} className={!more&&activeSection(location.pathname,to)?'active':''} aria-current={activeSection(location.pathname,to)?'page':undefined} onClick={()=>{setMore(false);onNavigation();}}><Icon aria-hidden="true"/><span>{label}</span></Link>)}
+   <button className={more||moreLinks.some(({to})=>activeSection(location.pathname,to))?'active':''} aria-expanded={more} aria-label="Više" onClick={()=>{onNavigation();setMore(!more);}}><MoreHorizontal aria-hidden="true"/><span>Više</span></button>
   </nav>
-  {more&&<Modal title="Više" sheet onClose={()=>setMore(false)}><nav className="more-navigation" aria-label="Dodatna navigacija"><Link to={accountLink.to} onClick={()=>setMore(false)}><accountLink.Icon/>{accountLink.label}<ArrowRight/></Link>{visibleLinks.slice(3).map(({to,label,Icon})=><Link key={to} to={to} onClick={()=>setMore(false)}><Icon/>{label}<ArrowRight/></Link>)}{resume&&<Link to={resume} onClick={()=>setMore(false)}><Play/>Nastavi merenje<ArrowRight/></Link>}<button onClick={()=>{setMore(false);onNew();}}><BriefcaseBusiness/>Novi posao<ArrowRight/></button></nav></Modal>}
+  {more&&<Modal title="Više" sheet onClose={()=>setMore(false)}><nav className="more-navigation" aria-label="Dodatna navigacija">{moreLinks.map(({to,label,Icon})=><Link key={to} to={to} onClick={()=>setMore(false)}><Icon/>{label}<ArrowRight/></Link>)}{resume&&<Link to={resume} onClick={()=>setMore(false)}><Play/>Nastavi merenje<ArrowRight/></Link>}<button onClick={()=>{setMore(false);onNew();}}><BriefcaseBusiness/>Novi posao<ArrowRight/></button></nav></Modal>}
  </div>;
 }

@@ -9,6 +9,7 @@ export type TeamPricingRow={prices:Partial<Settings['prices']>;porta_royal_price
 export type TeamPreferences=Pick<Settings,'showPrices'|'elementDefaults'|'documentDefaults'>;
 export type TeamPreferencesRow={data:TeamPreferences;revision:number};
 export type TeamJob={id:string;data:Job;assigned_to:string|null;assigned_by:string|null;revision:number;assignee_only:boolean};
+export type TrashedTeamJob={id:string;name:string;address:string;deleted_at:string};
 export type TeamMessage={id:string;job_id:string;sender_id:string|null;sender_name:string;body:string;created_at:string};
 export type TeamConversation=TeamMessage&{job_name:string;unread:boolean};
 export type TeamNotification={
@@ -35,8 +36,8 @@ export async function fetchTeamMember(id:string):Promise<TeamMember|null>{
  return check(await getSupabase().rpc('field_team_my_profile').eq('id',id).maybeSingle());
 }
 
-export async function fetchTeamWorkers():Promise<TeamMember[]>{
- return check(await getSupabase().from('field_team_members').select('id,name,role,active').eq('role','worker').eq('active',true).order('name'))??[];
+export async function fetchTeamAssignees():Promise<TeamMember[]>{
+ return check(await getSupabase().from('field_team_members').select('id,name,role,active').eq('active',true).order('name'))??[];
 }
 
 export async function fetchTeamPricing():Promise<TeamPricingRow>{
@@ -109,8 +110,23 @@ export async function updateTeamJob(id:string,patch:Partial<Job>,expected:Partia
  return checkedJob(await getSupabase().rpc('field_team_update_job',{p_id:id,p_patch:patch,p_expected:expected}).single<TeamJob>());
 }
 
-export async function deleteTeamJob(job:Job){
- check(await getSupabase().rpc('field_team_delete_job',{p_id:job.id,p_expected:job}));
+export async function deleteTeamJob(job:Job,revision?:number){
+ check(await getSupabase().rpc('field_team_delete_job',{p_id:job.id,p_expected:job,p_revision:revision??null}));
+}
+
+export async function fetchTeamTrash():Promise<TrashedTeamJob[]>{
+ const rows:TrashedTeamJob[]=[];
+ const pageSize=100;
+ for(let offset=0;;offset+=pageSize){
+  const page=check(await getSupabase().from('field_team_trashed_jobs').select('id,name,address,deleted_at')
+   .order('deleted_at',{ascending:false}).order('id').range(offset,offset+pageSize-1))??[];
+  rows.push(...page);
+  if(page.length<pageSize)return rows;
+ }
+}
+
+export async function restoreTeamJob(job:TrashedTeamJob):Promise<TeamJob>{
+ return checkedJob(await getSupabase().rpc('field_team_restore_job',{p_id:job.id,p_deleted_at:job.deleted_at}).single<TeamJob>());
 }
 
 export async function assignTeamJob(id:string,assignee:string,message:string,assigneeOnly:boolean,date?:string):Promise<TeamJob>{

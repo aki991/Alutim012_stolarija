@@ -9,19 +9,19 @@ async function openInbox(page: Page, label: 'Obaveštenja' | 'Poruke') {
  await page.getByRole('region', { name: label, exact: true }).getByRole('link', { name: `Otvori ${label.toLowerCase()}` }).click();
 }
 
-test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({ browser, page }) => {
- test.setTimeout(110000);
+test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i statuse', async ({ browser, page }) => {
+ test.setTimeout(135000);
  const boss = { id: '10000000-0000-4000-8000-000000000001', name: 'Šef', role: 'manager', active: true } as const;
  const worker = { id: '10000000-0000-4000-8000-000000000002', name: 'Miloš', role: 'worker', active: true } as const;
  const observer = { id: '10000000-0000-4000-8000-000000000003', name: 'Ivan', role: 'worker', active: true } as const;
  const admin = { id: '10000000-0000-4000-8000-000000000004', name: 'Privatni nalog', role: 'manager', active: true, is_admin: true } as const;
- const people = [boss, worker, observer];
  const accounts: TeamAccount[] = [{...boss,email:'manager@example.test'},{...worker,email:'milos@alutim012.local'},{...observer,email:'ivan@alutim012.local'},
   {...admin,role:'admin',email:'admin@example.test'}];
  let pricing: TeamPricingRow = {prices:{},porta_royal_prices:{},vat:20,vat_mode:'exclusive',revision:0};
  const preferences = new Map<string,TeamPreferencesRow>();
  const archived = new Map<string, {pdf:Buffer; createdAt:string}>();
  const jobs = new Map<string, TeamJob>();
+ const deletedJobs = new Map<string, string>();
  const inbox = new Map<string, TeamNotification[]>();
  const messageNotices = new Map<string, Pick<TeamMessage,'job_id'|'body'|'created_at'>[]>();
  const messages: TeamMessage[] = [];
@@ -29,7 +29,7 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
  const pushDevices = new Set<string>();
  const now = () => new Date().toISOString();
 
- function notify(recipient: TeamMember, actor: TeamMember, row: TeamJob, kind: TeamNotification['kind'], body: string, createdAt = now()) {
+ function notify(recipient: Pick<TeamMember, 'id'>, actor: TeamMember, row: TeamJob, kind: TeamNotification['kind'], body: string, createdAt = now()) {
   inbox.set(recipient.id, [{ id: crypto.randomUUID(), job_id: row.id, kind, actor_name: actor.name, job_name: row.data.customer.name, body, read_at: null, created_at: createdAt }, ...(inbox.get(recipient.id) ?? [])]);
  }
 
@@ -73,12 +73,13 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
    if (endpoint === 'logout') return route.fulfill({ headers, status: 204 });
    const body = request.postDataJSON() ?? {};
    const participates = (row:TeamJob) => member.role==='manager'||row.assigned_to===member.id;
-   const visible = [...jobs.values()].filter(row => participates(row)||!row.assignee_only);
+   const visible = [...jobs.values()].filter(row => !deletedJobs.has(row.id) && (participates(row)||!row.assignee_only));
    const view = (row:TeamJob) => row.assigned_to && row.data.status==='Merenje' &&
-    (member.role==='manager'||row.assigned_to!==member.id)?{...row,data:{...row.data,positions:[]}}:row;
+    row.assigned_to!==member.id?{...row,data:{...row.data,positions:[]}}:row;
    switch (endpoint) {
     case 'field_team_my_profile': return reply(request.headers().accept?.includes('vnd.pgrst.object') ? member : [member]);
-    case 'field_team_members': return reply(people.filter(person => person.role === 'worker'));
+    case 'field_team_members': return reply(accounts.filter(account => account.active && (member.is_admin || account.role !== 'admin'))
+     .map(account => ({ id: account.id, name: account.name, active: account.active, role: account.role === 'admin' ? 'manager' : account.role })));
     case 'field_team_pricing': return reply(pricing);
     case 'field_team_preferences': return reply(preferences.has(member.id)?[preferences.get(member.id)]:[]);
     case 'field_team_save_preferences': {
@@ -115,9 +116,14 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
      return reply({ok:true});
     }
     case 'field_team_visible_jobs': return reply(visible.map(view));
-    case 'field_team_visible_messages': return reply(messages.filter(message => `eq.${message.job_id}` === url.searchParams.get('job_id')).reverse());
+    case 'field_team_trashed_jobs': return reply(member.role === 'manager' ? [...deletedJobs].map(([id, deleted_at]) => {
+     const { name, address } = jobs.get(id)!.data.customer;
+     return { id, name, address, deleted_at };
+    }) : []);
+    case 'field_team_visible_messages': return reply(messages.filter(message => !deletedJobs.has(message.job_id) && `eq.${message.job_id}` === url.searchParams.get('job_id')).reverse());
     case 'field_team_notifications': return reply(url.searchParams.get('kind') === 'eq.message'
-     ? messageNotices.get(member.id) ?? [] : inbox.get(member.id) ?? []);
+     ? (messageNotices.get(member.id) ?? []).filter(message => !deletedJobs.has(message.job_id))
+     : (inbox.get(member.id) ?? []).filter(notice => !deletedJobs.has(notice.job_id)));
     case 'field_team_push_key': return reply('test-public-key');
     case 'field_team_push_enabled': return reply(pushDevices.has(member.id));
     case 'field_team_push_device': {
@@ -135,25 +141,28 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
     }
     case 'field_team_create_job': {
      const data: Job = body.p_job;
-     expect(body.p_assignee).toBe(worker.id);
+     const recipient = accounts.find(account => account.id === body.p_assignee && account.active)!;
+     expect(recipient).toBeDefined();
+     expect(member.role).toBe('manager');
      expect(data.status).toBe('Merenje');
-     const privateJob=data.customer.name==='Privatno merenje';
-     if(!privateJob)expect(data.customer).toMatchObject({ name: 'Porodica Test', address: 'Glavna 12', phone: '064111222' });
-     expect(body.p_assignee_only).toBe(privateJob);
+     expect(data.technician).toBe(recipient.name);
      const row:TeamJob = { id: data.id, data, assigned_to: body.p_assignee, assigned_by: member.id, revision: 1, assignee_only: body.p_assignee_only };
      jobs.set(row.id, row);
      const createdAt = now();
      messages.push({ id: crypto.randomUUID(), job_id: row.id, sender_id: member.id, sender_name: member.name, body: body.p_message, created_at: createdAt });
-     notify(worker, member, row, 'assignment', body.p_message, createdAt);
+     notify(recipient, member, row, 'assignment', body.p_message, createdAt);
      return replyRow(view(row));
     }
     case 'field_team_assign': {
      const row=jobs.get(body.p_id)!;
      expect(member.id).toBe(boss.id);
-     expect(body.p_message).toBe('');
      if (body.p_assignee !== row.assigned_to) {
       row.assigned_to = body.p_assignee;
+      row.assigned_by = member.id;
       row.data = { ...row.data, date: body.p_date };
+      const createdAt = now();
+      if (body.p_message) messages.push({ id: crypto.randomUUID(), job_id: row.id, sender_id: member.id, sender_name: member.name, body: body.p_message, created_at: createdAt });
+      notify({ id: body.p_assignee }, member, row, 'assignment', body.p_message || 'Dodeljen vam je posao.', createdAt);
      }
      row.assignee_only=body.p_assignee_only;
      row.revision++;
@@ -163,15 +172,36 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
      const row = jobs.get(body.p_id)!;
      row.data = { ...row.data, ...body.p_patch, updated: now() };
      row.revision++;
-     if (body.p_patch.status) notify(member.role === 'worker' ? boss : worker, member, row, 'status', body.p_patch.status);
+     if (body.p_patch.status) {
+      for (const recipient of accounts.filter(account => account.active && account.id !== member.id && (account.role !== 'worker' || account.id === row.assigned_to))) {
+       notify(recipient, member, row, 'status', body.p_patch.status);
+      }
+     }
+     return replyRow(view(row));
+    }
+    case 'field_team_delete_job': {
+     expect(member.role).toBe('manager');
+     const row = jobs.get(body.p_id)!;
+     expect(body.p_revision).toBe(row.revision);
+     expect(body.p_expected).toEqual(row.data);
+     deletedJobs.set(row.id, now());
+     row.revision++;
+     return reply(null);
+    }
+    case 'field_team_restore_job': {
+     expect(member.role).toBe('manager');
+     const row = jobs.get(body.p_id)!;
+     expect(body.p_deleted_at).toBe(deletedJobs.get(row.id));
+     deletedJobs.delete(row.id);
+     row.revision++;
      return replyRow(view(row));
     }
     case 'field_team_send_message': {
      const row = jobs.get(body.p_id)!;
      const notice = { job_id: row.id, body: body.p_body, created_at: now() };
      messages.push({ ...notice, id: body.p_message_id, sender_id: member.id, sender_name: member.name });
-     const recipient = member.id === boss.id ? worker : boss;
-     messageNotices.set(recipient.id, [notice, ...(messageNotices.get(recipient.id) ?? [])]);
+     const recipient = member.id === row.assigned_to ? row.assigned_by : row.assigned_to;
+     if (recipient) messageNotices.set(recipient, [notice, ...(messageNotices.get(recipient) ?? [])]);
      reads.set(`${member.id}/${row.id}`, body.p_message_id);
      return reply(null);
     }
@@ -279,16 +309,16 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
  await page.getByRole('spinbutton', {name:'PVC profil (€/m²)',exact:true}).fill('126');
  await page.getByRole('button', {name:'Sačuvaj cenovnik'}).click();
  await expect(page.getByText('Cene su sačuvane za ceo tim.')).toBeVisible();
- await expect(page.getByLabel('Majstor', { exact: true })).toHaveCount(0);
+ await expect(page.getByLabel('Zadužena osoba', { exact: true })).toHaveCount(0);
  await page.getByRole('navigation', { name: 'Glavna navigacija' }).getByRole('link', { name: 'Dodeli merenje' }).click();
  await expect(page.getByRole('heading', { name: 'Dodeli merenje' })).toBeVisible();
- const visibilityLabel='Samo dodeljeni majstor vidi posao';
+ const visibilityLabel='Prikaži posao samo zaduženoj osobi i šefovima';
  await expect(page.getByRole('checkbox',{name:visibilityLabel})).not.toBeChecked();
- await page.getByRole('combobox', { name: 'Majstor', exact: true }).selectOption({ label: 'Miloš' });
+ await page.getByRole('combobox', { name: 'Zadužena osoba', exact: true }).selectOption({ label: 'Miloš' });
  await page.getByLabel('Naziv firme ili ime kupca').fill('Porodica Test');
  await page.getByLabel('Adresa merenja').fill('Glavna 12');
  await page.getByLabel('Telefon').fill('064111222');
- await page.getByLabel('Poruka majstoru').fill('Izmeri prozore u prizemlju.');
+ await page.getByLabel('Uputstvo za merenje').fill('Izmeri prozore u prizemlju.');
  const measurementDate = page.getByLabel('Datum merenja');
  const today = (await measurementDate.getAttribute('min'))!;
  await measurementDate.fill('2000-01-01');
@@ -422,7 +452,7 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await expect(page.getByText(/1700 ×/)).toBeVisible({ timeout: 10000 });
 
   await mobile.getByRole('link', { name: 'Poruke o poslu' }).click();
-  await mobile.getByLabel('Poruka šefu').fill('Svi prozori izmereni.');
+  await mobile.getByLabel('Poruka', { exact: true }).fill('Svi prozori izmereni.');
   await mobile.getByRole('button', { name: 'Pošalji poruku' }).click();
   await expect(mobile.getByText('Svi prozori izmereni.')).toBeVisible();
   await mobile.getByRole('link', { name: 'Otvori posao' }).click();
@@ -433,10 +463,27 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   const messagePreview = page.getByRole('listitem').filter({ hasText: 'Svi prozori izmereni.' });
   await messagePreview.getByRole('button', { name: 'Označi kao pročitano' }).click();
   await expect(messagePreview.getByRole('button', { name: 'Označi kao pročitano' })).toHaveCount(0);
+  const firstMessage = messages[0];
+  messages.unshift(...Array.from({ length: 12 }, (_, index) => ({
+   ...firstMessage, id: crypto.randomUUID(), body: `Ranija poruka ${index + 1}`,
+   created_at: new Date(Date.parse(firstMessage.created_at) - (12 - index) * 60000).toISOString(),
+  })));
   await messagePreview.getByRole('link').click();
-  await page.getByLabel('Poruka majstoru').fill('Hvala na merenju.');
+  const messageList = page.getByRole('list', { name: 'Poruke o poslu' });
+  const history = messageList.getByRole('listitem');
+  await expect(history.first()).toContainText('Ranija poruka 1');
+  await expect(history.last()).toContainText('Svi prozori izmereni.');
+  await expect(history.last()).toBeInViewport();
+  await expect(history.first()).not.toBeInViewport();
+  await messageList.evaluate(list => list.scrollTop = 0);
+  await expect(history.first()).toBeInViewport();
+  messages.push({ ...messages.at(-1)!, id: crypto.randomUUID(), body: 'Poslednja mera je proverena.', created_at: now() });
+  await expect(history.last()).toContainText('Poslednja mera je proverena.', { timeout: 10000 });
+  await expect(history.first()).toBeInViewport();
+  await page.getByLabel('Poruka', { exact: true }).fill('Hvala na merenju.');
   await page.getByRole('button', { name: 'Pošalji poruku' }).click();
-  await expect(page.getByText('Hvala na merenju.')).toBeVisible();
+  await expect(history.last()).toContainText('Hvala na merenju.');
+  await expect(history.last()).toBeInViewport();
   await expect(page.getByRole('button', { name: 'Poruke', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Otvori posao' }).click();
   await bossStatus.selectOption('Ponuda');
@@ -502,16 +549,16 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await page.getByRole('link',{name:'Dodela i vidljivost'}).click();
   await page.getByRole('checkbox',{name:visibilityLabel}).check();
   await page.getByRole('button',{name:'Sačuvaj vidljivost'}).click();
-  await expect(page.getByText('Vidljivost posla · Samo dodeljeni majstor')).toBeVisible();
+  await expect(page.getByText('Vidljivost posla · Zadužena osoba i šefovi')).toBeVisible();
   await expect(readonlyPage.getByRole('heading',{name:'Posao nije pronađen'})).toBeVisible({timeout:10000});
   await mobile.goto(jobUrl);
   await expect(mobile.getByRole('heading',{name:'Posao: Porodica Test'})).toBeVisible();
   await page.goto('/dodeli-merenje');
-  await page.getByRole('combobox',{name:'Majstor',exact:true}).selectOption({label:'Miloš'});
+  await page.getByRole('combobox',{name:'Zadužena osoba',exact:true}).selectOption({label:'Miloš'});
   await page.getByRole('checkbox',{name:visibilityLabel}).check();
   await page.getByLabel('Naziv firme ili ime kupca').fill('Privatno merenje');
   await page.getByLabel('Adresa merenja').fill('Sporedna 5');
-  await page.getByLabel('Poruka majstoru').fill('Izmeri vrata.');
+  await page.getByLabel('Uputstvo za merenje').fill('Izmeri vrata.');
   await page.getByRole('button',{name:'Dodeli i pošalji'}).click();
   await expect(page.getByRole('heading',{name:'Posao: Privatno merenje'})).toBeVisible();
   await mobile.goto(page.url());
@@ -519,7 +566,7 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await readonlyPage.goto(page.url());
   await expect(readonlyPage.getByRole('heading',{name:'Posao nije pronađen'})).toBeVisible();
   await page.getByRole('link',{name:'Dodela i vidljivost'}).click();
-  await page.getByRole('combobox',{name:'Majstor',exact:true}).selectOption({label:'Ivan'});
+  await page.getByRole('combobox',{name:'Zadužena osoba',exact:true}).selectOption({label:'Ivan'});
   await measurementDate.fill('2000-01-01');
   await page.getByRole('button',{name:'Potvrdi dodelu'}).click();
   await expect(page.getByText('Datum merenja mora biti današnji ili budući.')).toBeVisible();
@@ -536,6 +583,78 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await expect(readonlyPage.getByRole('region', { name: 'Pregled rada' })).toContainText('Danas nema merenja.');
   await page.goto('/');
   await expect(page.getByRole('region', { name: 'Pregled rada' })).toContainText('Danas nema merenja.');
+
+  await page.goto('/dodeli-merenje');
+  const assigneePicker = page.getByRole('combobox', { name: 'Zadužena osoba', exact: true });
+  await expect(assigneePicker.locator('optgroup[label="Šefovi"] option')).toHaveText(['Sara']);
+  await assigneePicker.selectOption({ label: 'Sara' });
+  await page.getByLabel('Naziv firme ili ime kupca').fill('Merenje za šefa');
+  await page.getByLabel('Adresa merenja').fill('Glavna 17');
+  await page.getByLabel('Uputstvo za merenje').fill('Izmeri prozor na spratu.');
+  await page.getByRole('button', { name: 'Dodeli i pošalji' }).click();
+  await expect(page.getByRole('heading', { name: 'Posao: Merenje za šefa' })).toBeVisible();
+  const chiefJobUrl = page.url();
+  const chiefJob = [...jobs.values()].find(row => row.data.customer.name === 'Merenje za šefa')!;
+  expect(chiefJob.assigned_to).toBe(newChief.id);
+  await expect(page.getByRole('heading', { name: 'Merenje je u toku' })).toBeVisible();
+  const chiefContext = await browser.newContext({ baseURL: chiefJobUrl });
+  try {
+   const chiefPage = await chiefContext.newPage();
+   await login(chiefPage, { ...newChief, role: 'manager' });
+   await chiefPage.getByRole('link', { name: /Dodeljeno merenje.*Merenje za šefa/ }).click();
+   await chiefPage.getByRole('link', { name: 'Poruke o poslu' }).click();
+   await expect(chiefPage.getByText('Izmeri prozor na spratu.', { exact: true })).toBeVisible();
+   await chiefPage.getByLabel('Poruka', { exact: true }).fill('Preuzimam merenje.');
+   await chiefPage.getByRole('button', { name: 'Pošalji poruku' }).click();
+   await expect(chiefPage.getByText('Preuzimam merenje.', { exact: true })).toBeVisible();
+   await openInbox(page, 'Obaveštenja');
+   await expect(page.getByRole('link', { name: /Nova poruka.*Merenje za šefa/ })).toBeVisible({ timeout: 10000 });
+   await page.goto(chiefJobUrl);
+   await chiefPage.getByRole('link', { name: 'Otvori posao' }).click();
+   await chiefPage.getByRole('link', { name: 'Dodaj element' }).first().click();
+   await chiefPage.getByRole('link', { name: 'Prozor', exact: true }).click();
+   await chiefPage.getByRole('button', { name: 'Dodaj u posao' }).click();
+   await expect(chiefPage.getByRole('region', { name: 'Elementi posla' })).toBeVisible();
+   await expect(page.getByRole('heading', { name: 'Merenje je u toku' })).toBeVisible();
+   await chiefPage.getByRole('button', { name: 'Merenje završeno' }).click();
+   await expect(page.getByRole('region', { name: 'Elementi posla' })).toBeVisible({ timeout: 10000 });
+   expect(chiefJob.data.status).toBe('Poslati ponudu');
+
+   await page.goto(`/dodeli-merenje/${privateJob.id}`);
+   await assigneePicker.selectOption({ label: 'Sara' });
+   await measurementDate.fill(today);
+   await page.getByLabel('Uputstvo za merenje').fill('Proveri širinu vrata.');
+   await page.getByRole('button', { name: 'Potvrdi dodelu' }).click();
+   await expect(page.getByRole('heading', { name: 'Posao: Privatno merenje' })).toBeVisible();
+   expect(privateJob.assigned_to).toBe(newChief.id);
+   await chiefPage.goto('/obavestenja');
+   await expect(chiefPage.getByRole('link', { name: /Dodeljeno merenje.*Privatno merenje.*Proveri širinu vrata/ })).toBeVisible();
+
+   await page.goto('/poslovi');
+   await page.getByLabel('Meni posla Merenje za šefa', { exact: true }).click();
+   await page.getByRole('button', { name: 'Obriši Merenje za šefa', exact: true }).click();
+   await page.getByRole('dialog', { name: 'Obriši posao?' }).getByRole('button', { name: 'Obriši posao' }).click();
+   const deletedJobLink = page.getByRole('link', { name: 'Otvori Merenje za šefa', exact: true });
+   await expect(deletedJobLink).toHaveCount(0);
+   await expect.poll(() => deletedJobs.has(chiefJob.id)).toBe(true);
+
+   await mobile.goto('/korpa');
+   await expect(mobile).toHaveURL(/\/poslovi$/);
+   await mobile.getByRole('button', { name: 'Više', exact: true }).click();
+   await expect(mobile.getByRole('dialog', { name: 'Više' }).getByRole('link', { name: 'Korpa', exact: true })).toHaveCount(0);
+   await chiefPage.setViewportSize({ width: 390, height: 844 });
+   await chiefPage.getByRole('button', { name: 'Više', exact: true }).click();
+   await chiefPage.getByRole('dialog', { name: 'Više' }).getByRole('link', { name: 'Korpa', exact: true }).click();
+   await chiefPage.reload();
+   await chiefPage.getByRole('button', { name: 'Vrati posao Merenje za šefa', exact: true }).click();
+   await expect(chiefPage.getByText('Korpa je prazna')).toBeVisible();
+   await expect(deletedJobLink).toBeVisible({ timeout: 10000 });
+   await chiefPage.goto(chiefJobUrl);
+   await expect(chiefPage.getByRole('region', { name: 'Elementi posla' })).toBeVisible();
+   await chiefPage.getByRole('link', { name: 'Poruke o poslu' }).click();
+   await expect(chiefPage.getByText('Preuzimam merenje.', { exact: true })).toBeVisible();
+  } finally { await chiefContext.close(); }
+
   await mobile.goto('/nalog');
   await mobile.getByRole('button', { name: 'Odjavi se' }).click();
   await expect(mobile.getByRole('heading', { name: 'Prijava', exact: true })).toBeVisible();

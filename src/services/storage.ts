@@ -1,16 +1,18 @@
 import { isGeometry } from '../custom/geometry';
 import { isModelLayout } from '../model-layout';
 import { supplementRates } from './pricing-rates';
-import { jobStatuses, type Job, type Settings } from '../models';
+import { jobStatuses, type DeletedJob, type Job, type Settings } from '../models';
 import { isShutterConfig, shutterTypes } from '../shutters';
 import { isPortaRoyalConfig, portaSeriesById } from '../porta-royal';
 const record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v);
 const number=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1e8;
 const draftNumber=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=1e8;
 const strings=(v:Record<string,unknown>,keys:string[])=>keys.every(k=>typeof v[k]==='string'&&(v[k] as string).length<=10000);
-export function parseBackup(data:unknown):{jobs:Job[];settings:Settings}{
+export function parseBackup(data:unknown):{jobs:Job[];settings:Settings;trash:DeletedJob[]}{
  const fail=()=>{throw Error('Datoteka nije podržana ili je rezervna kopija oštećena.');};
  if(!record(data)||!Array.isArray(data.jobs)||!record(data.settings))return fail();
+ const trash=data.trash===undefined?[]:data.trash;
+ if(!Array.isArray(trash)||trash.some(entry=>!record(entry)||typeof entry.deletedAt!=='string'||!Number.isFinite(Date.parse(entry.deletedAt))))return fail();
  const {settings}=data;
  if(settings.showPrices!==undefined&&typeof settings.showPrices!=='boolean')return fail();
  if(settings.portaRoyalPrices!==undefined&&(!record(settings.portaRoyalPrices)||Object.entries(settings.portaRoyalPrices).some(([key,rate])=>!portaSeriesById(key)||!number(rate))))return fail();
@@ -23,7 +25,7 @@ export function parseBackup(data:unknown):{jobs:Job[];settings:Settings}{
  if(settings.elementDefaults!==undefined){const d=settings.elementDefaults;if(!record(d)||!strings(d,['profile','color'])||!['PVC','ALU'].includes(String(d.material))||!['Dvoslojno','Troslojno','Sigurnosno'].includes(String(d.glass))||!['Standardni','Sigurnosni'].includes(String(d.hardware)))return fail();}
  if(settings.documentDefaults!==undefined&&(!record(settings.documentDefaults)||!strings(settings.documentDefaults,['validity','delivery','payment'])))return fail();
  const ids=new Set();
- for(const j of data.jobs){
+ for(const j of [...data.jobs,...trash.map(entry=>entry.job)]){
   if(!record(j)||!strings(j,['id','date','technician','notes','extraWork','validity','delivery','payment','updated'])||!record(j.customer)||!strings(j.customer,['name','phone','email','address','building'])||!Array.isArray(j.positions)||!(j.status==='Čeka proveru'||jobStatuses.some(status=>status===j.status))||!['Standard','Optimal','Premium'].includes(String(j.package))||![j.discount,j.transport,j.extraCost].every(number)||(j.discountMode!=='amount'&&Number(j.discount)>100)||ids.has(j.id)||(j.date!==''&&!/^\d{4}-\d{2}-\d{2}$/.test(String(j.date))))return fail();
   if(j.discountMode!==undefined&&!['percent','amount'].includes(String(j.discountMode)))return fail();
   if(j.surchargeMode!==undefined&&!['percent','amount'].includes(String(j.surchargeMode)))return fail();
@@ -59,6 +61,7 @@ export function parseBackup(data:unknown):{jobs:Job[];settings:Settings}{
    if(!Array.isArray(p.photos)||p.photos.length>4||p.photos.some(src=>typeof src!=='string'||!(src==='/assets/house.jpg'||/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(src))||src.length>650000))return fail();
   }
  }
- const typed=data as unknown as {jobs:(Omit<Job,'status'>&{status:Job['status']|'Čeka proveru'})[];settings:Settings};
- return {...typed,jobs:typed.jobs.map(j=>({...j,status:j.status==='Čeka proveru'?'Ponuda':j.status,createdAt:j.createdAt||j.updated||`${j.date}T12:00:00`,positions:j.positions.map(p=>({...p,profile:p.profile||(p.material==='ALU'?'ALU termo profil':'PVC 70 mm')}))}))};
+ type StoredJob=Omit<Job,'status'>&{status:Job['status']|'Čeka proveru'};
+ const migrate=(j:StoredJob):Job=>({...j,status:j.status==='Čeka proveru'?'Ponuda':j.status,createdAt:j.createdAt||j.updated||`${j.date}T12:00:00`,positions:j.positions.map(p=>({...p,profile:p.profile||(p.material==='ALU'?'ALU termo profil':'PVC 70 mm')}))});
+ return {settings:settings as unknown as Settings,jobs:data.jobs.map(migrate),trash:trash.map(entry=>({job:migrate(entry.job),deletedAt:entry.deletedAt}))};
 }

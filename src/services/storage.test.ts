@@ -5,6 +5,11 @@ import { makePosition } from '../catalog';
 const backup=()=>({settings:structuredClone(defaults),jobs:[{id:'AT-TEST',customer:{name:'Đorđe Živković',phone:'064',email:'',address:'Pančevo',building:'Stan'},date:'2026-11-01',technician:'Aleksandar',notes:'',status:'U izradi',positions:[makePosition()],package:'Standard',discount:0,transport:35,extraWork:'',extraCost:0,validity:'15 dana',delivery:'Dogovor',payment:'Avans',updated:''}]});
 describe('Lokalne rezervne kopije',()=>{
  it('prihvata celu rezervnu kopiju sa srpskim slovima',()=>{expect(parseBackup(backup()).jobs[0].customer.name).toBe('Đorđe Živković');});
+ it('učitava posao iz korpe sa elementima i odbija isti ID u oba spiska',()=>{
+  const original=backup(),job=original.jobs[0],trash=[{job,deletedAt:'2026-11-16T13:00:00.000Z'}];
+  expect(parseBackup({...original,jobs:[],trash}).trash[0]).toMatchObject(trash[0]);
+  expect(()=>parseBackup({...original,trash})).toThrow();
+ });
  it('odbija oštećene podatke umesto rušenja aplikacije',()=>{const b=backup();delete (b.settings.prices as Partial<typeof defaults.prices>).PVC;expect(()=>parseBackup(b)).toThrow();expect(()=>parseBackup(null)).toThrow();});
  it('odbija duplirane identifikatore i nepoznate tipove otvaranja',()=>{const b=backup();b.jobs.push(structuredClone(b.jobs[0]));expect(()=>parseBackup(b)).toThrow();const c=backup();(c.jobs[0].positions[0].segments[0] as {opening:string}).opening='unknown';expect(()=>parseBackup(c)).toThrow();});
  it('čuva neispravne mere kao nacrt, a odbija nepodržane fotografije',()=>{const b=backup();b.jobs[0].positions[0].width=-200;b.jobs[0].positions[0].segments[0].width=-100;expect(()=>parseBackup(b)).not.toThrow();b.jobs[0].positions[0].photos=['https://example.com/tracker'];expect(()=>parseBackup(b)).toThrow();});

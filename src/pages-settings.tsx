@@ -17,12 +17,12 @@ const sections=[
 ];
 const newDefaults:NonNullable<Settings['elementDefaults']>={material:'PVC',profile:'PVC 70 mm',color:'Bela',glass:'Dvoslojno',hardware:'Standardni'};
 export function SettingsPage({forcedSection}:{forcedSection?:string}){
- const {section}=useParams(),current=sections.find(s=>s.id===(forcedSection||section)),{settings,setSettings,jobs,importData,saveState,teamMember,teamPricingRevision}=useStore();
+ const {section}=useParams(),current=sections.find(s=>s.id===(forcedSection||section)),{settings,setSettings,jobs,trash,importData,saveState,teamMember,teamPricingRevision}=useStore();
  const [message,setMessage]=useState('');
  const element={...newDefaults,...settings.elementDefaults},document=settings.documentDefaults||{validity:'15 dana',delivery:'Po dogovoru, nakon tehničke provere',payment:'50% avans, ostatak po montaži'};
  const setElement=(patch:Partial<NonNullable<Settings['elementDefaults']>>)=>setSettings({elementDefaults:{...element,...patch}});
  const setDocument=(patch:Partial<NonNullable<Settings['documentDefaults']>>)=>setSettings({documentDefaults:{...document,...patch}});
- const backup=()=>{const data=new Blob([JSON.stringify({jobs,settings},null,2)],{type:'application/json'}),url=URL.createObjectURL(data),a=window.document.createElement('a');a.href=url;a.download='alu-tim-rezervna-kopija.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+ const backup=()=>{const data=new Blob([JSON.stringify({jobs,trash,settings},null,2)],{type:'application/json'}),url=URL.createObjectURL(data),a=window.document.createElement('a');a.href=url;a.download='alu-tim-rezervna-kopija.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
  const showPrices=settings.showPrices!==false;
  const isAdmin=teamMember?.role==='manager';
  const showPricingSettings=showPrices||Boolean(teamMember&&teamPricingRevision===null);

@@ -54,7 +54,7 @@ export function Editor(){
  return <div className="field-page summary-page"><FieldHeader title={`Posao: ${job.customer.name}`} back="/poslovi"/>
  <main className="job-summary">
   <div className="summary-customer"><button aria-label="Podaci o kupcu" className="summary-customer-info" onClick={()=>setDataOpen(true)}><UserRound/><span><strong>{job.customer.name}</strong><small>{job.customer.address||(editable?'Dodaj podatke o kupcu':'Adresa nije navedena')}</small></span>{editable&&<Pencil size={18}/>}</button><JobStatus value={job.status} name={job.customer.name} locked={statusLocked} onChange={status=>{updateJob(job.id,{status});useStore.getState().retrySave();}}/></div><div className="summary-toolbar"><Saved state={saveState} shared={Boolean(teamMember)}/></div>
-  {waiting?<section className="team-card team-measurement-wait"><h2>Merenje je u toku</h2><p>Elementi, mere i ponuda biće dostupni kad majstor potvrdi završetak merenja.</p></section>:
+  {waiting?<section className="team-card team-measurement-wait"><h2>Merenje je u toku</h2><p>Elementi, mere i ponuda biće dostupni kad zadužena osoba potvrdi završetak merenja.</p></section>:
   !job.positions.length?<Empty title={editable?"Dodajte prvi element":"Nema sačuvanih elemenata"} action={editable&&<Link className="field-button field-button-red" to={`/posao/${job.id}/dodaj`}><Plus/>Dodaj element</Link>}/>:
   <div className={settings.showPrices===false?"summary-grid without-prices":"summary-grid"}><section className="job-lines" aria-label="Elementi posla"><div className="job-line-head"><span>#</span><span>Element</span><span>Dimenzije (mm)</span><span>Kom.</span>{settings.showPrices!==false&&<span>Cena</span>}<span/></div>
    {job.positions.map((p,i)=>{

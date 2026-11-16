@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Job, Position, Settings } from './models';
+import type { DeletedJob, Job, Position, Settings } from './models';
 import { catalog, makePosition, uid } from './catalog';
 import { defaults } from './services/calculation';
 import { parseBackup } from './services/storage';
@@ -23,11 +23,11 @@ function demoJobs():Job[] {
 }
 type SaveState='saved'|'dirty'|'error';
 interface AppState {
- jobs:Job[];settings:Settings;saveState:SaveState;storageError:string;
+ jobs:Job[];trash:DeletedJob[];settings:Settings;saveState:SaveState;storageError:string;
  teamMember:TeamMember|null;teamConflict:boolean;teamAssignments:Record<string,string|null>;
  teamAssigneeOnly:Record<string,boolean>;
  teamPricingRevision:number|null;teamPricingError:string;
- updateJob:(id:string,patch:Partial<Job>,baseline?:Job)=>void;addJob:(job:Job)=>void;deleteJob:(id:string)=>void;duplicateJob:(id:string)=>string;
+ updateJob:(id:string,patch:Partial<Job>,baseline?:Job)=>void;addJob:(job:Job)=>void;deleteJob:(id:string)=>void;restoreLocalJob:(id:string)=>void;duplicateJob:(id:string)=>string;
  updatePosition:(job:string,id:string,patch:Partial<Position>)=>void;setSettings:(patch:Partial<Settings>)=>void;
  importData:(data:unknown)=>void;retrySave:()=>void;
 }
@@ -36,23 +36,23 @@ type JobAccess=Pick<AppState,'teamAssignments'|'teamMember'>;
 export const canEditJob=(state:JobAccess,job:Pick<Job,'id'>)=>state.teamMember?.role!=='worker'
  ||!Object.hasOwn(state.teamAssignments,job.id)||state.teamAssignments[job.id]===state.teamMember.id;
 export const awaitingMeasurements=(state:JobAccess,job:Job)=>assignedMeasurement(state,job)
- &&(state.teamMember?.role==='manager'||!canEditJob(state,job));
+ &&state.teamAssignments[job.id]!==state.teamMember?.id;
 export const canEditPrices=(state:Pick<AppState,'teamMember'>)=>state.teamMember?.role!=='worker';
 export const hasPositionPriceCorrection=(p:Position)=>p.manualPrice!=null||Boolean(p.extraCost);
 export const withPositionPrice=(p:Position,source?:Position)=>({...p,manualPrice:source?.manualPrice??null,extraCost:source?.extraCost??0});
 type TeamMutation=
  | {type:'create';job:Job}
  | {type:'update';id:string;patch:Partial<Job>;expected:Partial<Job>;updated:string}
- | {type:'delete';job:Job}
+ | {type:'delete';job:Job;revision?:number}
  | {type:'preferences';patch:TeamPreferences};
 interface TeamWorkspace {
  member:TeamMember; rows:Map<string,TeamJob>; pending:TeamMutation[]; epoch:number;
  preferences:TeamPreferencesRow|null; preferencesError:string;
  running:boolean; refreshing:boolean; pricingRefreshing:boolean; conflict:boolean; mutationError:string; connectionError:string; draftError:string;
 }
-let initial:{jobs:Job[];settings:Settings}={jobs:demoJobs(),settings:defaults},initialError='';
+let initial:ReturnType<typeof parseBackup>={jobs:demoJobs(),trash:[],settings:defaults},initialError='';
 try {const raw=localStorage.getItem(KEY);if(raw)initial=parseBackup(JSON.parse(raw));}catch {initialError='Lokalni podaci nisu dostupni ili su oštećeni. Prikazani su demonstracioni podaci.';}
-let workspace:TeamWorkspace|undefined,localJobs=initial.jobs,localSettings=initial.settings;
+let workspace:TeamWorkspace|undefined,localJobs=initial.jobs,localTrash=initial.trash,localSettings=initial.settings;
 const preferenceKeys=['showPrices','elementDefaults','documentDefaults'] as const;
 function pickPreferences(settings:Partial<Settings>):TeamPreferences{
  return Object.fromEntries(preferenceKeys.filter(key=>settings[key]!==undefined).map(key=>[key,settings[key]]));
@@ -108,7 +108,17 @@ export const useStore=create<AppState>((set,get)=>({
    if(job&&workspace.member.role==='manager')enqueue({type:'delete',job});
    return;
   }
-  set(s=>({jobs:s.jobs.filter(j=>j.id!==id),saveState:'dirty'}));
+  set(s=>{
+   const job=s.jobs.find(item=>item.id===id);
+   return job?{jobs:s.jobs.filter(item=>item.id!==id),trash:[{job,deletedAt:new Date().toISOString()},...s.trash],saveState:'dirty'}:s;
+  });
+ },
+ restoreLocalJob:id=>{
+  if(workspace)return;
+  set(s=>{
+   const entry=s.trash.find(item=>item.job.id===id);
+   return entry?{jobs:[entry.job,...s.jobs],trash:s.trash.filter(item=>item!==entry),saveState:'dirty'}:s;
+  });
  },
  duplicateJob:id=>{
   const state=get(),original=state.jobs.find(j=>j.id===id)!;
@@ -192,8 +202,13 @@ async function flushWorkspace(w:TeamWorkspace){
   while(workspace===w&&w.pending.length){
    const change=w.pending[0];
    if(change.type==='delete'){
-    await deleteTeamJob(change.job);
-    w.rows.delete(change.job.id);
+    if(change.revision===undefined){
+     change.revision=w.rows.get(change.job.id)?.revision;
+     persistPending(w);
+    }
+    await deleteTeamJob(change.job,change.revision);
+    const current=w.rows.get(change.job.id);
+    if(!current||change.revision===undefined||current.revision<=change.revision)w.rows.delete(change.job.id);
     w.epoch++;
    }else if(change.type==='preferences'){
     const row=await saveTeamPreferences(change.patch);
@@ -268,14 +283,14 @@ export async function beginTeamWorkspace(member:TeamMember){
   if(Array.isArray(pending))w.pending=pending;
  }catch{/* Only the authorized user's pending queue is loaded. */}
  workspace=w;
- useStore.setState({teamMember:member,teamPricingRevision:null,teamPricingError:'',settings:{...localSettings,...pickPricing(defaults),showPrices:false}});
+ useStore.setState({teamMember:member,trash:[],teamPricingRevision:null,teamPricingError:'',settings:{...localSettings,...pickPricing(defaults),showPrices:false}});
  publishWorkspace(w);
  await Promise.all([refreshTeamPricing(),refreshTeamWorkspace()]);
 }
 export function endTeamWorkspace(){
  if(!workspace)return;
  workspace=undefined;
- useStore.setState({jobs:localJobs,settings:localSettings,teamMember:null,teamAssignments:{},teamAssigneeOnly:{},teamConflict:false,teamPricingRevision:null,teamPricingError:'',storageError:'',saveState:'saved'});
+ useStore.setState({jobs:localJobs,trash:localTrash,settings:localSettings,teamMember:null,teamAssignments:{},teamAssigneeOnly:{},teamConflict:false,teamPricingRevision:null,teamPricingError:'',storageError:'',saveState:'saved'});
 }
 export function workspaceDraftKey(key:string){return workspace?`alu-team-draft:${workspace.member.id}:${key}`:key;}
 export function acceptTeamJob(row:TeamJob,memberId:string){
@@ -296,12 +311,13 @@ export function discardConflictingTeamChange(){
 }
 
 let timer:ReturnType<typeof setTimeout>;
-function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify({jobs:localJobs,settings:localSettings}));if(!workspace)useStore.setState({saveState:'saved',storageError:''});}catch{if(!workspace)useStore.setState({saveState:'error',storageError:'Nema dovoljno lokalnog prostora ili je čuvanje blokirano. Izvezite rezervnu kopiju i uklonite velike fotografije.'});}}
+function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify({jobs:localJobs,trash:localTrash,settings:localSettings}));if(!workspace)useStore.setState({saveState:'saved',storageError:''});}catch{if(!workspace)useStore.setState({saveState:'error',storageError:'Nema dovoljno lokalnog prostora ili je čuvanje blokirano. Izvezite rezervnu kopiju i uklonite velike fotografije.'});}}
 useStore.subscribe((s,prev)=>{
  if(workspace)return;
  if(s.jobs!==prev.jobs)localJobs=s.jobs;
+ if(s.trash!==prev.trash)localTrash=s.trash;
  if(s.settings!==prev.settings)localSettings=s.settings;
- if(s.jobs!==prev.jobs||s.settings!==prev.settings){clearTimeout(timer);timer=setTimeout(saveLocal,350);}
+ if(s.jobs!==prev.jobs||s.trash!==prev.trash||s.settings!==prev.settings){clearTimeout(timer);timer=setTimeout(saveLocal,350);}
 });
 window.addEventListener('pagehide',()=>{if(!workspace&&useStore.getState().saveState==='dirty')saveLocal();});
 if(!initialError)saveLocal();

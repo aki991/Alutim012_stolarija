@@ -43,7 +43,7 @@ export function Jobs({onNew,offers=false}:{onNew:()=>void;offers?:boolean}){
    </article>;})}</div>
    {!filtered.length&&<Empty title={offers?'Nema ponuda za ovaj izbor':'Nema poslova za ovaj izbor'} action={<button className="field-button field-button-yellow" onClick={onNew}><Plus/>Novi posao</button>}/>}
   </main>
-  {deleting&&<Modal title="Obriši posao?" onClose={()=>setDeleting(null)}><p>Posao „{deleting.customer.name}“ i njegovi elementi biće uklonjeni {teamMember?'iz zajedničke baze':'sa ovog uređaja'}.</p><div className="modal-footer"><button className="field-button field-button-light" onClick={()=>setDeleting(null)}>Otkaži</button><button className="field-button field-button-red" onClick={()=>{deleteJob(deleting.id);setDeleting(null);}}>Obriši posao</button></div></Modal>}
+  {deleting&&<Modal title="Obriši posao?" onClose={()=>setDeleting(null)}><p>Posao „{deleting.customer.name}“ biće premešten u korpu. Možete ga vratiti iz korpe.</p><div className="modal-footer"><button className="field-button field-button-light" onClick={()=>setDeleting(null)}>Otkaži</button><button className="field-button field-button-red" onClick={()=>{deleteJob(deleting.id);setDeleting(null);}}>Obriši posao</button></div></Modal>}
  </div>;
 }
 
