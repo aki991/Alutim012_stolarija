@@ -1,5 +1,5 @@
 import { NumberInput } from '../components/NumberInput';
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, ChevronDown, Circle, Expand, Hand, Minus, MousePointer2, MoveUpRight, Plus, Redo2, Save, Settings2, Spline, LockKeyhole, UnlockKeyhole, Trash2, Undo2, X } from 'lucide-react';
 import { canEditPrices, useStore, workspaceDraftKey, withPositionPrice } from '../store';
@@ -24,6 +24,7 @@ type Gesture={kind:'opening'|'draw'|'node'|'edge'|'control'|'pan'|'bar';start:Po
 const shapes:[Exclude<Shape,'free'>,string][]=[['rectangle','Pravougaoni prozor'],['triangle','Trouglasti prozor'],['trapezoid','Trapezni prozor'],['arch','Polukružni prozor'],['circle','Okrugli prozor'],['polygon','Višougaoni prozor']];
 const newId=()=>crypto.randomUUID();
 const clone=<T,>(v:T):T=>structuredClone(v);
+const portraitQuery='(orientation: portrait)';
 export function CustomEditor(){
  const editPrices=useStore(canEditPrices);
  const {id,positionId}=useParams(),location=useLocation(),navigate=useNavigate(),{jobs,settings,updateJob}=useStore(),job=jobs.find(j=>j.id===id),original=job?.positions.find(p=>p.id===positionId);
@@ -33,8 +34,12 @@ export function CustomEditor(){
  const previewRef=useRef<Geometry|null>(null);
  const ref=useRef(p),svg=useRef<SVGSVGElement>(null),gesture=useRef<Gesture|null>(null),pointers=useRef(new Map<number,Point>()),pinch=useRef<{distance:number;camera:Camera;world:Point}|null>(null);
  const [past,setPast]=useState<Position[]>([]),[future,setFuture]=useState<Position[]>([]),[preview,setPreview]=useState<Geometry|null>(null),[tool,setTool]=useState<Tool>(model?'select':'line'),[selected,setSelected]=useState<string|null>(null),[pendingArc,setPendingArc]=useState<{a:Point;b:Point}|null>(null),[rubber,setRubber]=useState<{a:Point;b:Point;via?:Point}|null>(null);
- const [camera,setCamera]=useState<Camera>({x:-400,y:-400,w:3200,h:2400}),[unit,setUnit]=useState(5),[message,setMessage]=useState(location.state?.customSaved?'Element je sačuvan u poslu.':''),[error,setError]=useState(''),[options,setOptions]=useState(false),[full,setFull]=useState(false),[shapeMenu,setShapeMenu]=useState(false),[length,setLength]=useState(''),[fixed,setFixed]=useState<'from'|'to'>('from'),[presetW,setPresetW]=useState(model||original?Math.round(p.width):2400),[presetH,setPresetH]=useState(model||original?Math.round(p.height):1600),[storageError,setStorageError]=useState(false);
+ const [camera,setCamera]=useState<Camera>({x:-400,y:-400,w:3200,h:2400}),[unit,setUnit]=useState(5),[message,setMessage]=useState(location.state?.customSaved?'Element je sačuvan u poslu.':''),[error,setError]=useState(''),[options,setOptions]=useState(false),[full,setFull]=useState(false),[length,setLength]=useState(''),[fixed,setFixed]=useState<'from'|'to'>('from'),[presetW,setPresetW]=useState(model||original?Math.round(p.width):2400),[presetH,setPresetH]=useState(model||original?Math.round(p.height):1600),[storageError,setStorageError]=useState(false);
+ const [shapeMenu,setShapeMenu]=useState<boolean|null>(null);
+ const [portrait,setPortrait]=useState(()=>window.matchMedia(portraitQuery).matches);
+ const shapePanelId=useId();
  const g=p.customGeometry||emptyGeometry(),shown=preview||g,edge=g.edges.find(e=>e.id===selected),closed=isClosed(g),errors=validatePosition(p);
+ const shapesExpanded=shapeMenu??(portrait&&!g.edges.length);
  const shutter=closed?shutterOf(p):undefined,boxInHeight=closed?openingBoxHeight(p):0;
  const [layoutOpen,setLayoutOpen]=useState(false);
  const [openingRegion,setOpeningRegion]=useState('');
@@ -70,6 +75,13 @@ export function CustomEditor(){
   const w=rect.width/scale,h=rect.height/scale;setCamera({x:b.x+b.width/2-w/2,y:b.y+b.height/2-h/2,w,h});
  }
  useEffect(()=>{try{sessionStorage.setItem(draftKey,JSON.stringify(p));}catch{setStorageError(true);}},[]);
+ useEffect(()=>{
+  const media=window.matchMedia(portraitQuery);
+  const update=()=>setPortrait(media.matches);
+  media.addEventListener('change',update);
+  update();
+  return()=>media.removeEventListener('change',update);
+ },[]);
  useEffect(()=>{const el=svg.current;if(!el)return;const observer=new ResizeObserver(()=>{const r=el.getBoundingClientRect();if(r.width&&r.height)setCamera(c=>({...c,y:c.y+c.h/2-c.w*r.height/r.width/2,h:c.w*r.height/r.width}));});observer.observe(el);fit();return()=>observer.disconnect();},[full]);
  useEffect(()=>{const el=svg.current;if(!el)return;const wheel=(e:WheelEvent)=>{if(e.ctrlKey){e.preventDefault();zoom(e.deltaY>0?1.1:.9);}};el.addEventListener('wheel',wheel,{passive:false});return()=>el.removeEventListener('wheel',wheel);},[full]);
  useEffect(()=>{if(!svg.current)return;const m=svg.current.getScreenCTM();if(m)setUnit(1/m.a);},[camera,full]);
@@ -196,7 +208,13 @@ export function CustomEditor(){
    chooseTool('opening');
    setMessage('Raspored je napravljen. Označite krilo koje se otvara.');
   }}/>}
-  <section className="custom-shapes"><button className="custom-shapes-toggle" onClick={()=>setShapeMenu(!shapeMenu)} aria-expanded={shapeMenu}><Circle/><span>Početni oblici</span><ChevronDown/></button><div className={`custom-shape-list ${shapeMenu?'is-open':''}`}>{shapes.map(([shape,label])=><button key={shape} aria-label={label} onClick={()=>useShape(shape)}><CustomDrawing geometry={presetGeometry(shape,600,shape==='arch'?600:500)} compact/><span>{label}</span></button>)}</div><div className="custom-preset-measures"><Field label={g.preset==='circle'?'Prečnik (mm)':'Širina oblika (mm)'}><NumberInput inputMode="numeric" min="200" max="20000" value={presetW} onChange={e=>setPresetW(Math.round(+e.target.value))}/></Field>{g.preset!=='circle'&&<Field label="Visina oblika (mm)"><NumberInput inputMode="numeric" min="200" max="20000" disabled={g.preset==='arch'&&g.edges.length===2} value={presetH} onChange={e=>setPresetH(Math.round(+e.target.value))}/></Field>}<button className="field-button field-button-light" disabled={g.preset==='free'&&!hasLinkedArch(g)} onClick={applyPresetMeasures}>Primeni mere oblika</button></div></section>
+  <section className="custom-shapes">
+   <button className="custom-shapes-toggle" type="button" onClick={()=>setShapeMenu(!shapesExpanded)} aria-expanded={shapesExpanded} aria-controls={shapePanelId}><Circle/><span>Početni oblici</span><ChevronDown/></button>
+   <div className={`custom-shape-panel${shapesExpanded?' is-open':''}`} id={shapePanelId}>
+    <div className="custom-shape-list">{shapes.map(([shape,label])=><button key={shape} aria-label={label} onClick={()=>useShape(shape)}><CustomDrawing geometry={presetGeometry(shape,600,shape==='arch'?600:500)} compact/><span>{label}</span></button>)}</div>
+    <div className="custom-preset-measures"><Field label={g.preset==='circle'?'Prečnik (mm)':'Širina oblika (mm)'}><NumberInput inputMode="numeric" min="200" max="20000" value={presetW} onChange={e=>setPresetW(Math.round(+e.target.value))}/></Field>{g.preset!=='circle'&&<Field label="Visina oblika (mm)"><NumberInput inputMode="numeric" min="200" max="20000" disabled={g.preset==='arch'&&g.edges.length===2} value={presetH} onChange={e=>setPresetH(Math.round(+e.target.value))}/></Field>}<button className="field-button field-button-light" disabled={g.preset==='free'&&!hasLinkedArch(g)} onClick={applyPresetMeasures}>Primeni mere oblika</button></div>
+   </div>
+  </section>
   <div className="custom-feedback" aria-live="polite">{error||closed&&errors.length?<p role="alert">{error||errors[0]}</p>:message?<p role="status">{message}</p>:<span>{closed?(validateGeometry(g).length?'Proverite konturu.':'Zatvorena kontura · element sa ramom'):'Nacrt se čuva na ovom uređaju · kontura nije zatvorena'}</span>}{storageError&&<p role="alert">Nacrt ne može da se sačuva na uređaju. Sačuvajte element u poslu.</p>}</div>
   <footer className="custom-footer">{settings.showPrices!==false&&<div><span>{p.quantity} {p.quantity===1?'komad':'komada'} · okvirno</span><strong data-testid="custom-position-price">{price?euro(price.total):'—'}</strong></div>}<button className="field-button field-button-yellow" disabled={!!errors.length} onClick={()=>save(true)}><Check/>{job.positions.some(v=>v.id===p.id)?'Sačuvaj u poslu':'Dodaj u posao'}</button></footer>
   {options&&<PositionOptions position={p} onChange={patch} onClose={()=>{setOptions(false);if(shutter)fit();}}/>}

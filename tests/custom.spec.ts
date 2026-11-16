@@ -1,6 +1,6 @@
 import {test,expect,type Page} from '@playwright/test';
 const route='/posao/AT-2026-012/nov/nacrtaj';
-async function shape(page:Page,label:string){if(page.viewportSize()!.width<=700)await page.getByRole('button',{name:'Početni oblici',exact:true}).click();await page.getByRole('button',{name:label,exact:true}).click();}
+async function shape(page:Page,label:string){const preset=page.getByRole('button',{name:label,exact:true});if(!await preset.isVisible())await page.getByRole('button',{name:'Početni oblici',exact:true}).click();await preset.click();}
 async function draft(page:Page){return page.evaluate(()=>{const match=location.pathname.match(/^\/posao\/([^/]+)\/(?:element\/([^/]+)|nov\/nacrtaj)/)!;const key=`alu-custom-draft-v1:${match[1]}:${match[2]||'new'}`;return JSON.parse(sessionStorage.getItem(key)!);});}
 async function xy(page:Page,x:number,y:number){return page.locator('.custom-canvas').evaluate((el,p)=>{const q=new DOMPoint(p.x,p.y).matrixTransform((el as SVGSVGElement).getScreenCTM()!);return{x:q.x,y:q.y};},{x,y});}
 async function drag(page:Page,a:[number,number],b:[number,number]){const from=await xy(page,...a),to=await xy(page,...b);await page.mouse.move(from.x,from.y);await page.mouse.down();await page.mouse.move(to.x,to.y,{steps:8});await page.mouse.up();}

@@ -1,10 +1,33 @@
 import {test,expect,type Page} from '@playwright/test';
 const route='/posao/AT-2026-012/nov/nacrtaj';
 async function draft(page:Page){return page.evaluate(()=>{const m=location.pathname.match(/^\/posao\/([^/]+)\/(?:element\/([^/]+)|nov\/nacrtaj)/)!;return JSON.parse(sessionStorage.getItem(`alu-custom-draft-v1:${m[1]}:${m[2]||'new'}`)!);});}
-async function shape(page:Page,label='Trouglasti prozor'){if(page.viewportSize()!.width<=700)await page.getByRole('button',{name:'Početni oblici',exact:true}).click();await page.getByRole('button',{name:label,exact:true}).click();}
+async function shape(page:Page,label='Trouglasti prozor'){const preset=page.getByRole('button',{name:label,exact:true});if(!await preset.isVisible())await page.getByRole('button',{name:'Početni oblici',exact:true}).click();await preset.click();}
 async function dimension(page:Page,id:string){const close=page.getByRole('button',{name:'Zatvori meru',exact:true});if(await close.isVisible())await close.click();await page.locator(`.custom-canvas [data-dimension="${id}"]`).click();}
 async function xy(page:Page,x:number,y:number){return page.locator('.custom-canvas').evaluate((el,p)=>{const v=new DOMPoint(p.x,p.y).matrixTransform((el as SVGSVGElement).getScreenCTM()!);return{x:v.x,y:v.y};},{x,y});}
 const length=(g:any,i:number)=>{const e=g.edges[i],a=g.points.find((p:any)=>p.id===e.from),b=g.points.find((p:any)=>p.id===e.to);return Math.hypot(b.x-a.x,b.y-a.y);};
+test('Svih šest početnih oblika se vidi odmah na uspravnom telefonu i tabletu',async({page},testInfo)=>{
+ const toggle=page.getByRole('button',{name:'Početni oblici',exact:true});
+ const presets=page.locator('.custom-shape-list').getByRole('button');
+ for(const size of [{width:320,height:568},{width:390,height:844},{width:685,height:1050}]){
+  await page.setViewportSize(size);
+  await page.goto(route);
+  await expect(toggle).toHaveAttribute('aria-expanded','true');
+  await expect(presets).toHaveCount(6);
+  for(const preset of await presets.all())await expect(preset).toBeInViewport({ratio:1});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:testInfo.outputPath(`oblici-${size.width}.png`)});
+ }
+ await page.setViewportSize({width:640,height:480});
+ await expect(toggle).toHaveAttribute('aria-expanded','false');
+ await page.setViewportSize({width:390,height:844});
+ await expect(toggle).toHaveAttribute('aria-expanded','true');
+ await page.getByRole('button',{name:'Okrugli prozor',exact:true}).click();
+ await expect(toggle).toHaveAttribute('aria-expanded','false');
+ await toggle.click();
+ await page.getByLabel('Prečnik (mm)',{exact:true}).fill('1200');
+ await page.getByRole('button',{name:'Primeni mere oblika'}).click();
+ await expect(page.getByLabel('Ukupne mere')).toContainText('Širina 1200 mm');
+});
 for(const size of [{width:320,height:844},{width:390,height:844},{width:768,height:1024},{width:1024,height:768},{width:1440,height:900}]){
  test(`Dva reda alata, cele mere i dodir oznaka: ${size.width}`,async({page})=>{
   await page.setViewportSize(size);await page.goto(route);await shape(page);const tools=page.getByRole('navigation',{name:'Alati za crtanje'});await expect(tools.getByRole('button')).toHaveCount(8);const rows=await tools.getByRole('button').evaluateAll(es=>es.map(e=>({x:e.getBoundingClientRect().x,y:Math.round(e.getBoundingClientRect().y),w:e.getBoundingClientRect().width,h:e.getBoundingClientRect().height})));expect(new Set(rows.map(r=>r.y)).size).toBe(2);expect(rows.every(r=>r.x>=0&&r.x+r.w<=size.width+1&&r.h>=40)).toBe(true);expect(await tools.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
