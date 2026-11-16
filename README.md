@@ -102,7 +102,7 @@ Posle testova primeri su u `output/pdf/AT-2026-012-ponuda.pdf` i `output/pdf/AT-
 
 ## Offline
 
-Na ekranu za prijavu ili pri pokretanju aplikacije bez veze izaberite **Radi bez interneta**. Novi posao počinje sa statusom **Merenje** i čuva se na uređaju. Kada posle rada bez veze ponovo otvorite aplikaciju uz internet, otvara se prijava. Posle prijave dostupni su i lokalni i timski poslovi.
+Na ekranu za prijavu ili pri pokretanju aplikacije bez veze izaberite **Radi bez interneta**. Novi posao počinje sa statusom **Merenje** i čuva se na uređaju. Kada se vratite u aplikaciju uz internet, sačuvana sesija otvara **Poslove**. Ako sesije nema ili se ne može obnoviti, otvara se prijava.
 
 Posle prijave, u **Poslovima** su vidljiva i neposlata merenja sa uređaja, označena sa **Na telefonu**. Dugme **Dodaj u bazu** prenosi mere i fotografije u tim sa statusom **Poslati ponudu**. Lokalna kopija ostaje na uređaju i nudi dugme **Otvori u timu**.
 

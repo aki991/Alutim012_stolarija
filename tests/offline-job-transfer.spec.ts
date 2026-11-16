@@ -6,6 +6,7 @@ test('Poslovi prikazuju lokalno merenje posle prijave i prenose ga na zahtev', a
  const member: TeamMember = { id: '10000000-0000-4000-8000-000000000001', name: 'Miloš', role: 'worker', active: true };
  const customer = 'Merenje kod kupca';
  const jobs = new Map<string, TeamJob>();
+ let passwordSignIns = 0;
  let creates = 0;
  let statusChanges = 0;
  let failStatusChange = true;
@@ -20,6 +21,7 @@ test('Poslovi prikazuju lokalno merenje posle prijave i prenose ga na zahtev', a
   if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
   switch (endpoint) {
    case 'token': {
+    passwordSignIns++;
     expect(request.postDataJSON()).toMatchObject({ email: 'milos@alutim012.local', password: 'test-password' });
     const token = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: member.id, exp: Date.now() / 1000 + 3600 })}.signature`;
     return reply({ access_token: token, refresh_token: 'test-refresh', expires_in: 3600,
@@ -148,10 +150,10 @@ test('Poslovi prikazuju lokalno merenje posle prijave i prenose ga na zahtev', a
  await page.getByRole('link').filter({ has: localJob }).click();
  await expect(page.getByText('Sačuvano lokalno')).toBeVisible();
  await page.goto('/');
- await expect(page.getByLabel('Lozinka', { exact: true })).toBeVisible();
- await offlineWork.click();
+ await expect(page).toHaveURL(/\/poslovi$/);
+ await expect(page.getByLabel('Lozinka', { exact: true })).toHaveCount(0);
  await page.getByRole('link').filter({ has: localJob }).click();
- await page.getByRole('button', { name: 'Otvori u timu' }).click();
  await expect(page.getByText('Sačuvano u bazi')).toBeVisible();
+ expect(passwordSignIns).toBe(1);
  expect(creates).toBe(2);
 });
