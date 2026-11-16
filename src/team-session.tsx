@@ -1,16 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, LogIn, WifiOff } from 'lucide-react';
-import { beginTeamWorkspace, endTeamWorkspace, refreshTeamWorkspace, useStore } from './store';
+import { beginTeamWorkspace, endTeamWorkspace, findLocalJob, refreshTeamWorkspace, useStore } from './store';
 import { fetchTeamConversations, fetchTeamMember, fetchTeamMessageNotices, fetchTeamNotifications, markTeamMessagesRead, markTeamNotificationRead, type TeamConversation, type TeamNotification } from './services/team-api';
 import { getSupabase, isSupabaseConfigured } from './services/supabase';
 import { removeDeviceNotifications } from './components/DeviceNotifications';
 import { loginEmail, usernameHint, usernamePattern } from '../supabase/functions/_shared/team-login';
+import { offlineJobTransferPath } from './services/offline-job-transfer';
 
 const teamLoginRequired = (import.meta.env.PROD && import.meta.env.MODE !== 'test') ||
  import.meta.env.VITE_TEAM_LOGIN_REQUIRED === 'true';
 const offlineModeKey = 'alu-offline-mode-v1';
-const teamOnlyPath = /^\/(tim|nalog|poruke|obavestenja|dodeli-merenje)(\/|$)/;
+const teamOnlyPath = /^\/(tim|nalog|poruke|obavestenja|dodeli-merenje|prebaci-u-tim)(\/|$)/;
 const OfflineWork = createContext({ offline: false, openOffline: () => {} });
 export const useOfflineWork = () => useContext(OfflineWork);
 const TeamInbox = createContext({ items: [] as TeamNotification[], messageAlerts: [] as TeamConversation[], error: '', markRead: async (_id: string) => {},
@@ -105,13 +106,17 @@ export function TeamGate({ children }: { children: ReactNode }) {
   setOfflineMode(value);
  }, []);
  const onTeamReady = useCallback(() => selectMode(false), [selectMode]);
- const openOffline = () => navigate('/radi-bez-interneta', { replace: true });
+ const openOffline = () => navigate('/radi-bez-interneta', {
+  replace: true, state: { localJobId: location.state?.localJobId },
+ });
 
  useLayoutEffect(() => {
   if (offline) endTeamWorkspace();
   if (startingOffline) selectMode(true);
  }, [member, offline, selectMode, startingOffline]);
- const localPage = startingOffline || teamOnlyPath.test(location.pathname) ? <Navigate to="/poslovi" replace/> : children;
+ const localJobId = startingOffline && typeof location.state?.localJobId === 'string' ? location.state.localJobId : null;
+ const localDestination = localJobId && findLocalJob(localJobId) ? `/posao/${encodeURIComponent(localJobId)}` : '/poslovi';
+ const localPage = startingOffline || teamOnlyPath.test(location.pathname) ? <Navigate to={localDestination} replace/> : children;
  return <OfflineWork.Provider value={{ offline, openOffline }}>
   {offline ? (member ? null : localPage)
    : <TeamSession loginPath={loginPath} onTeamReady={onTeamReady}>{children}</TeamSession>}
@@ -181,7 +186,8 @@ function TeamSession({ children, loginPath, onTeamReady }: { children: ReactNode
  if (userId && member?.id === userId) {
   const requested = location.state?.from;
   const destination = typeof requested === 'string' && requested.startsWith('/') && !requested.startsWith('//') ? requested : '/obavestenja';
-  return <TeamInboxProvider key={userId}>{loginPath ? <Navigate to={destination} replace/> : children}</TeamInboxProvider>;
+  const transferState = destination === offlineJobTransferPath ? { localJobId: location.state?.localJobId } : undefined;
+  return <TeamInboxProvider key={userId}>{loginPath ? <Navigate to={destination} state={transferState} replace/> : children}</TeamInboxProvider>;
  }
  if (loginPath) return <Login/>;
  if (teamLoginRequired || teamOnlyPath.test(location.pathname)) return <Navigate to="/prijava" state={{ from: location.pathname + location.search + location.hash }} replace/>;
@@ -205,6 +211,8 @@ function OfflineWorkButton() {
 }
 
 function Login() {
+ const { state } = useLocation();
+ const transferring = state?.from === offlineJobTransferPath && typeof state.localJobId === 'string';
  const [identifier, setIdentifier] = useState('');
  const [password, setPassword] = useState('');
  const [showPassword, setShowPassword] = useState(false);
@@ -238,7 +246,7 @@ function Login() {
   } finally { setBusy(false); }
  }
  return <LoginFrame homeLink={!teamLoginRequired}><h1>Prijava</h1>
-  <p className="team-login-subtitle">Merenje stolarije i izrada ponuda</p>
+  <p className="team-login-subtitle">{transferring ? 'Prijavite se da biste prebacili izabrani posao u tim.' : 'Merenje stolarije i izrada ponuda'}</p>
   {!isSupabaseConfigured && <p className="team-login-alert" role="alert">Prijava zaposlenih zahteva podešenu vezu sa bazom podataka.</p>}
   <form className="team-login-form" onSubmit={submit} noValidate>
    <label htmlFor="team-identifier">E-mail ili korisničko ime</label>

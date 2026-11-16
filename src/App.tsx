@@ -17,6 +17,8 @@ import { findCatalogModel } from './catalog-models';
 import { PortaCatalog, PortaEditor } from './pages-porta-royal';
 import { AccountPage, AssignmentPage, MessagesPage, NotificationsPage } from './pages-team';
 import { TrashPage } from './pages-trash';
+import { OfflineJobTransferPage } from './components/OfflineJobTransfer';
+import { offlineJobTransferPath } from './services/offline-job-transfer';
 import type { ReactNode } from 'react';
 
 export default function App(){
@@ -36,6 +38,7 @@ export default function App(){
    <Route path="/dodeli-merenje" element={<AssignmentPage/>}/>
    <Route path="/dodeli-merenje/:id" element={<AssignmentPage/>}/>
    <Route path="/nalog" element={<AccountPage/>}/>
+   <Route path={offlineJobTransferPath} element={<OfflineJobTransferPage/>}/>
    <Route path="/poslovi" element={<Jobs onNew={()=>newJob()}/>}/>
    <Route path="/korpa" element={<TrashPage/>}/>
    <Route path="/ponude" element={<Jobs offers onNew={()=>newJob()}/>}/>

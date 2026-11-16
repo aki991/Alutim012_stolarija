@@ -28,6 +28,7 @@ import { maxModelDimension } from './model-layout';
 import { findCatalogModel } from './catalog-models';
 import { portaCatalogPath, portaRoyalTypes } from './porta-royal';
 import { TeamJobPanel } from './pages-team';
+import { OfflineJobTransferButton } from './components/OfflineJobTransfer';
 
 export function TypeChooser(){
  const {id}=useParams(),job=useStore(s=>s.jobs.find(j=>j.id===id));
@@ -41,6 +42,8 @@ export function MissingJob(){return <Empty title="Posao nije pronađen" action={
 
 export function Editor(){
  const {id}=useParams(),state=useStore(),{jobs,settings,updateJob,saveState,teamMember}=state,job=jobs.find(j=>j.id===id);
+ const {state:locationState}=useLocation();
+ const {offline}=useOfflineWork();
  const [dataOpen,setDataOpen]=useState(false),[deleting,setDeleting]=useState<Position|null>(null);
  if(!job)return <MissingJob/>;
  const editable=canEditJob(state,job),waiting=awaitingMeasurements(state,job);
@@ -54,7 +57,12 @@ export function Editor(){
  function move(index:number,by:number){const positions=[...job!.positions];[positions[index],positions[index+by]]=[positions[index+by],positions[index]];updateJob(job!.id,{positions});}
  return <div className="field-page summary-page"><FieldHeader title={`Posao: ${job.customer.name}`} back="/poslovi"/>
  <main className="job-summary">
-  <div className="summary-customer"><button aria-label="Podaci o kupcu" className="summary-customer-info" onClick={()=>setDataOpen(true)}><UserRound/><span><strong>{job.customer.name}</strong><small>{job.customer.address||(editable?'Dodaj podatke o kupcu':'Adresa nije navedena')}</small></span>{editable&&<Pencil size={18}/>}</button><JobStatus value={job.status} name={job.customer.name} locked={statusLocked} onChange={status=>{updateJob(job.id,{status});useStore.getState().retrySave();}}/></div><div className="summary-toolbar"><Saved state={saveState} shared={Boolean(teamMember)}/></div>
+  <div className="summary-customer"><button aria-label="Podaci o kupcu" className="summary-customer-info" onClick={()=>setDataOpen(true)}><UserRound/><span><strong>{job.customer.name}</strong><small>{job.customer.address||(editable?'Dodaj podatke o kupcu':'Adresa nije navedena')}</small></span>{editable&&<Pencil size={18}/>}</button><JobStatus value={job.status} name={job.customer.name} locked={statusLocked} onChange={status=>{updateJob(job.id,{status});useStore.getState().retrySave();}}/></div>
+  <div className="summary-toolbar">
+   {offline&&job.positions.length>0&&<OfflineJobTransferButton key={job.id} job={job}/>}
+   <Saved state={saveState} shared={Boolean(teamMember)}/>
+  </div>
+  {teamMember&&locationState?.offlineJobTransferred===true&&<p className="field-message" role="status">Posao je prebačen u tim.</p>}
   {waiting?<section className="team-card team-measurement-wait"><h2>Merenje je u toku</h2><p>Elementi, mere i ponuda biće dostupni kad zadužena osoba potvrdi završetak merenja.</p></section>:
   !job.positions.length?<Empty title={editable?"Dodajte prvi element":"Nema sačuvanih elemenata"} action={editable&&<Link className="field-button field-button-red" to={`/posao/${job.id}/dodaj`}><Plus/>Dodaj element</Link>}/>:
   <div className={settings.showPrices===false?"summary-grid without-prices":"summary-grid"}><section className="job-lines" aria-label="Elementi posla"><div className="job-line-head"><span>#</span><span>Element</span><span>Dimenzije (mm)</span><span>Kom.</span>{settings.showPrices!==false&&<span>Cena</span>}<span/></div>

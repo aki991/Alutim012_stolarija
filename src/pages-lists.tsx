@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { BriefcaseBusiness, ChevronRight, Copy, FileText, LayoutGrid, MoreVertical, Plus, Search, Trash2 } from 'lucide-react';
-import { assignedMeasurement, awaitingMeasurements, canEditJob, useStore } from './store';
+import { assignedMeasurement, awaitingMeasurements, canEditJob, listLocalJobs, useStore } from './store';
 import { isActiveJob, jobStatuses, type Job, type Package, type Settings } from './models';
 import { useNavigation } from './navigation';
 import { JobStatus } from './components/JobStatus';
@@ -17,6 +17,8 @@ import { ElementGlyph } from './components/ElementGlyph';
 import type { ElementDimensions } from './components/DimensionControls';
 import { portaCatalogPath, type PortaSelection } from './porta-royal';
 import { useOfflineWork } from './team-session';
+import { OfflineJobTransferButton } from './components/OfflineJobTransfer';
+import { isUnfinishedLocalTransfer, unsentLocalJobs } from './services/offline-job-transfer';
 export type CatalogChoice={type:string;template?:number;model?:string;porta?:PortaSelection&{size?:ElementDimensions}};
 export function catalogChoicePath(jobId:string,choice:CatalogChoice){
  const path=`/posao/${jobId}/nov/${choice.type}`;
@@ -35,16 +37,31 @@ export function Jobs({onNew,offers=false}:{onNew:()=>void;offers?:boolean}){
  const {offline}=useOfflineWork();
  const [search,setSearch]=useState(''),[filter,setFilter]=useState(params.get('status')||'Sve'),[deleting,setDeleting]=useState<Job|null>(null);
  const selectedFilter = jobStatuses.some(status=>status===filter) ? filter : 'Sve';
- const filtered=jobs.filter(j=>(offers?j.status==='Ponuda'||j.status==='Poslati ponudu':selectedFilter==='Sve'||selectedFilter===j.status)&&`${j.customer.name} ${j.customer.address} ${j.id}`.toLowerCase().includes(search.toLowerCase()));
+ const matches=(job:Job)=>(offers?job.status==='Ponuda'||job.status==='Poslati ponudu':selectedFilter==='Sve'||selectedFilter===job.status)
+  &&`${job.customer.name} ${job.customer.address} ${job.id}`.toLowerCase().includes(search.toLowerCase());
+ const localJobs=teamMember&&!offers?unsentLocalJobs(listLocalJobs(),jobs):[];
+ const filtered=jobs.filter(job=>matches(job)&&!(teamMember&&state.teamAssignments[job.id]===teamMember.id&&isUnfinishedLocalTransfer(job,localJobs)));
+ const deviceJobs=localJobs.filter(matches);
  const subtitle=offline?'Rad bez interneta · Poslovi na ovom uređaju':offers?'Pregled pripremljenih ponuda i poslova koji čekaju slanje ponude.':'Pregled, pretraga i nastavak rada na poslovima.';
  return <div className="module-page"><ModuleHeader title={offers?'Ponude':'Svi poslovi'} subtitle={subtitle} icon={offers?FileText:BriefcaseBusiness}><button className="field-button field-button-yellow module-new-job" onClick={onNew}><Plus/>Novi posao</button></ModuleHeader>
   <main className="module-content"><div className="jobs-controls"><label className="jobs-search"><Search/><input aria-label="Pretraži poslove" placeholder="Pretraži posao…" value={search} onChange={e=>setSearch(e.target.value)}/></label>{!offers&&<div className="jobs-status-filters" role="group" aria-label="Status posla">{[['Sve','Svi'],...jobStatuses.map(status=>[status,status])].map(([value,label])=><button key={value} className={selectedFilter===value?'selected':''} aria-pressed={selectedFilter===value} onClick={()=>setFilter(value)}>{label}</button>)}</div>}</div>
-   <div className="job-cards">{filtered.map(job=>{
+   <div className="job-cards">
+    {deviceJobs.map(job=><article className="job-card local-job-card" key={`local:${job.id}`}>
+     <Link className="local-job-details" to="/radi-bez-interneta" state={{localJobId:job.id}}>
+      <span className="job-card-sketch">{job.positions[0]?<Drawing position={job.positions[0]} compact/>:<BriefcaseBusiness/>}</span>
+      <div className="job-card-info">
+       <h2>{job.customer.name}</h2>
+       <p><span className="local-job-label">Na telefonu</span>{!job.positions.length&&' · Dodajte izmerene elemente'}</p>
+      </div>
+     </Link>
+     <OfflineJobTransferButton job={job} fromJobs/>
+    </article>)}
+    {filtered.map(job=>{
     const waiting=awaitingMeasurements(state,job),editable=canEditJob(state,job);
     return <article className="job-card" key={job.id}><div className="job-card-open"><Link to={`/posao/${job.id}`} className="job-card-sketch">{!waiting&&job.positions[0]?<Drawing position={job.positions[0]} compact/>:<BriefcaseBusiness/>}</Link><Link to={`/posao/${job.id}${offers?'/ponuda':''}`} className="job-card-info"><h2>{job.customer.name}</h2><p>{waiting?'Čeka završetak merenja':`${job.positions.length} ${job.positions.length===1?'pozicija':'pozicije'} · ${job.positions.reduce((n,p)=>n+p.quantity,0)} elemenata`}</p></Link><span className="job-card-status"><JobStatus value={job.status} name={job.customer.name} locked={!editable||assignedMeasurement(state,job)} onChange={status=>{updateJob(job.id,{status});useStore.getState().retrySave();}}/></span><span className="job-card-value">{!waiting&&settings.showPrices!==false&&<strong>{jobPriceLabel(job,settings)}</strong>}<small>{job.date?new Date(job.date+'T12:00:00').toLocaleDateString('sr-Latn-RS'):'Datum nije naveden'}</small></span><Link to={`/posao/${job.id}`} aria-label={`Otvori ${job.customer.name}`}><ChevronRight className="job-card-arrow"/></Link>
     </div>{editable&&<details className="job-card-menu"><summary className="field-icon-button" aria-label={`Meni posla ${job.customer.name}`}><MoreVertical/></summary><div>{!waiting&&<button aria-label={`Dupliraj ${job.customer.name}`} onClick={()=>navigate(`/posao/${duplicateJob(job.id)}`)}><Copy/>Dupliraj</button>}{teamMember?.role!=='worker'&&<button aria-label={`Obriši ${job.customer.name}`} onClick={e=>{setDeleting(job);e.currentTarget.closest('details')?.removeAttribute('open');}}><Trash2/>Obriši</button>}</div></details>}
    </article>;})}</div>
-   {!filtered.length&&<Empty title={offers?'Nema ponuda za ovaj izbor':'Nema poslova za ovaj izbor'} action={<button className="field-button field-button-yellow" onClick={onNew}><Plus/>Novi posao</button>}/>}
+   {!filtered.length&&!deviceJobs.length&&<Empty title={offers?'Nema ponuda za ovaj izbor':'Nema poslova za ovaj izbor'} action={<button className="field-button field-button-yellow" onClick={onNew}><Plus/>Novi posao</button>}/>}
   </main>
   {deleting&&<Modal title="Obriši posao?" onClose={()=>setDeleting(null)}><p>Posao „{deleting.customer.name}“ biće premešten u korpu. Možete ga vratiti iz korpe.</p><div className="modal-footer"><button className="field-button field-button-light" onClick={()=>setDeleting(null)}>Otkaži</button><button className="field-button field-button-red" onClick={()=>{deleteJob(deleting.id);setDeleting(null);}}>Obriši posao</button></div></Modal>}
  </div>;

@@ -104,6 +104,8 @@ Posle testova primeri su u `output/pdf/AT-2026-012-ponuda.pdf` i `output/pdf/AT-
 
 Na ekranu za prijavu izaberite **Radi bez interneta**. Poslovi ostaju na uređaju i dostupni su i posle ponovnog otvaranja aplikacije. Kad se veza vrati, **Prijava zaposlenih** otvara timski rad. Lokalni poslovi ostaju dostupni preko **Nalog → Radi bez interneta** i ne šalju se automatski u bazu.
 
+Posle prijave, u **Poslovima** su vidljiva i neposlata merenja sa uređaja, označena sa **Na telefonu**. Dugme **Dodaj u bazu** prenosi mere i fotografije u tim sa statusom **Poslati ponudu**. Lokalna kopija ostaje na uređaju i nudi dugme **Otvori u timu**.
+
 Posle prvog uspešnog otvaranja produkcione verzije service worker kešira aplikaciju, fontove, slike i PDF module. Provereno je ponovno otvaranje i PDF izvoz bez interneta. Za Android tablet preko LAN adrese potrebna je HTTPS verzija za service worker i Web Share; na localhost/127.0.0.1 radi i HTTP. Razvojni Vite server nema offline keš.
 
 ## Provere

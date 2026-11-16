@@ -41,6 +41,10 @@ export const awaitingMeasurements=(state:JobAccess,job:Job)=>assignedMeasurement
 export const canEditPrices=(state:Pick<AppState,'teamMember'>)=>state.teamMember?.role!=='worker';
 export const hasPositionPriceCorrection=(p:Position)=>p.manualPrice!=null||Boolean(p.extraCost);
 export const withPositionPrice=(p:Position,source?:Position)=>({...p,manualPrice:source?.manualPrice??null,extraCost:source?.extraCost??0});
+export function workerJobPricing(transport:number):Partial<Job>{
+ return {package:'Standard',transport,discount:0,discountMode:undefined,surcharge:undefined,surchargeMode:undefined,
+  manualTotal:undefined,extraCost:0,vat:undefined,vatMode:undefined};
+}
 type TeamMutation=
  | {type:'create';job:Job}
  | {type:'update';id:string;patch:Partial<Job>;expected:Partial<Job>;updated:string}
@@ -51,7 +55,8 @@ interface TeamWorkspace {
  preferences:TeamPreferencesRow|null; preferencesError:string;
  running:boolean; refreshing:boolean; pricingRefreshing:boolean; conflict:boolean; mutationError:string; connectionError:string; draftError:string;
 }
-let initial:ReturnType<typeof parseBackup>={jobs:demoJobs(),trash:[],settings:defaults},initialError='';
+const sampleJobs=demoJobs();
+let initial:ReturnType<typeof parseBackup>={jobs:sampleJobs,trash:[],settings:defaults},initialError='';
 try {const raw=localStorage.getItem(KEY);if(raw)initial=parseBackup(JSON.parse(raw));}catch {initialError='Lokalni podaci nisu dostupni ili su oštećeni. Prikazani su demonstracioni podaci.';}
 let workspace:TeamWorkspace|undefined,localJobs=initial.jobs,localTrash=initial.trash,localSettings=initial.settings;
 const preferenceKeys=['showPrices','elementDefaults','documentDefaults'] as const;
@@ -131,8 +136,7 @@ export const useStore=create<AppState>((set,get)=>({
   const state=get(),original=state.jobs.find(j=>j.id===id)!;
   const fresh=jobFromSettings(state.settings),job=structuredClone(original);
   const worker=state.teamMember?.role==='worker';
-  const pricing=worker?{package:fresh.package,transport:fresh.transport,discount:0,discountMode:undefined,surcharge:undefined,
-   surchargeMode:undefined,manualTotal:undefined,extraCost:0,vat:undefined,vatMode:undefined}:{};
+  const pricing=worker?workerJobPricing(fresh.transport):{};
   const copy={...job,...pricing,id:fresh.id,customer:{...job.customer,name:job.customer.name+' (kopija)'},
    status:fresh.status,createdAt:fresh.createdAt,updated:fresh.updated,
    positions:job.positions.map(p=>({...p,id:uid()}))};
@@ -298,6 +302,13 @@ export function endTeamWorkspace(){
  if(!workspace)return;
  workspace=undefined;
  useStore.setState({jobs:localJobs,trash:localTrash,settings:localSettings,teamMember:null,teamAssignments:{},teamAssigneeOnly:{},teamConflict:false,teamPricingRevision:null,teamPricingError:'',storageError:'',saveState:'saved'});
+}
+export function findLocalJob(id:string){
+ return localJobs.find(job=>job.id===id);
+}
+export function listLocalJobs():Job[]{
+ return localJobs.filter(job=>!sampleJobs.some(sample=>sample.id===job.id
+  &&sample.customer.name===job.customer.name&&sample.customer.email===job.customer.email));
 }
 export function workspaceDraft(key:string,offline:boolean){
  const memberId=workspace?.member.id;
