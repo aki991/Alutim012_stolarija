@@ -16,6 +16,7 @@ import { Drawing } from './components/Drawing';
 import { ElementGlyph } from './components/ElementGlyph';
 import type { ElementDimensions } from './components/DimensionControls';
 import { portaCatalogPath, type PortaSelection } from './porta-royal';
+import { useOfflineWork } from './team-session';
 export type CatalogChoice={type:string;template?:number;model?:string;porta?:PortaSelection&{size?:ElementDimensions}};
 export function catalogChoicePath(jobId:string,choice:CatalogChoice){
  const path=`/posao/${jobId}/nov/${choice.type}`;
@@ -31,10 +32,12 @@ export function catalogChoicePath(jobId:string,choice:CatalogChoice){
 
 export function Jobs({onNew,offers=false}:{onNew:()=>void;offers?:boolean}){
  const state=useStore(),{jobs,settings,deleteJob,duplicateJob,updateJob,teamMember}=state,navigate=useNavigate(),[params]=useSearchParams();
+ const {offline}=useOfflineWork();
  const [search,setSearch]=useState(''),[filter,setFilter]=useState(params.get('status')||'Sve'),[deleting,setDeleting]=useState<Job|null>(null);
  const selectedFilter = jobStatuses.some(status=>status===filter) ? filter : 'Sve';
  const filtered=jobs.filter(j=>(offers?j.status==='Ponuda'||j.status==='Poslati ponudu':selectedFilter==='Sve'||selectedFilter===j.status)&&`${j.customer.name} ${j.customer.address} ${j.id}`.toLowerCase().includes(search.toLowerCase()));
- return <div className="module-page"><ModuleHeader title={offers?'Ponude':'Svi poslovi'} subtitle={offers?'Pregled pripremljenih ponuda i poslova koji čekaju slanje ponude.':'Pregled, pretraga i nastavak rada na poslovima.'} icon={offers?FileText:BriefcaseBusiness}><button className="field-button field-button-yellow module-new-job" onClick={onNew}><Plus/>Novi posao</button></ModuleHeader>
+ const subtitle=offline?'Rad bez interneta · Poslovi na ovom uređaju':offers?'Pregled pripremljenih ponuda i poslova koji čekaju slanje ponude.':'Pregled, pretraga i nastavak rada na poslovima.';
+ return <div className="module-page"><ModuleHeader title={offers?'Ponude':'Svi poslovi'} subtitle={subtitle} icon={offers?FileText:BriefcaseBusiness}><button className="field-button field-button-yellow module-new-job" onClick={onNew}><Plus/>Novi posao</button></ModuleHeader>
   <main className="module-content"><div className="jobs-controls"><label className="jobs-search"><Search/><input aria-label="Pretraži poslove" placeholder="Pretraži posao…" value={search} onChange={e=>setSearch(e.target.value)}/></label>{!offers&&<div className="jobs-status-filters" role="group" aria-label="Status posla">{[['Sve','Svi'],...jobStatuses.map(status=>[status,status])].map(([value,label])=><button key={value} className={selectedFilter===value?'selected':''} aria-pressed={selectedFilter===value} onClick={()=>setFilter(value)}>{label}</button>)}</div>}</div>
    <div className="job-cards">{filtered.map(job=>{
     const waiting=awaitingMeasurements(state,job),editable=canEditJob(state,job);

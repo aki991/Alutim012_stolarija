@@ -16,7 +16,8 @@ import { isPortaDimension, portaCatalogPath, portaConfiguration, portaDefaultSel
 import { positionCost, positionPriceLabel, validatePosition } from './services/calculation';
 import { parseBackup } from './services/storage';
 import { useNavigation } from './navigation';
-import { canEditPrices, jobFromSettings, useStore, workspaceDraftKey, withPositionPrice } from './store';
+import { canEditPrices, jobFromSettings, useStore, workspaceDraft, withPositionPrice } from './store';
+import { useOfflineWork } from './team-session';
 import './porta-royal.css';
 
 const searchText=(value:string)=>value.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase();
@@ -134,10 +135,11 @@ function PortaMeasurements({initial,jobId,customer,back,editing,showPrices,draft
  const editPrices=useStore(canEditPrices);
  const savedPosition=useStore(s=>s.jobs.find(job=>job.id===jobId)?.positions.find(position=>position.id===initial.id));
  const start=initial.portaRoyal!;
- const key=workspaceDraftKey(`alu-porta-draft-v1:${jobId??'catalog'}:${editing?initial.id:`${start.series}:${start.decor}:${start.type}`}${draftSize}`);
+ const {offline}=useOfflineWork();
+ const draftStorage=workspaceDraft(`alu-porta-draft-v1:${jobId??'catalog'}:${editing?initial.id:`${start.series}:${start.decor}:${start.type}`}${draftSize}`,offline);
  const [p,setP]=useState(()=>{
   try{
-   const raw=sessionStorage.getItem(key);
+   const raw=draftStorage.read();
    if(raw){
     const job=useStore.getState().jobs.find(job=>job.id===jobId)??jobFromSettings(settings);
     const draft=parseBackup({settings,jobs:[{...job,positions:[JSON.parse(raw)]}]}).jobs[0].positions[0];
@@ -152,7 +154,7 @@ function PortaMeasurements({initial,jobId,customer,back,editing,showPrices,draft
  const errors=validatePosition(p),price=positionCost(editPrices?p:withPositionPrice(p,savedPosition),settings);
  function patch(next:Position){
   setP(next);
-  try{sessionStorage.setItem(key,JSON.stringify(next));setDraftError(false);}catch{setDraftError(true);}
+  try{draftStorage.write(next);setDraftError(false);}catch{setDraftError(true);}
  }
  function setConfig(next:Partial<PortaRoyalConfig>){patch(withDoor(p,{...config,...next}));}
  function select(next:PortaSelection){
@@ -166,23 +168,19 @@ function PortaMeasurements({initial,jobId,customer,back,editing,showPrices,draft
   const nextSliding=portaSliding(next.type);
   patch(withDoor({...p,...size},{...config,...next,hinge:nextSliding?undefined:config.hinge??defaults.hinge,lock:nextSliding?undefined:config.lock??defaults.lock,handle:nextSliding?undefined:config.handle}));
  }
- function finishSave(id:string){
-  try{sessionStorage.removeItem(key);}catch{/* Job storage reports its own errors. */}
-  navigate(`/posao/${id}`,{replace:!jobId});
- }
  function createJob(name:string){
   if(errors.length)return;
   const store=useStore.getState(),job=jobFromSettings(store.settings);
-  store.addJob({...job,customer:{...job.customer,name},positions:[p]});
-  finishSave(job.id);
+  draftStorage.commit(()=>store.addJob({...job,customer:{...job.customer,name},positions:[p]}));
+  navigate(`/posao/${job.id}`,{replace:true});
  }
  function save(){
   if(errors.length)return;
   if(!jobId){setNewJobOpen(true);return;}
   const store=useStore.getState(),job=store.jobs.find(job=>job.id===jobId);
   if(!job)return;
-  store.updateJob(jobId,{positions:editing?job.positions.map(position=>position.id===p.id?p:position):[...job.positions,p]});
-  finishSave(jobId);
+  draftStorage.commit(()=>store.updateJob(jobId,{positions:editing?job.positions.map(position=>position.id===p.id?p:position):[...job.positions,p]}));
+  navigate(`/posao/${jobId}`);
  }
  const title=customer?`${editing?'Izmeni sobna vrata':'Sobna vrata'} — ${customer}`:series.name;
  return <div className="field-page measuring-page porta-page">

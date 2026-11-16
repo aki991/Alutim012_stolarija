@@ -7,6 +7,43 @@ test('PWA manifest, stvarne ikone i Service Worker sa offline PDF-om',async({pag
  for(const size of [192,512]){const icon=manifest.icons.find((i:any)=>i.sizes===`${size}x${size}`&&i.purpose==='any');expect(icon.src).toBe(`/icons/alu-tim-${size}.png`);expect(await page.evaluate(async(src)=>{const image=new Image();image.src=src;await image.decode();return[image.naturalWidth,image.naturalHeight];},icon.src)).toEqual([size,size]);}
  await page.evaluate(async()=>{await navigator.serviceWorker.ready;if(!navigator.serviceWorker.controller)await new Promise<void>(resolve=>navigator.serviceWorker.addEventListener('controllerchange',()=>resolve(),{once:true}));});await context.setOffline(true);await page.reload();await expect(page.getByRole('heading',{name:'Pregled rada',exact:true})).toBeVisible();await page.goto('http://127.0.0.1:4187/posao/AT-2026-012/ponuda');const download=page.waitForEvent('download');await page.getByRole('button',{name:'Ponuda za kupca',exact:true}).click();await page.getByRole('button',{name:'Preuzmi PDF',exact:true}).click();await page.getByRole('dialog',{name:/Pregled:/}).getByRole('button',{name:'Zatvori'}).click();expect((await download).suggestedFilename()).toBe('AT-2026-012-ponuda.pdf');const iconResponse=await page.evaluate(async()=>{const r=await fetch('/icons/alu-tim-maskable-512.png');return r.ok;});expect(iconResponse).toBe(true);await context.setOffline(false);
 });
+
+test('Rad bez interneta čuva posao i nacrt posle zatvaranja aplikacije', async ({ page, context }) => {
+ const origin = 'http://127.0.0.1:4187';
+ const customer = 'Probni posao bez interneta';
+ await page.goto(origin + '/prijava');
+ await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+ await context.setOffline(true);
+ await page.reload();
+ await page.getByRole('button', { name: 'Radi bez interneta', exact: true }).click();
+ await expect(page.getByText('Rad bez interneta · Poslovi na ovom uređaju')).toBeVisible();
+ await page.getByRole('button', { name: 'Novi posao', exact: true }).first().click();
+ const dialog = page.getByRole('dialog', { name: 'Novi posao' });
+ await dialog.getByRole('textbox').fill(customer);
+ await dialog.getByRole('button', { name: 'Započni merenje' }).click();
+ await page.getByRole('link', { name: 'Prozor', exact: true }).click();
+ await page.getByLabel('Širina (mm)').fill('1730');
+ await page.close();
+
+ const reopened = await context.newPage();
+ await reopened.goto(origin);
+ await reopened.getByRole('navigation', { name: 'Glavna navigacija' }).getByRole('link', { name: 'Poslovi' }).click();
+ await reopened.getByRole('link', { name: 'Otvori ' + customer }).click();
+ await reopened.getByRole('link', { name: 'Dodaj element', exact: true }).first().click();
+ await reopened.getByRole('link', { name: 'Prozor', exact: true }).click();
+ await expect(reopened.getByLabel('Širina (mm)')).toHaveValue('1730');
+ await reopened.getByRole('button', { name: 'Dodaj u posao' }).click();
+ await expect(reopened.getByText(/1730 ×/)).toBeVisible();
+ await context.setOffline(false);
+ await expect(reopened.getByText('Sačuvano lokalno')).toBeVisible();
+ await reopened.getByRole('link', { name: 'Prijava zaposlenih', exact: true }).click();
+ await expect(reopened.getByRole('heading', { name: 'Prijava', exact: true })).toBeVisible();
+ await reopened.getByRole('button', { name: 'Radi bez interneta', exact: true }).click();
+ await expect(reopened.getByRole('link', { name: 'Otvori ' + customer })).toBeVisible();
+ await reopened.getByRole('link', { name: 'Otvori ' + customer }).click();
+ await expect(reopened.getByText(/1730 ×/)).toBeVisible();
+});
+
 test('Google Chrome ne prijavljuje greške za PWA instalaciju',async()=>{
  const profile=mkdtempSync(path.resolve('test-results/chrome-pwa-'));const browser=await chromium.launchPersistentContext(profile,{channel:'chrome',headless:true});try{const page=await browser.newPage();await page.goto('http://127.0.0.1:4187/');await page.evaluate(()=>navigator.serviceWorker.ready);const cdp=await page.context().newCDPSession(page);await cdp.send('Page.enable');const result=await cdp.send('Page.getAppManifest');expect(result.errors).toEqual([]);await expect.poll(async()=>(await cdp.send('Page.getInstallabilityErrors')).installabilityErrors,{timeout:15000}).toEqual([]);await page.goto('http://127.0.0.1:5187/');expect((await cdp.send('Page.getAppManifest')).errors).toEqual([]);await expect.poll(async()=>(await cdp.send('Page.getInstallabilityErrors')).installabilityErrors,{timeout:15000}).toEqual([]);}finally{await browser.close();}
 });

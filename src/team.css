@@ -27,7 +27,9 @@
 .team-login-password button:hover { color: #1a1a1a; }
 .team-login-submit { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 47px; padding: 10px; border-radius: 10px; font-weight: 600; color: #fff; background: #d71920; }
 .team-login-submit:hover:not(:disabled) { background: #7a0d14; }
-.team-login-note { color: #545b65; font-size: 14px; text-align: center; margin-top: 16px; }
+.team-login-offline { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 47px; margin-top: 14px; padding: 10px; border: 1px solid #c7cbd1; border-radius: 10px; font-weight: 600; color: #252830; background: #fff; }
+.team-login-offline:hover { background: #f5f5f6; border-color: #89909b; }
+.team-login-note { color: #545b65; font-size: 14px; text-align: center; margin-top: 8px; }
 .team-login-alert { color: #b42318; background: #fef3f2; border: 1px solid #fecdca; border-radius: 6px; padding: 8px 12px; font-size: 14px; margin-bottom: 16px; }
 .team-login-back { position: absolute; top: calc(100% + 12px); left: 50%; transform: translateX(-50%); color: #fff; text-decoration: underline; white-space: nowrap; font-size: 14px; }
 .team-login-spinner { animation: team-login-spin 1s linear infinite; }

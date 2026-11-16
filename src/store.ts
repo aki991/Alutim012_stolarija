@@ -299,7 +299,39 @@ export function endTeamWorkspace(){
  workspace=undefined;
  useStore.setState({jobs:localJobs,trash:localTrash,settings:localSettings,teamMember:null,teamAssignments:{},teamAssigneeOnly:{},teamConflict:false,teamPricingRevision:null,teamPricingError:'',storageError:'',saveState:'saved'});
 }
-export function workspaceDraftKey(key:string){return workspace?`alu-team-draft:${workspace.member.id}:${key}`:key;}
+export function workspaceDraft(key:string,offline:boolean){
+ const memberId=workspace?.member.id;
+ const persistent=offline&&!memberId;
+ const storageKey=memberId?`alu-team-draft:${memberId}:${key}`:key;
+ const storage=()=>persistent?localStorage:sessionStorage;
+ return {
+  read:()=>storage().getItem(storageKey)??(persistent?sessionStorage.getItem(key):null),
+  write:(position:Position)=>storage().setItem(storageKey,JSON.stringify(position)),
+  commit:(save:()=>void,keepDraft=false)=>{
+   if(!persistent){
+    save();
+    const saved=Boolean(memberId)||useStore.getState().saveState!=='error';
+    if(saved&&!keepDraft)try{sessionStorage.removeItem(storageKey);}catch{/* The update was already saved. */}
+    return saved;
+   }
+   // Free space before saving the same photos as part of the job.
+   let previous:string|null=null;
+   try{previous=localStorage.getItem(storageKey);localStorage.removeItem(storageKey);}
+   catch{/* The job save reports storage failures. */}
+   let saved=false;
+   try{
+    save();
+    saved=useStore.getState().saveState!=='error';
+   }finally{
+    try{
+     if(saved)sessionStorage.removeItem(key);
+     else if(previous!==null)localStorage.setItem(storageKey,previous);
+    }catch{/* Keep the existing job storage error. */}
+   }
+   return saved;
+  },
+ };
+}
 export function acceptTeamJob(row:TeamJob,memberId:string){
  if(workspace?.member.id!==memberId)return;
  rememberJob(workspace,row);
@@ -324,7 +356,8 @@ useStore.subscribe((s,prev)=>{
  if(s.jobs!==prev.jobs)localJobs=s.jobs;
  if(s.trash!==prev.trash)localTrash=s.trash;
  if(s.settings!==prev.settings)localSettings=s.settings;
- if(s.jobs!==prev.jobs||s.trash!==prev.trash||s.settings!==prev.settings){clearTimeout(timer);timer=setTimeout(saveLocal,350);}
+ if(s.jobs!==prev.jobs||s.trash!==prev.trash){clearTimeout(timer);saveLocal();}
+ else if(s.settings!==prev.settings){clearTimeout(timer);timer=setTimeout(saveLocal,350);}
 });
 window.addEventListener('pagehide',()=>{if(!workspace&&useStore.getState().saveState==='dirty')saveLocal();});
 if(!initialError)saveLocal();

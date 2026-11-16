@@ -1,6 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { Link, Navigate, useLocation } from 'react-router-dom';
-import { Eye, EyeOff, Loader2, LogIn } from 'lucide-react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, Loader2, LogIn, WifiOff } from 'lucide-react';
 import { beginTeamWorkspace, endTeamWorkspace, refreshTeamWorkspace, useStore } from './store';
 import { fetchTeamConversations, fetchTeamMember, fetchTeamMessageNotices, fetchTeamNotifications, markTeamMessagesRead, markTeamNotificationRead, type TeamConversation, type TeamNotification } from './services/team-api';
 import { getSupabase, isSupabaseConfigured } from './services/supabase';
@@ -9,6 +9,10 @@ import { loginEmail, usernameHint, usernamePattern } from '../supabase/functions
 
 const teamLoginRequired = (import.meta.env.PROD && import.meta.env.MODE !== 'test') ||
  import.meta.env.VITE_TEAM_LOGIN_REQUIRED === 'true';
+const offlineModeKey = 'alu-offline-mode-v1';
+const teamOnlyPath = /^\/(tim|nalog|poruke|obavestenja|dodeli-merenje)(\/|$)/;
+const OfflineWork = createContext({ offline: false, openOffline: () => {} });
+export const useOfflineWork = () => useContext(OfflineWork);
 const TeamInbox = createContext({ items: [] as TeamNotification[], messageAlerts: [] as TeamConversation[], error: '', markRead: async (_id: string) => {},
  conversations: [] as TeamConversation[], messagesError: '', readMessages: async (_jobId: string, _messageId: string) => {}, refreshMessages: () => {} });
 export const useTeamInbox = () => useContext(TeamInbox);
@@ -84,6 +88,38 @@ function TeamInboxProvider({ children }: { children: ReactNode }) {
 
 export function TeamGate({ children }: { children: ReactNode }) {
  const location = useLocation();
+ const navigate = useNavigate();
+ const member = useStore(state => state.teamMember);
+ const [offlineMode, setOfflineMode] = useState(() => {
+  try { return localStorage.getItem(offlineModeKey) === 'true'; }
+  catch { return false; }
+ });
+ const loginPath = /^\/prijava\/?$/.test(location.pathname);
+ const startingOffline = location.pathname === '/radi-bez-interneta';
+ const offline = startingOffline || (offlineMode && !loginPath);
+ const selectMode = useCallback((value: boolean) => {
+  try {
+   if (value) localStorage.setItem(offlineModeKey, 'true');
+   else localStorage.removeItem(offlineModeKey);
+  } catch { /* The selected mode still works in the open app. */ }
+  setOfflineMode(value);
+ }, []);
+ const onTeamReady = useCallback(() => selectMode(false), [selectMode]);
+ const openOffline = () => navigate('/radi-bez-interneta', { replace: true });
+
+ useLayoutEffect(() => {
+  if (offline) endTeamWorkspace();
+  if (startingOffline) selectMode(true);
+ }, [member, offline, selectMode, startingOffline]);
+ const localPage = startingOffline || teamOnlyPath.test(location.pathname) ? <Navigate to="/poslovi" replace/> : children;
+ return <OfflineWork.Provider value={{ offline, openOffline }}>
+  {offline ? (member ? null : localPage)
+   : <TeamSession loginPath={loginPath} onTeamReady={onTeamReady}>{children}</TeamSession>}
+ </OfflineWork.Provider>;
+}
+
+function TeamSession({ children, loginPath, onTeamReady }: { children: ReactNode; loginPath: boolean; onTeamReady: () => void }) {
+ const location = useLocation();
  const member = useStore(state => state.teamMember);
  const [userId, setUserId] = useState<string | null | undefined>(isSupabaseConfigured ? undefined : null);
  const [profile, setProfile] = useState<{ id: string; error: string } | null>(null);
@@ -112,14 +148,17 @@ export function TeamGate({ children }: { children: ReactNode }) {
      return;
     }
     await beginTeamWorkspace(teamMember);
-    if (active) setProfile({ id, error: '' });
+    if (active) {
+     onTeamReady();
+     setProfile({ id, error: '' });
+    }
    } catch {
     if (active) setProfile({ id, error: 'Podaci o nalogu trenutno nisu dostupni. Proverite vezu i pokušajte ponovo.' });
    }
   }
   void loadProfile(userId);
   return () => { active = false; };
- }, [userId, retry]);
+ }, [onTeamReady, userId, retry]);
 
  const activeProfileId = profile && !profile.error ? profile.id : null;
  useEffect(() => {
@@ -135,9 +174,8 @@ export function TeamGate({ children }: { children: ReactNode }) {
   });
  }, [activeProfileId, userId]);
 
- const loginPath = /^\/prijava\/?$/.test(location.pathname);
  if (userId === undefined || (userId && profile?.id !== userId) || (!userId && member)) {
-  return <LoginFrame><p role="status">Učitavanje radnog prostora…</p></LoginFrame>;
+  return <LoginFrame><p role="status">Učitavanje radnog prostora…</p><OfflineWorkButton/></LoginFrame>;
  }
  if (userId && profile?.error) return <AccountError message={profile.error} onRetry={() => { setProfile(null); setRetry(n => n + 1); }}/>;
  if (userId && member?.id === userId) {
@@ -146,7 +184,7 @@ export function TeamGate({ children }: { children: ReactNode }) {
   return <TeamInboxProvider key={userId}>{loginPath ? <Navigate to={destination} replace/> : children}</TeamInboxProvider>;
  }
  if (loginPath) return <Login/>;
- if (teamLoginRequired || /^\/(tim|nalog|poruke|obavestenja|dodeli-merenje)(\/|$)/.test(location.pathname)) return <Navigate to="/prijava" state={{ from: location.pathname + location.search + location.hash }} replace/>;
+ if (teamLoginRequired || teamOnlyPath.test(location.pathname)) return <Navigate to="/prijava" state={{ from: location.pathname + location.search + location.hash }} replace/>;
  return children;
 }
 
@@ -156,6 +194,14 @@ function LoginFrame({ children, homeLink = false }: { children: ReactNode; homeL
   <section className="team-login-card">{children}</section>
   {homeLink && <Link className="team-login-back" to="/">Vrati se na početnu</Link>}
  </div></main>;
+}
+
+function OfflineWorkButton() {
+ const { openOffline } = useOfflineWork();
+ return <>
+  <button type="button" className="team-login-offline" onClick={openOffline}><WifiOff size={18} aria-hidden="true"/>Radi bez interneta</button>
+  <p className="team-login-note">Poslovi iz ovog režima čuvaju se na ovom uređaju.</p>
+ </>;
 }
 
 function Login() {
@@ -212,6 +258,7 @@ function Login() {
    </button>
   </form>
   <p className="team-login-note">Nalog dobijate od administratora.</p>
+  <OfflineWorkButton/>
  </LoginFrame>;
 }
 
@@ -226,6 +273,7 @@ function AccountError({ message, onRetry }: { message: string; onRetry: () => vo
  return <LoginFrame><h1>Pristup timu</h1><p role="alert">{message}</p>
   <div className="team-actions"><button className="field-button field-button-red" onClick={onRetry}>Pokušaj ponovo</button>
    <button className="field-button field-button-light" onClick={() => void signOutTeam().catch(() => setError('Odjava trenutno nije uspela.'))}>Odjavi se</button></div>
+  <OfflineWorkButton/>
   {error && <p role="alert">{error}</p>}
  </LoginFrame>;
 }

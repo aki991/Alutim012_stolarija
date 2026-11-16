@@ -66,8 +66,8 @@ Za prijavu zaposlenih, zajedničke poslove, dodelu merenja i obaveštenja pogled
 - Postojeći ključ **`alu-tim-teren-v1`** je zadržan. Nema resetovanja ili zamene postojećih poslova demo podacima pri redovnom učitavanju.
 - Migracija dodaje podrazumevani profil kada ga stara pozicija nema (`PVC 70 mm` ili `ALU termo profil`). ID-jevi, mere, količine, ručne cene, paketi, popusti, radovi i fotografije ostaju sačuvani.
 - Novo vreme kreiranja se beleži tačno. Za stare poslove koji ga ranije nisu imali koristi se postojeće vreme izmene, ili datum posla kao rezervna vrednost.
-- **Sačuvani poslovi** su u `localStorage`, sa odlaganjem upisa 350 ms i upisom pri napuštanju stranice. Greška ili puna kvota imaju jasnu poruku.
-- **Otvorene izmene elementa** se čuvaju kao odvojen nacrt u `sessionStorage`. Osvežavanje iste kartice ih čuva; sačuvan element u poslu ostaje neizmenjen dok se ne klikne **Sačuvaj izmene**. Novi element se dodaje tek preko **Dodaj u posao**. Nakon potvrde nacrt se uklanja. Zatvaranje kartice može ukloniti nepotvrđeni nacrt.
+- **Lokalni poslovi** se upisuju u `localStorage` pri svakoj potvrđenoj izmeni. Izmene podešavanja upisuju se posle 350 ms ili pri napuštanju stranice. Aplikacija prikazuje grešku ako upis ne uspe.
+- **Nacrti elemenata** u režimu **Radi bez interneta** čuvaju se u `localStorage`. Ostali nacrti se čuvaju u `sessionStorage`. **Sačuvaj izmene** i **Dodaj u posao** upisuju element u posao i uklanjaju nacrt.
 - JSON rezervna kopija iz Podešavanja sadrži sačuvane poslove i fotografije, a ne nepotvrđene nacrte. Uvoz proverava podatke i traži potvrdu zamene.
 - Skladišta su odvojena po browseru, adresi i portu. `127.0.0.1`, `localhost`, LAN IP i produkcioni port nemaju iste podatke.
 
@@ -101,6 +101,8 @@ Dva glavna dugmeta direktno preuzimaju odgovarajuće dokumente. **Podeli** koris
 Posle testova primeri su u `output/pdf/AT-2026-012-ponuda.pdf` i `output/pdf/AT-2026-012-specifikacija.pdf`.
 
 ## Offline
+
+Na ekranu za prijavu izaberite **Radi bez interneta**. Poslovi ostaju na uređaju i dostupni su i posle ponovnog otvaranja aplikacije. Kad se veza vrati, **Prijava zaposlenih** otvara timski rad. Lokalni poslovi ostaju dostupni preko **Nalog → Radi bez interneta** i ne šalju se automatski u bazu.
 
 Posle prvog uspešnog otvaranja produkcione verzije service worker kešira aplikaciju, fontove, slike i PDF module. Provereno je ponovno otvaranje i PDF izvoz bez interneta. Za Android tablet preko LAN adrese potrebna je HTTPS verzija za service worker i Web Share; na localhost/127.0.0.1 radi i HTTP. Razvojni Vite server nema offline keš.
 

@@ -3,7 +3,8 @@ import { fmt } from './custom/geometry';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowDown, ArrowRight, ArrowUp, Check, ChevronRight, Copy, Expand, Minus, MoreVertical, Pencil, Plus, RotateCcw, Settings2, Trash2, UserRound, X } from 'lucide-react';
-import { canEditJob, canEditPrices, hasPositionPriceCorrection, assignedMeasurement, awaitingMeasurements, useStore, workspaceDraftKey, withPositionPrice } from './store';
+import { canEditJob, canEditPrices, hasPositionPriceCorrection, assignedMeasurement, awaitingMeasurements, useStore, workspaceDraft, withPositionPrice } from './store';
+import { useOfflineWork } from './team-session';
 import type { Opening, Position } from './models';
 import { uid } from './catalog';
 import { calculate, euro, positionCost, validatePosition, positionPriceLabel, jobReviewLabel } from './services/calculation';
@@ -87,17 +88,17 @@ export function ElementEditor(){
  const editPrices=useStore(canEditPrices);
  const template=params.has('template')?Number(params.get('template')):undefined;
  const model=findCatalogModel(params.get('model'));
- const draftKey=workspaceDraftKey(`alu-position-draft-v1:${id}:${positionId||(template===6?'kombinacija':type)}:${model?.id??(template===6?'':template??'')}`);
+ const {offline}=useOfflineWork();
+ const draft=workspaceDraft(`alu-position-draft-v1:${id}:${positionId||(template===6?'kombinacija':type)}:${model?.id??(template===6?'':template??'')}`,offline);
  const [p,setPosition]=useState<Position>(()=>{
   const initial=original?structuredClone(original):{...makeFieldPosition(type||'prozor',template,model?.id),...settings.elementDefaults};
   if(!job)return initial;
-  try{const raw=sessionStorage.getItem(draftKey);if(raw){const draft=JSON.parse(raw);return parseBackup({settings,jobs:[{...job,positions:[draft]}]}).jobs[0].positions[0];}}catch{/* An unusable draft never changes the saved job. */}
+  try{const raw=draft.read();if(raw)return parseBackup({settings,jobs:[{...job,positions:[JSON.parse(raw)]}]}).jobs[0].positions[0];}catch{/* An unusable draft never changes the saved job. */}
   return initial;
  });
  const [chosen,setChosen]=useState<number|null>(null),[options,setOptions]=useState(false),[expanded,setExpanded]=useState(false),[zoom,setZoom]=useState(1),[message,setMessage]=useState(''),[draftError,setDraftError]=useState(false);
  const [layout,setLayout]=useState(false);
  const positionRef=useRef(p);
- useEffect(()=>{try{sessionStorage.setItem(draftKey,JSON.stringify(p));setDraftError(false);}catch{setDraftError(true);}},[draftKey,p]);
  if(!job||positionId&&!original)return <MissingJob/>;
  const combination=p.combination,modelLayout=p.modelLayout;
  const boxInHeight=openingBoxHeight(p);
@@ -107,7 +108,7 @@ export function ElementEditor(){
  const standaloneShutter=p.category==='Roletne'?shutterOf(p):undefined;
  const mode=combination?'kombinacija':type||typeOfPosition(p),special=['roletna','komarnik','ostalo'].includes(mode),isFixed=mode==='fiksni',isSliding=mode==='klizni',isDoor=['vrata','balkonska'].includes(mode);
  const errors=validatePosition(p),price=positionCost(editPrices?p:withPositionPrice(p,original),settings,job.package);
- const persist=(next:Position)=>{positionRef.current=next;try{sessionStorage.setItem(draftKey,JSON.stringify(next));setDraftError(false);}catch{setDraftError(true);}setPosition(next);};
+ const persist=(next:Position)=>{positionRef.current=next;try{draft.write(next);setDraftError(false);}catch{setDraftError(true);}setPosition(next);};
  const patch=(value:Partial<Position>)=>persist({...positionRef.current,...value});
  const dimension=(key:'width'|'height',value:number)=>{
   const previous=positionRef.current;
@@ -129,8 +130,7 @@ export function ElementEditor(){
  const save=()=>{
   if(errors.length){setMessage(errors[0]);return;}
   const current=useStore.getState().jobs.find(j=>j.id===job.id);if(!current)return;
-  updateJob(job.id,{positions:original?current.positions.map(pos=>pos.id===original.id?p:pos):[...current.positions,p]});
-  try{sessionStorage.removeItem(draftKey);}catch{/* Store reports any persistent storage error separately. */}
+  draft.commit(()=>updateJob(job.id,{positions:original?current.positions.map(pos=>pos.id===original.id?p:pos):[...current.positions,p]}));
   navigate(`/posao/${job.id}`);
  };
  const drawing=<><div className="field-canvas-toolbar"><span>{modelLayout?.cornerAfter?'Razvijeni pogled':chosen===null?'Pogled iznutra':`Izabrano krilo ${chosen+1}`}</span><div><button className="field-icon-button" aria-label="Resetuj prikaz" onClick={()=>setZoom(1)}><RotateCcw/></button><button className="field-icon-button" aria-label="Proširi prikaz" onClick={()=>setExpanded(true)}><Expand/></button></div></div><div className="field-drawing"><Drawing position={p} selected={chosen??-1} onSelect={combination||modelLayout?undefined:setChosen} zoom={zoom}/></div></>;

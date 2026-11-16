@@ -2,7 +2,8 @@ import { NumberInput } from '../components/NumberInput';
 import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, ChevronDown, Circle, Expand, Hand, Minus, MousePointer2, MoveUpRight, Plus, Redo2, Save, Settings2, Spline, LockKeyhole, UnlockKeyhole, Trash2, Undo2, X } from 'lucide-react';
-import { canEditPrices, useStore, workspaceDraftKey, withPositionPrice } from '../store';
+import { canEditPrices, useStore, workspaceDraft, withPositionPrice } from '../store';
+import { useOfflineWork } from '../team-session';
 import { TeamHeaderLinks } from '../components/TeamHeaderLinks';
 import { makeFieldPosition } from '../field-types';
 import { findCatalogModel } from '../catalog-models';
@@ -29,8 +30,9 @@ export function CustomEditor(){
  const editPrices=useStore(canEditPrices);
  const {id,positionId}=useParams(),location=useLocation(),navigate=useNavigate(),{jobs,settings,updateJob}=useStore(),job=jobs.find(j=>j.id===id),original=job?.positions.find(p=>p.id===positionId);
  const model=findCatalogModel(new URLSearchParams(location.search).get('model'));
- const draftKey=workspaceDraftKey(`alu-custom-draft-v1:${id}:${positionId||(model?`model:${model.id}`:'new')}`);
- const [p,setP]=useState<Position>(()=>{const initial=original?clone(original):{...makeFieldPosition('nacrtaj',undefined,model?.id),...settings.elementDefaults};try{const raw=sessionStorage.getItem(draftKey);if(raw&&job)return parseBackup({settings,jobs:[{...job,positions:[JSON.parse(raw)]}]}).jobs[0].positions[0];}catch{/* Invalid drafts never replace a saved position. */}return initial;});
+ const {offline}=useOfflineWork();
+ const draft=workspaceDraft(`alu-custom-draft-v1:${id}:${positionId||(model?`model:${model.id}`:'new')}`,offline);
+ const [p,setP]=useState<Position>(()=>{const initial=original?clone(original):{...makeFieldPosition('nacrtaj',undefined,model?.id),...settings.elementDefaults};try{const raw=draft.read();if(raw&&job)return parseBackup({settings,jobs:[{...job,positions:[JSON.parse(raw)]}]}).jobs[0].positions[0];}catch{/* Invalid drafts never replace a saved position. */}return initial;});
  const previewRef=useRef<Geometry|null>(null);
  const ref=useRef(p),svg=useRef<SVGSVGElement>(null),gesture=useRef<Gesture|null>(null),pointers=useRef(new Map<number,Point>()),pinch=useRef<{distance:number;camera:Camera;world:Point}|null>(null);
  const [past,setPast]=useState<Position[]>([]),[future,setFuture]=useState<Position[]>([]),[preview,setPreview]=useState<Geometry|null>(null),[tool,setTool]=useState<Tool>(model?'select':'line'),[selected,setSelected]=useState<string|null>(null),[pendingArc,setPendingArc]=useState<{a:Point;b:Point}|null>(null),[rubber,setRubber]=useState<{a:Point;b:Point;via?:Point}|null>(null);
@@ -57,7 +59,7 @@ export function CustomEditor(){
   if(value==='left'||value==='right'||value==='bottom')openings.push({region,side:value});
   commit({...p,customGeometry:{...g,openings}});
  }
- const persist=(next:Position)=>{ref.current=next;setP(next);try{sessionStorage.setItem(draftKey,JSON.stringify(next));setStorageError(false);}catch{setStorageError(true);}};
+ const persist=(next:Position)=>{ref.current=next;setP(next);try{draft.write(next);setStorageError(false);}catch{setStorageError(true);}};
  function commit(next:Position){const previous=clone(ref.current);setPast(v=>[...v.slice(-79),previous]);setFuture([]);persist(next);setError('');setMessage('');}
  function geometry(next:Geometry){
   const b=bounds(next), marks=next.openings??[];
@@ -74,7 +76,7 @@ export function CustomEditor(){
   const scale=Math.min(Math.max(80,rect.width-horizontalMargin)/Math.max(200,b.width),Math.max(80,rect.height-Math.min(90,rect.height*.32))/Math.max(200,b.height));
   const w=rect.width/scale,h=rect.height/scale;setCamera({x:b.x+b.width/2-w/2,y:b.y+b.height/2-h/2,w,h});
  }
- useEffect(()=>{try{sessionStorage.setItem(draftKey,JSON.stringify(p));}catch{setStorageError(true);}},[]);
+ useEffect(()=>{if(!offline)try{draft.write(ref.current);}catch{setStorageError(true);}},[]);
  useEffect(()=>{
   const media=window.matchMedia(portraitQuery);
   const update=()=>setPortrait(media.matches);
@@ -163,7 +165,17 @@ export function CustomEditor(){
  }
  function setMeasure(){try{if(!edge)return;if(!Number.isInteger(Number(length)))throw Error('Unesite ceo broj milimetara.');const next=edge.kind==='line'?resizeLine(g,edge.id,Number(length),fixed):resizeRadius(g,edge.id,Number(length));geometry(next);if(next.preset==='rectangle'||next.preset==='arch')fit(next);}catch(err){setError((err as Error).message);}}
  function alignSelected(axis:'horizontal'|'vertical'){try{if(!edge)return;geometry(alignLine(g,edge.id,axis,fixed));setMessage(axis==='horizontal'?'Linija je tačno vodoravna.':'Linija je tačno uspravna.');}catch(err){setError((err as Error).message);}}
- function save(exit:boolean){const errs=validatePosition(ref.current);if(errs.length){setError(errs[0]);return;}const current=useStore.getState().jobs.find(j=>j.id===job!.id);if(!current)return;updateJob(job!.id,{positions:current.positions.some(v=>v.id===p.id)?current.positions.map(v=>v.id===p.id?clone(p):v):[...current.positions,clone(p)]});setMessage('Element je sačuvan u poslu.');if(exit||!positionId)try{sessionStorage.removeItem(draftKey);}catch{}if(exit)navigate(`/posao/${job!.id}`);else if(!positionId)navigate(`/posao/${job!.id}/element/${p.id}`,{replace:true,state:{customSaved:true}});}
+ function save(exit:boolean){
+  const errs=validatePosition(ref.current);
+  if(errs.length){setError(errs[0]);return;}
+  const current=useStore.getState().jobs.find(j=>j.id===job!.id);
+  if(!current)return;
+  const positions=current.positions.some(v=>v.id===p.id)?current.positions.map(v=>v.id===p.id?clone(p):v):[...current.positions,clone(p)];
+  const saved=draft.commit(()=>updateJob(job!.id,{positions}),!exit&&!!positionId);
+  if(saved)setMessage('Element je sačuvan u poslu.');
+  if(exit)navigate(`/posao/${job!.id}`);
+  else if(!positionId)navigate(`/posao/${job!.id}/element/${p.id}`,{replace:true,state:{customSaved:saved}});
+ }
  function zoom(factor:number){setCamera(c=>{const w=Math.max(400,Math.min(100000,c.w*factor)),h=w*c.h/c.w;return{x:c.x+(c.w-w)/2,y:c.y+(c.h-h)/2,w,h};});}
  const profiles=p.material==='PVC'?['PVC 70 mm','PVC 76 mm','PVC 82 mm']:['ALU termo profil','ALU hladni profil'];if(p.profile&&!profiles.includes(p.profile))profiles.push(p.profile);
  let rubberPath='';if(rubber){if(rubber.via)try{const a=arcThrough(rubber.a,rubber.b,rubber.via);rubberPath=`M${rubber.a.x} ${rubber.a.y}A${a.radius} ${a.radius} 0 ${Math.abs(a.delta)>Math.PI?1:0} ${a.delta>0?1:0} ${rubber.b.x} ${rubber.b.y}`;}catch{rubberPath=`M${rubber.a.x} ${rubber.a.y}L${rubber.b.x} ${rubber.b.y}`;}else rubberPath=`M${rubber.a.x} ${rubber.a.y}L${rubber.b.x} ${rubber.b.y}`;}

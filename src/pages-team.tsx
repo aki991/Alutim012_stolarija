@@ -1,13 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { Check, LogOut, MessageSquare, Send } from 'lucide-react';
+import { Check, LogOut, MessageSquare, Send, WifiOff } from 'lucide-react';
 import { FieldHeader } from './components/FieldHeader';
 import { DeviceNotifications } from './components/DeviceNotifications';
 import { uid } from './catalog';
 import { acceptTeamJob, canEditJob, jobFromSettings, todayInBelgrade, useStore } from './store';
 import type { Job } from './models';
 import { assignTeamJob, createTeamJob, fetchTeamAssignees, fetchTeamMessages, sendTeamMessage, TeamRequestError, type TeamMember, type TeamMessage } from './services/team-api';
-import { pollTeam, signOutTeam, teamNotificationLabels, useTeamInbox } from './team-session';
+import { pollTeam, signOutTeam, teamNotificationLabels, useOfflineWork, useTeamInbox } from './team-session';
 
 const dateTime = new Intl.DateTimeFormat('sr-Latn-RS', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Belgrade' });
 const assignmentDateError = 'Datum merenja mora biti današnji ili budući.';
@@ -46,6 +46,7 @@ function AssigneePicker({ assignees, value, onChange }: { assignees: TeamMember[
 export function AccountPage() {
  const member = useStore(state => state.teamMember);
  const navigate = useNavigate();
+ const { openOffline } = useOfflineWork();
  const [actionError, setActionError] = useState('');
  if (!member) return null;
 
@@ -54,9 +55,12 @@ export function AccountPage() {
   <main className="team-content">
    <div className="team-account">
     <div><strong>{member.name}</strong><small>{member.is_admin ? 'Admin' : member.role === 'manager' ? 'Šef' : 'Majstor'}</small></div>
-    <button type="button" className="field-button field-button-light" onClick={() => {
-     void signOutTeam().then(() => navigate('/prijava', { replace: true })).catch(() => setActionError('Odjava trenutno nije uspela.'));
-    }}><LogOut size={18}/>Odjavi se</button>
+    <div className="team-actions">
+     <button type="button" className="field-button field-button-light" onClick={openOffline}><WifiOff size={18} aria-hidden="true"/>Radi bez interneta</button>
+     <button type="button" className="field-button field-button-light" onClick={() => {
+      void signOutTeam().then(() => navigate('/prijava', { replace: true })).catch(() => setActionError('Odjava trenutno nije uspela.'));
+     }}><LogOut size={18}/>Odjavi se</button>
+    </div>
    </div>
    {actionError && <p className="team-error" role="alert">{actionError}</p>}
    <DeviceNotifications/>
