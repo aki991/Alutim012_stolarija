@@ -1,17 +1,22 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Calculator, ChevronRight, FileText, MapPin, Plus } from 'lucide-react';
 import { isActiveJob } from './models';
-import { awaitingMeasurements, canEditJob, useStore } from './store';
+import { awaitingMeasurements, canEditJob, todayInBelgrade, useStore } from './store';
 import { Button, CategoryIcon, Empty, Saved } from './components/UI';
 import { categories } from './catalog';
+
+const measurementPlural = new Intl.PluralRules('sr-Latn-RS');
 
 /** Reference composition, with real job data and accessible controls. */
 export function Dashboard({ onNew }: { onNew: () => void }) {
   const state = useStore();
-  const { jobs, saveState, settings, teamMember } = state;
+  const { jobs, saveState, teamAssignments, teamMember } = state;
   const navigate = useNavigate();
   const active = jobs.filter(isActiveJob);
   const last = active.find(job => canEditJob(state,job)&&!awaitingMeasurements(state,job));
+  const today = todayInBelgrade();
+  const measurementsToday = teamMember && jobs.filter(job => job.status === 'Merenje' && job.date === today &&
+    (teamMember.role === 'manager' || teamAssignments[job.id] === teamMember.id)).length;
 
   return <div className="reference-home">
     <section className="reference-hero" aria-labelledby="reference-title">
@@ -21,8 +26,9 @@ export function Dashboard({ onNew }: { onNew: () => void }) {
         <svg className="reference-facade-phone" viewBox="552 156 416 248" preserveAspectRatio="xMidYMid slice"><image href="/assets/reference.png" width="1672" height="941" /></svg>
       </div>
       <div className="reference-hero-content">
-        <h1 id="reference-title">Brza ponuda<br /><em>na terenu</em></h1>
-        <p>Merenje <span>•</span> Specifikacija <span>•</span><br />{settings.showPrices!==false&&<>Kalkulacija <span>•</span> </>}Ponuda</p>
+        <h1 id="reference-title">Pregled rada</h1>
+        {measurementsToday !== null && <p>{measurementsToday === 0 ? 'Danas nema merenja.' :
+          `${measurementsToday} ${measurementPlural.select(measurementsToday) === 'one' ? 'merenje' : 'merenja'} danas`}</p>}
         <Button className="reference-new-job" onClick={onNew}><Plus aria-hidden="true" />Novi posao</Button>
       </div>
     </section>

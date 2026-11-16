@@ -84,11 +84,29 @@
 .team-sidebar-link { position: relative; text-decoration: none; }
 .team-sidebar-link:hover, .team-sidebar-link.active { background: #fff2; }
 .team-header-links { display: flex; flex: 0 0 auto; gap: 3px; align-items: center; margin-inline-start: auto; }
-.team-header-links a { position: relative; display: grid; place-items: center; width: 44px; min-height: 44px; border-radius: 8px; color: #fff; }
-.team-header-links a:hover, .team-header-links a.active { background: #ffffff25; }
-.team-header-links svg { width: 23px; height: 23px; }
+.team-inbox-toggle { position: relative; display: grid; place-items: center; width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: #fff; }
+.team-inbox-toggle:hover, .team-inbox-toggle[aria-current], .team-inbox-toggle[aria-expanded=true] { background: #ffffff25; }
+.team-header-links .team-inbox-toggle svg { width: 23px; height: 23px; }
 .team-page > .field-header, .module-header:has(.team-header-links), .reference-header:has(.team-header-links) { position: sticky; top: 0; z-index: 5; }
+.reference-header:has(.team-inbox-panel) { overflow: visible; }
+.field-header:has(.team-inbox-panel), .custom-header:has(.team-inbox-panel) { z-index: 5; }
+.custom-header:has(.team-inbox-panel) { position: relative; }
 .team-badge { position: absolute; inset: 0 0 auto auto; min-width: 19px; padding: 1px 4px; border-radius: 12px; background: #ffd25e; color: #241700; font-size: 12px; line-height: 17px; text-align: center; }
+.team-inbox-panel {
+ position: absolute; z-index: 3; inset-block-start: calc(100% + 4px); inset-inline-end: clamp(10px, 2vw, 28px);
+ width: min(330px, calc(100vw - 24px)); overflow: hidden; border: 1px solid #d8dade; border-radius: 12px;
+ background: #fff; color: #242a32; box-shadow: 0 8px 24px #0004; overflow-wrap: anywhere;
+}
+.team-inbox-panel h2 { padding: 12px 14px; font-size: 16px; font-weight: 700; }
+.team-inbox-panel p { padding: 10px 14px; color: #545b65; }
+.team-inbox-panel ul { max-height: min(220px, 42dvh); overflow-y: auto; list-style: none; }
+.team-inbox-panel li { display: grid; gap: 2px; padding: 8px 14px; border-top: 1px solid #ebecef; }
+.team-inbox-panel li.unread { background: #fff8ee; box-shadow: inset 3px 0 #b60018; }
+.team-inbox-panel li small, .team-inbox-panel li span { color: #545b65; }
+.team-inbox-panel li span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.team-inbox-open { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 8px 14px; border-top: 1px solid #ebecef; color: #930012; font-weight: 700; }
+.team-inbox-open:hover, .team-inbox-open:focus-visible { background: #fff1ee; text-decoration: underline; }
+.team-inbox-panel .team-inbox-open svg { width: 18px; height: 18px; }
 @media (max-width: 700px) {
  .field-header:has(.team-header-links) .field-logo, .custom-header:has(.team-header-links) .custom-brand { display: none; }
  .module-header:has(.team-header-links) { column-gap: 8px; }

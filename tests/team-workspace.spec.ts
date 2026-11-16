@@ -2,6 +2,13 @@ import { test, expect, type Page } from '@playwright/test';
 import type { TeamAccount, TeamJob, TeamMember, TeamMessage, TeamNotification, TeamPreferencesRow, TeamPricingRow } from '../src/services/team-api';
 import type { Job } from '../src/models';
 
+async function openInbox(page: Page, label: 'Obaveštenja' | 'Poruke') {
+ const previousUrl = page.url();
+ await page.getByRole('button', { name: new RegExp(`^${label}`) }).click();
+ await expect(page).toHaveURL(previousUrl);
+ await page.getByRole('region', { name: label, exact: true }).getByRole('link', { name: `Otvori ${label.toLowerCase()}` }).click();
+}
+
 test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({ browser, page }) => {
  test.setTimeout(110000);
  const boss = { id: '10000000-0000-4000-8000-000000000001', name: 'Šef', role: 'manager', active: true } as const;
@@ -293,6 +300,9 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
  await expect(page.getByRole('heading', { name: 'Posao: Porodica Test' })).toBeVisible();
  expect([...jobs.values()][0].data.date).toBe(today);
  const jobUrl = page.url();
+ await page.goto('/');
+ await expect(page.getByRole('region', { name: 'Pregled rada' })).toContainText('1 merenje danas');
+ await page.goto(jobUrl);
  const statusName = 'Status posla: Porodica Test';
  const bossStatus = page.getByRole('combobox', { name: statusName });
 
@@ -320,31 +330,54 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   const assignment = mobile.getByRole('listitem').filter({ hasText: 'Dodeljeno merenje' });
   await expect(assignment.getByText(/Izmeri prozore u prizemlju/)).toBeVisible();
   await expect(assignment.getByRole('link', { name: 'Otvori razgovor' })).toHaveAttribute('href', /\/poruke\/AT-/);
-  await expect(mobile.getByRole('link', { name: 'Obaveštenja (1 novih)' })).toBeVisible();
+  await expect(mobile.getByRole('button', { name: 'Obaveštenja (1 novih)' })).toBeVisible();
   await expect(mobile.getByText('Nova poruka', { exact: false })).toHaveCount(0);
+  await mobile.getByRole('link', { name: 'Nazad', exact: true }).click();
+  await expect(mobile.getByRole('region', { name: 'Pregled rada' })).toContainText('1 merenje danas');
+  const notificationsButton = mobile.getByRole('button', { name: 'Obaveštenja (1 novih)' });
+  const messagesButton = mobile.getByRole('button', { name: 'Poruke (1 novih)' });
+  const notificationsPanel = mobile.getByRole('region', { name: 'Obaveštenja', exact: true });
+  const messagesPanel = mobile.getByRole('region', { name: 'Poruke', exact: true });
+  await notificationsButton.click();
+  await expect(mobile).toHaveURL(/\/$/);
+  await expect(notificationsPanel.getByText('Dodeljeno merenje · Novo')).toBeVisible();
+  await mobile.keyboard.press('Escape');
+  await expect(notificationsButton).toBeFocused();
+  await expect(notificationsButton).toHaveAttribute('aria-expanded', 'false');
+  await mobile.keyboard.press('Enter');
+  await expect(notificationsPanel).toBeVisible();
+  await messagesButton.click();
+  await expect(notificationsPanel).toHaveCount(0);
+  await expect(messagesPanel.getByText(/Izmeri prozore u prizemlju/)).toBeVisible();
+  const panelBounds = (await messagesPanel.boundingBox())!;
+  expect(panelBounds.x).toBeGreaterThanOrEqual(0);
+  expect(panelBounds.x + panelBounds.width).toBeLessThanOrEqual(mobile.viewportSize()!.width);
+  await mobile.getByRole('heading', { name: 'Aktivni poslovi' }).click({ timeout: 5000 });
+  await expect(messagesPanel).toHaveCount(0);
+  await openInbox(mobile, 'Obaveštenja');
   await mobile.getByRole('button', { name: 'Uključi na ovom uređaju' }).click();
   await expect.poll(() => pushDevices.has(worker.id)).toBe(true);
   await expect(mobile.getByRole('button', { name: 'Uključi na ovom uređaju' })).toHaveCount(0);
   await assignment.getByRole('button', { name: 'Označi kao pročitano' }).click();
   await expect(assignment.getByRole('button', { name: 'Označi kao pročitano' })).toHaveCount(0);
-  await expect(mobile.getByRole('link', { name: 'Poruke (1 novih)' })).toBeVisible();
-  await mobile.getByRole('link', { name: 'Poruke (1 novih)' }).click();
+  await expect(messagesButton).toBeVisible();
+  await openInbox(mobile, 'Poruke');
   await expect(mobile.getByRole('heading', { name: 'Poruke', exact: true })).toBeVisible();
   await expect(mobile.locator('.main-shell')).toHaveCSS('background-color','rgb(25, 26, 27)');
-  await expect(mobile.getByRole('link', { name: 'Poruke (1 novih)' })).toBeVisible();
-  await mobile.getByRole('link', { name: /^Obaveštenja/ }).click();
+  await expect(messagesButton).toBeVisible();
+  await openInbox(mobile, 'Obaveštenja');
   await mobile.getByRole('link', { name: /Dodeljeno merenje.*Porodica Test/ }).click();
   await expect(mobile.getByText('Glavna 12')).toBeVisible();
   await expect(mobile.getByText('Izmeri prozore u prizemlju.')).toHaveCount(0);
   await mobile.getByRole('link', { name: 'Poruke o poslu' }).click();
   await expect(mobile.getByText('Izmeri prozore u prizemlju.')).toBeVisible();
-  await expect(mobile.getByRole('link', { name: 'Poruke', exact: true })).toBeVisible();
+  await expect(mobile.getByRole('button', { name: 'Poruke', exact: true })).toBeVisible();
   await mobile.getByRole('link', { name: 'Otvori posao' }).click();
   await mobile.getByRole('link', { name: 'Dodaj element' }).first().click();
   await mobile.getByRole('link', { name: 'Prozor', exact: true }).click();
   const fieldLinks = mobile.getByRole('navigation', { name: 'Poruke i obaveštenja' });
-  await expect(fieldLinks.getByRole('link', { name: /^Obaveštenja/ })).toBeVisible();
-  await expect(fieldLinks.getByRole('link', { name: /^Poruke/ })).toBeVisible();
+  await expect(fieldLinks.getByRole('button', { name: /^Obaveštenja/ })).toBeVisible();
+  await expect(fieldLinks.getByRole('button', { name: /^Poruke/ })).toBeVisible();
   expect((await fieldLinks.boundingBox())!.x).toBeGreaterThan(250);
   await mobile.getByRole('button', { name: 'Dodaj u posao' }).click();
   await expect(mobile.getByRole('region', { name: 'Elementi posla' })).toBeVisible();
@@ -352,6 +385,9 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   const readonlyPage=await observerContext.newPage();
   await login(readonlyPage,observer);
   await expect(readonlyPage.getByText('Nema obaveštenja.')).toBeVisible();
+  await readonlyPage.goto('/');
+  await expect(readonlyPage.getByRole('region', { name: 'Pregled rada' })).toContainText('Danas nema merenja.');
+  await expect(readonlyPage.getByRole('region', { name: 'Aktivni poslovi' })).toContainText('Porodica Test');
   await readonlyPage.goto('/poslovi');
   await readonlyPage.getByRole('link',{name:'Otvori Porodica Test'}).click();
   await expect(readonlyPage.getByRole('heading',{name:'Merenje je u toku'})).toBeVisible();
@@ -390,9 +426,9 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await mobile.getByRole('button', { name: 'Pošalji poruku' }).click();
   await expect(mobile.getByText('Svi prozori izmereni.')).toBeVisible();
   await mobile.getByRole('link', { name: 'Otvori posao' }).click();
-  await page.getByRole('link', { name: /^Obaveštenja/ }).click();
+  await openInbox(page, 'Obaveštenja');
   await expect(page.getByRole('link', { name: /Nova poruka.*Porodica Test/ })).toBeVisible({ timeout: 10000 });
-  await page.getByRole('link', { name: 'Poruke (1 novih)' }).click();
+  await openInbox(page, 'Poruke');
   await expect(page.getByRole('heading', { name: 'Poruke', exact: true })).toBeVisible();
   const messagePreview = page.getByRole('listitem').filter({ hasText: 'Svi prozori izmereni.' });
   await messagePreview.getByRole('button', { name: 'Označi kao pročitano' }).click();
@@ -401,14 +437,14 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await page.getByLabel('Poruka majstoru').fill('Hvala na merenju.');
   await page.getByRole('button', { name: 'Pošalji poruku' }).click();
   await expect(page.getByText('Hvala na merenju.')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Poruke', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Poruke', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Otvori posao' }).click();
   await bossStatus.selectOption('Ponuda');
   const workerStatus = mobile.getByRole('combobox', { name: statusName });
   await expect(workerStatus).toHaveValue('Ponuda', { timeout: 10000 });
   await workerStatus.selectOption('Prihvaćeno');
 
-  await page.getByRole('link', { name: /^Obaveštenja/ }).click();
+  await openInbox(page, 'Obaveštenja');
   await expect(page.getByRole('link', { name: /Promena statusa.*Poslati ponudu/ })).toHaveCount(2);
   await expect(page.getByRole('link', { name: /Promena statusa.*Prihvaćeno/ })).toBeVisible({ timeout: 10000 });
   await expect(page.getByText('Svi prozori izmereni.')).toHaveCount(0);
@@ -495,6 +531,11 @@ test('Šef dodeljuje merenje, a majstor vraća mere, poruku i statuse', async ({
   await expect(page.getByRole('heading',{name:'Posao: Privatno merenje'})).toBeVisible();
   expect(privateJob.assigned_to).toBe(observer.id);
   expect(privateJob.data.date).toBe(tomorrow);
+  await readonlyPage.goto('/');
+  await expect(readonlyPage.getByRole('region', { name: 'Aktivni poslovi' })).toContainText('Privatno merenje');
+  await expect(readonlyPage.getByRole('region', { name: 'Pregled rada' })).toContainText('Danas nema merenja.');
+  await page.goto('/');
+  await expect(page.getByRole('region', { name: 'Pregled rada' })).toContainText('Danas nema merenja.');
   await mobile.goto('/nalog');
   await mobile.getByRole('button', { name: 'Odjavi se' }).click();
   await expect(mobile.getByRole('heading', { name: 'Prijava', exact: true })).toBeVisible();

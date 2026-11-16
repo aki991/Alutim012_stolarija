@@ -36,16 +36,14 @@
 
 /* The six category tiles come immediately after the facade, as in the reference. */
 .reference-home{font-family:AluNarrow,Arial,sans-serif;color:#101010;max-width:1600px;margin:auto}
-.reference-hero{position:relative;min-height:330px;overflow:hidden;background:#292d2e;border-radius:20px 0 0 0}
+.reference-hero{position:relative;display:flex;align-items:center;min-height:330px;overflow:hidden;background:#292d2e;border-radius:20px 0 0 0}
 .reference-hero-photo{position:absolute;inset:0}
 .reference-hero-photo svg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .reference-hero-photo .reference-facade-phone{display:none}
 .reference-hero-photo:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#1d2022e8 0%,#202527c7 25%,#20262855 48%,transparent 72%)}
 .reference-hero-content{position:relative;z-index:1;padding:30px 38px 28px}
 .reference-hero h1{font-family:AluNarrow,Arial,sans-serif;font-size:52px;line-height:.99;font-weight:700;font-style:italic;letter-spacing:-.5px;color:#fff;text-shadow:1px 2px 3px #0005;margin:0}
-.reference-hero h1 em{font-style:italic;color:#ffc53c}
 .reference-hero p{font-size:23px;line-height:1.2;color:#fff;margin:12px 0 0;text-shadow:0 1px 3px #000a}
-.reference-hero p span{padding:0 2px}
 .reference-home .reference-new-job{height:58px;min-height:58px;min-width:278px;margin-top:18px;padding:4px 25px;gap:12px;border:1px solid #ffd257;border-radius:19px;background:linear-gradient(#ffd35b 0%,#ffc53d 40%,#ffb817 100%);box-shadow:0 4px 6px #0004,inset 0 1px 2px #fff8;color:#0f0d03;font-family:AluNarrow,Arial,sans-serif;font-weight:700;font-size:28px;line-height:1;letter-spacing:-.3px}
 .reference-new-job svg{width:29px;height:29px;stroke-width:2.1}
 .reference-home .reference-new-job:hover{background:linear-gradient(#ffdd79,#ffc128);transform:none}
@@ -112,10 +110,9 @@
  .reference-hero-photo svg{width:100%;height:100%}
  .reference-hero-photo .reference-facade-wide{display:none}.reference-hero-photo .reference-facade-phone{display:block}
  .reference-hero-photo:after{background:linear-gradient(180deg,#292d31,#171d21);mask-image:linear-gradient(90deg,#000 0%,#000 57%,transparent 72%)}
- .reference-hero-content{padding:calc(23 * var(--ref-u)) calc(12 * var(--ref-u)) 0}
+ .reference-hero-content{padding:0 calc(12 * var(--ref-u))}
  .reference-hero h1{font-size:calc(29 * var(--ref-u));line-height:.955;letter-spacing:calc(-.4 * var(--ref-u));text-shadow:0 calc(1 * var(--ref-u)) calc(2 * var(--ref-u)) #0008;-webkit-text-stroke:.15px currentColor}
  .reference-hero p{font-size:calc(14 * var(--ref-u));line-height:1.22;margin-top:calc(7 * var(--ref-u));letter-spacing:0}
- .reference-hero p span{padding:0 calc(1 * var(--ref-u))}
  .reference-home .reference-new-job{width:calc(198 * var(--ref-u));height:calc(46 * var(--ref-u));min-width:0;min-height:44px;margin-top:calc(17 * var(--ref-u));padding:0 calc(10 * var(--ref-u));border-radius:calc(15 * var(--ref-u));font-size:calc(23 * var(--ref-u));gap:calc(8 * var(--ref-u));letter-spacing:calc(-.3 * var(--ref-u));box-shadow:0 calc(3 * var(--ref-u)) calc(5 * var(--ref-u)) #0005,inset 0 1px 1px #ffffff7a}
  .reference-new-job svg{width:calc(25 * var(--ref-u));height:calc(25 * var(--ref-u))}
  .reference-workspace{margin:0;padding:calc(7 * var(--ref-u));border:calc(2 * var(--ref-u)) solid #fff;border-radius:calc(18 * var(--ref-u)) calc(18 * var(--ref-u)) calc(15 * var(--ref-u)) calc(15 * var(--ref-u));background:linear-gradient(110deg,#f7f7f7,#eee 65%,#e9e9e9);box-shadow:0 calc(-2 * var(--ref-u)) calc(5 * var(--ref-u)) #0003;overflow:hidden}

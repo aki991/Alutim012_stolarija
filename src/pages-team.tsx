@@ -7,10 +7,9 @@ import { uid } from './catalog';
 import { acceptTeamJob, canEditJob, jobFromSettings, todayInBelgrade, useStore } from './store';
 import type { Job } from './models';
 import { assignTeamJob, createTeamJob, fetchTeamMessages, fetchTeamWorkers, sendTeamMessage, TeamRequestError, type TeamMember, type TeamMessage } from './services/team-api';
-import { pollTeam, signOutTeam, useTeamInbox } from './team-session';
+import { pollTeam, signOutTeam, teamNotificationLabels, useTeamInbox } from './team-session';
 
 const dateTime = new Intl.DateTimeFormat('sr-Latn-RS', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Belgrade' });
-const notificationLabels = { assignment: 'Dodeljeno merenje', status: 'Promena statusa' };
 const assignmentDateError = 'Datum merenja mora biti današnji ili budući.';
 
 function AssignmentDateInput({ defaultValue, onPastDate }: { defaultValue?: string; onPastDate: () => void }) {
@@ -68,7 +67,7 @@ export function NotificationsPage() {
   setReadError('');
   void action().catch(() => setReadError('Označavanje kao pročitano nije uspelo. Pokušajte ponovo.'));
  }
- const notices = [...items.map(item => ({ ...item, path: `/posao/${item.job_id}`, label: notificationLabels[item.kind],
+ const notices = [...items.map(item => ({ ...item, path: `/posao/${item.job_id}`, label: teamNotificationLabels[item.kind],
   mark: () => markRead(item.id) })), ...messageAlerts.map(message => ({
   id: message.id, job_id: message.job_id, kind: 'message', actor_name: message.sender_name, job_name: message.job_name,
   body: '', created_at: message.created_at, read_at: null, path: `/poruke/${message.job_id}`, label: 'Nova poruka',

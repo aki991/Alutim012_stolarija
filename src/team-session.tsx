@@ -12,6 +12,7 @@ const teamLoginRequired = (import.meta.env.PROD && import.meta.env.MODE !== 'tes
 const TeamInbox = createContext({ items: [] as TeamNotification[], messageAlerts: [] as TeamConversation[], error: '', markRead: async (_id: string) => {},
  conversations: [] as TeamConversation[], messagesError: '', readMessages: async (_jobId: string, _messageId: string) => {}, refreshMessages: () => {} });
 export const useTeamInbox = () => useContext(TeamInbox);
+export const teamNotificationLabels = { assignment: 'Dodeljeno merenje', status: 'Promena statusa' };
 
 export function pollTeam(refresh: (isCurrent: () => boolean) => Promise<void>) {
  let current = true, loading = false;

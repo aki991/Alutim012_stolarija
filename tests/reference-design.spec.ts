@@ -38,7 +38,8 @@ test('Početna prati referentni raspored na telefonu i tabletu', async ({ page }
     await page.setViewportSize(viewport);
     await page.goto('/');
     await page.evaluate(() => document.fonts.ready);
-    await expect(page.getByRole('heading', { name: 'Brza ponuda na terenu' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Pregled rada', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Pregled rada' }).locator('p')).toHaveCount(0);
     await expect(page.getByRole('navigation', { name: 'Vrste stolarije' }).getByRole('link')).toHaveCount(6);
     const category = await page.locator('.reference-categories').boundingBox();
     const hero = await page.locator('.reference-hero').boundingBox();
@@ -68,7 +69,7 @@ test('Mobilni meni, kategorije, posao i obaveštenja ostaju funkcionalni', async
   await expect(page.locator('.job-card')).toHaveCount(1);
   await expect(page.locator('.job-card')).toContainText('Zorić');
   await page.getByRole('navigation', { name: 'Donja navigacija' }).getByRole('link', { name: 'Početna', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Brza ponuda na terenu' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pregled rada', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Obaveštenja' }).click();
   await expect(page.getByRole('dialog', { name: 'Obaveštenja' })).toBeVisible();
 });
