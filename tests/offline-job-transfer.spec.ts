@@ -9,6 +9,7 @@ test('Poslovi prikazuju lokalno merenje posle prijave i prenose ga na zahtev', a
  let creates = 0;
  let statusChanges = 0;
  let failStatusChange = true;
+ let holdProfile: Promise<void> | undefined;
  const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
  await page.setViewportSize({ width: 390, height: 844 });
  await page.route('https://team-tests.invalid/**', async route => {
@@ -24,7 +25,9 @@ test('Poslovi prikazuju lokalno merenje posle prijave i prenose ga na zahtev', a
     return reply({ access_token: token, refresh_token: 'test-refresh', expires_in: 3600,
      user: { id: member.id, email: 'milos@alutim012.local', aud: 'authenticated' } });
    }
-   case 'field_team_my_profile': return reply(request.headers().accept?.includes('vnd.pgrst.object') ? member : [member]);
+   case 'field_team_my_profile':
+    await holdProfile;
+    return reply(request.headers().accept?.includes('vnd.pgrst.object') ? member : [member]);
    case 'field_team_pricing': return reply({ prices: {}, porta_royal_prices: {}, vat: 20, vat_mode: 'exclusive', revision: 0 });
    case 'field_team_visible_jobs': return reply([...jobs.values()]);
    case 'field_team_create_job': {
@@ -113,7 +116,26 @@ test('Poslovi prikazuju lokalno merenje posle prijave i prenose ga na zahtev', a
  await expect(page.getByRole('heading', { name: customer, exact: true })).toHaveCount(1);
 
  await page.goto('/nalog');
- await page.getByRole('button', { name: 'Radi bez interneta' }).click();
+ const offlineWork = page.getByRole('button', { name: 'Radi bez interneta' });
+ await expect(page.getByRole('button', { name: 'Odjavi se' })).toBeVisible();
+ await expect(offlineWork).toHaveCount(0);
+
+ let releaseProfile = () => {};
+ holdProfile = new Promise<void>(resolve => { releaseProfile = resolve; });
+ try {
+  await page.reload();
+  await expect(page.getByRole('status')).toHaveText('Učitavanje aplikacije…');
+  await expect(page.getByLabel('E-mail ili korisničko ime')).toHaveCount(0);
+  await expect(offlineWork).toHaveCount(0);
+  await context.setOffline(true);
+  await expect(page.getByRole('heading', { name: 'Nema internet veze' })).toBeVisible();
+  await offlineWork.click();
+  await expect(page.getByRole('heading', { name: 'Svi poslovi' })).toBeVisible();
+ } finally {
+  await context.setOffline(false);
+  releaseProfile();
+  holdProfile = undefined;
+ }
  const localJob = page.getByRole('heading', { name: customer, exact: true });
  await page.getByRole('link').filter({ has: localJob }).click();
  await expect(page.getByText('Sačuvano lokalno')).toBeVisible();

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, LogIn, WifiOff } from 'lucide-react';
 import { beginTeamWorkspace, endTeamWorkspace, findLocalJob, refreshTeamWorkspace, useStore } from './store';
@@ -180,7 +180,7 @@ function TeamSession({ children, loginPath, onTeamReady }: { children: ReactNode
  }, [activeProfileId, userId]);
 
  if (userId === undefined || (userId && profile?.id !== userId) || (!userId && member)) {
-  return <LoginFrame><p role="status">Učitavanje radnog prostora…</p><OfflineWorkButton/></LoginFrame>;
+  return <TeamStartup/>;
  }
  if (userId && profile?.error) return <AccountError message={profile.error} onRetry={() => { setProfile(null); setRetry(n => n + 1); }}/>;
  if (userId && member?.id === userId) {
@@ -192,6 +192,25 @@ function TeamSession({ children, loginPath, onTeamReady }: { children: ReactNode
  if (loginPath) return <Login/>;
  if (teamLoginRequired || teamOnlyPath.test(location.pathname)) return <Navigate to="/prijava" state={{ from: location.pathname + location.search + location.hash }} replace/>;
  return children;
+}
+
+function subscribeToConnection(listener: () => void) {
+ window.addEventListener('online', listener);
+ window.addEventListener('offline', listener);
+ return () => {
+  window.removeEventListener('online', listener);
+  window.removeEventListener('offline', listener);
+ };
+}
+
+function TeamStartup() {
+ const online = useSyncExternalStore(subscribeToConnection, () => navigator.onLine);
+ if (!online) {
+  return <LoginFrame><h1>Nema internet veze</h1><OfflineWorkButton/></LoginFrame>;
+ }
+ return <main className="team-startup">
+  <p role="status"><Loader2 className="team-login-spinner" size={20} aria-hidden="true"/>Učitavanje aplikacije…</p>
+ </main>;
 }
 
 function LoginFrame({ children, homeLink = false }: { children: ReactNode; homeLink?: boolean }) {

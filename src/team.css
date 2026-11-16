@@ -1,5 +1,7 @@
 @import '@fontsource-variable/inter';
 
+.team-startup { min-height: 100dvh; display: grid; place-items: center; color: var(--workspace-text); background: var(--workspace-background); }
+.team-startup p { display: flex; align-items: center; gap: 10px; font: 500 16px/1.5 'Inter Variable', Inter, system-ui, sans-serif; }
 .team-login {
  min-height: 100dvh;
  display: grid;
