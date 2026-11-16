@@ -69,9 +69,11 @@ export function TeamHeaderLinks() {
     {previewError && <p role="status">{previewError}</p>}
     {!previewError && !previews.length && <p>{empty}</p>}
     {previews.length > 0 && <ul>{previews.map(item => <li key={item.id} className={item.unread ? 'unread' : undefined}>
-     <small>{item.detail}{item.unread && ' · Novo'}</small>
-     <strong>{item.title}</strong>
-     {item.snippet && <span>{item.snippet}</span>}
+     <Link className="team-inbox-preview" to={to} onClick={() => setOpen(null)}>
+      <small>{item.detail}{item.unread && ' · Novo'}</small>
+      <strong>{item.title}</strong>
+      {item.snippet && <span>{item.snippet}</span>}
+     </Link>
     </li>)}</ul>}
     <Link className="team-inbox-open" to={to} onClick={() => setOpen(null)}>{action}<span><ArrowRight aria-hidden="true"/></span></Link>
    </section>}

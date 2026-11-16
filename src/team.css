@@ -111,8 +111,11 @@
 .team-inbox-panel h2 { padding: 12px 14px; font-size: 16px; font-weight: 700; }
 .team-inbox-panel p { padding: 10px 14px; color: #545b65; }
 .team-inbox-panel ul { max-height: min(220px, 42dvh); overflow-y: auto; list-style: none; }
-.team-inbox-panel li { display: grid; gap: 2px; padding: 8px 14px; border-top: 1px solid #ebecef; }
+.team-inbox-panel li { border-top: 1px solid #ebecef; }
 .team-inbox-panel li.unread { background: #fff8ee; box-shadow: inset 3px 0 #b60018; }
+.team-inbox-preview { display: grid; gap: 2px; padding: 8px 14px; }
+.team-inbox-preview:hover, .team-inbox-preview:focus-visible { background: #9300120c; }
+.team-inbox-preview:focus-visible { outline: 2px solid #930012; outline-offset: -2px; }
 .team-inbox-panel li small, .team-inbox-panel li span { color: #545b65; }
 .team-inbox-panel li small { font-size: 14px; }
 .team-inbox-panel li span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
