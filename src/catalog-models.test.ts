@@ -17,7 +17,11 @@ describe('Prošireni katalog',()=>{
    expect(validatePosition(position),model.id).toEqual([]);
    const price=positionCost(position,defaults);
    expect(Number.isFinite(price.unit)&&price.unit>0&&!price.requiresReview,model.id).toBe(true);
-   if(model.layout)expect(isModelLayout(position.modelLayout),model.id).toBe(true);
+   if(position.modelLayout){
+    expect(isModelLayout(position.modelLayout),model.id).toBe(true);
+    const legacy={...position,modelLayout:{...position.modelLayout,systemRates:undefined}};
+    expect(price,model.id).toEqual(positionCost(legacy,defaults));
+   }
   }
  });
 
@@ -28,6 +32,8 @@ describe('Prošireni katalog',()=>{
   expect(stored.modelLayout?.cornerAfter).toBe(2);
   expect(stored.modelLayout?.rows[0].cells).toHaveLength(5);
   expect(positionCost(stored,defaults).lines.find(line=>line.name.includes('(HS)'))?.amount).toBe(150);
+  const renamed={...stored,modelLayout:{...stored.modelLayout!,system:'Novi naziv za prikaz'}};
+  expect(positionCost(renamed,defaults)).toEqual(positionCost(stored,defaults));
   expect(positionCost({...stored,manualPrice:650,quantity:2},defaults).total).toBe(1300);
  });
 

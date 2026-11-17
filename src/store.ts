@@ -2,9 +2,11 @@ import { create } from 'zustand';
 import type { DeletedJob, Job, Position, Settings } from './models';
 import { catalog, makePosition, uid } from './catalog';
 import { defaults } from './services/calculation';
-import { parseBackup } from './services/storage';
+import { parseBackup, type LocalSnapshot } from './services/storage';
+import { LocalConflict, localSaveError, localWorkspaceKey, LocalWorkspaceStorage } from './services/local-workspace';
+import { positionDraft } from './services/position-draft';
+import { jobsWithPendingChanges, mutationTarget, readTeamMutations, writeTeamMutations, type TeamMutation } from './services/team-mutations';
 import { createTeamJob, deleteTeamJob, fetchTeamJobs, fetchTeamPreferences, fetchTeamPricing, saveTeamPreferences, saveTeamPricing, updateTeamJob, type PriceSettings, type TeamJob, type TeamMember, type TeamPreferences, type TeamPreferencesRow, type TeamPricingRow } from './services/team-api';
-const KEY='alu-tim-teren-v1';
 export const todayInBelgrade=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Europe/Belgrade'});
 export function emptyJob(technician:string): Job {return {id:'AT-'+new Date().getFullYear()+'-'+uid().slice(0,8).toUpperCase(),customer:{name:'',phone:'',email:'',address:'',building:'Porodična kuća'},date:todayInBelgrade(),createdAt:new Date().toISOString(),technician,notes:'',status:'Merenje',positions:[],package:'Standard',discount:0,transport:defaults.prices.transport,extraWork:'',extraCost:0,validity:'15 dana',delivery:'Po dogovoru, nakon tehničke provere',payment:'50% avans, ostatak po montaži',updated:new Date().toISOString()};}
 export function jobFromSettings(settings:Settings):Job {
@@ -45,26 +47,21 @@ export function workerJobPricing(transport:number):Partial<Job>{
  return {package:'Standard',transport,discount:0,discountMode:undefined,surcharge:undefined,surchargeMode:undefined,
   manualTotal:undefined,extraCost:0,vat:undefined,vatMode:undefined};
 }
-type TeamMutation=
- | {type:'create';job:Job}
- | {type:'update';id:string;patch:Partial<Job>;expected:Partial<Job>;updated:string}
- | {type:'delete';job:Job;revision?:number}
- | {type:'preferences';patch:TeamPreferences};
 interface TeamWorkspace {
  member:TeamMember; rows:Map<string,TeamJob>; pending:TeamMutation[]; epoch:number;
  preferences:TeamPreferencesRow|null; preferencesError:string;
  running:boolean; refreshing:boolean; pricingRefreshing:boolean; conflict:boolean; mutationError:string; connectionError:string; draftError:string;
 }
 const sampleJobs=demoJobs();
-let initial:ReturnType<typeof parseBackup>={jobs:sampleJobs,trash:[],settings:defaults},initialError='';
-try {const raw=localStorage.getItem(KEY);if(raw)initial=parseBackup(JSON.parse(raw));}catch {initialError='Lokalni podaci nisu dostupni ili su oštećeni. Prikazani su demonstracioni podaci.';}
-let workspace:TeamWorkspace|undefined,localJobs=initial.jobs,localTrash=initial.trash,localSettings=initial.settings;
+const localStorageRepository=new LocalWorkspaceStorage(()=>localStorage,{jobs:sampleJobs,trash:[],settings:defaults});
+const initial=localStorageRepository.load();
+let workspace:TeamWorkspace|undefined,local=initial.data,localError=initial.error;
 const preferenceKeys=['showPrices','elementDefaults','documentDefaults'] as const;
 function pickPreferences(settings:Partial<Settings>):TeamPreferences{
  return Object.fromEntries(preferenceKeys.filter(key=>settings[key]!==undefined).map(key=>[key,settings[key]]));
 }
 function currentPreferences(w:TeamWorkspace):TeamPreferences{
- const preferences={...pickPreferences(localSettings),...w.preferences?.data};
+ const preferences={...pickPreferences(local.settings),...w.preferences?.data};
  for(const change of w.pending)if(change.type==='preferences')Object.assign(preferences,change.patch);
  return preferences;
 }
@@ -73,13 +70,13 @@ function pickPricing(settings:Settings):PriceSettings{
  return {prices,portaRoyalPrices,vat,vatMode};
 }
 export function localPricingForImport(){
- const price=pickPricing(localSettings);
+ const price=pickPricing(local.settings);
  const hasChanges=price.vat!==defaults.vat||price.vatMode!==defaults.vatMode||Object.keys(price.portaRoyalPrices??{}).length>0
   ||Object.entries(price.prices).some(([key,value])=>defaults.prices[key as keyof Settings['prices']]!==value);
  return hasChanges?price:null;
 }
 export const useStore=create<AppState>((set,get)=>({
- ...initial,saveState:initialError?'error':'saved',storageError:initialError,
+ ...initial.data,saveState:initial.error?'error':'saved',storageError:initial.error,
  teamMember:null,teamConflict:false,teamAssignments:{},teamAssigneeOnly:{},teamPricingRevision:null,teamPricingError:'',
  updateJob:(id,patch,baseline)=>{
   if(workspace){
@@ -128,9 +125,8 @@ export const useStore=create<AppState>((set,get)=>({
  },
  purgeLocalJobs:ids=>{
   if(workspace)return;
-  const trash=get().trash.filter(({job})=>!ids.has(job.id));
-  if(!saveLocal(trash))throw new Error('Korpa nije sačuvana na uređaju.');
-  set({trash});
+  const trash=local.trash.filter(({job})=>!ids.has(job.id));
+  if(!saveLocal({...local,trash}))throw new Error('Korpa nije sačuvana na uređaju.');
  },
  duplicateJob:id=>{
   const state=get(),original=state.jobs.find(j=>j.id===id)!;
@@ -152,32 +148,20 @@ export const useStore=create<AppState>((set,get)=>({
  importData:data=>{
   const d=parseBackup(data);
   if(workspace)return;
-  set({jobs:d.jobs,settings:d.settings,saveState:'dirty'});
+  if(!saveLocal(d,true))throw new Error('Rezervna kopija nije sačuvana na uređaju.');
  },
  retrySave:()=>{if(workspace)void refreshTeamWorkspace();else saveLocal();},
 }));
 
-const queueKey=(w:TeamWorkspace)=>'alu-team-pending-v1:'+w.member.id;
-const mutationTarget=(change:TeamMutation)=>change.type==='update'?change.id:change.type==='preferences'?null:change.job.id;
 function persistPending(w:TeamWorkspace){
  try{
-  if(w.pending.length)sessionStorage.setItem(queueKey(w),JSON.stringify(w.pending));
-  else sessionStorage.removeItem(queueKey(w));
+  writeTeamMutations(w.member.id,w.pending);
   w.draftError='';
  }catch{w.draftError='Nacrt nije sačuvan na uređaju. Ostavite aplikaciju otvorenu dok se izmene ne pošalju.';}
 }
 function publishWorkspace(w:TeamWorkspace){
  if(workspace!==w)return;
- const jobs=new Map([...w.rows].map(([id,row])=>[id,row.data]));
- for(const change of w.pending){
-  if(change.type==='create')jobs.set(change.job.id,change.job);
-  else if(change.type==='delete')jobs.delete(change.job.id);
-  else if(change.type==='update'){
-   const job=jobs.get(change.id);
-   const row=w.rows.get(change.id);
-   if(job&&(!row||w.member.role==='manager'||row.assigned_to===w.member.id))jobs.set(change.id,{...job,...change.patch,updated:change.updated});
-  }
- }
+ const jobs=jobsWithPendingChanges(w.rows,w.pending,w.member);
  const error=w.mutationError||w.connectionError||w.preferencesError||w.draftError;
  const preferences=currentPreferences(w);
  useStore.setState(state=>{
@@ -186,7 +170,7 @@ function publishWorkspace(w:TeamWorkspace){
   const {elementDefaults,documentDefaults}=preferences;
   const settingsChanged=showPrices!==settings.showPrices||elementDefaults!==settings.elementDefaults||documentDefaults!==settings.documentDefaults;
   return {
-   jobs:[...jobs.values()].sort((a,b)=>Date.parse(b.updated)-Date.parse(a.updated)),
+   jobs,
    teamAssignments:Object.fromEntries([...w.rows].map(([id,row])=>[id,row.assigned_to])),
    teamAssigneeOnly:Object.fromEntries([...w.rows].map(([id,row])=>[id,row.assignee_only])),
    settings:settingsChanged?{...settings,showPrices,elementDefaults,documentDefaults}:settings,
@@ -288,60 +272,36 @@ export async function saveWorkspacePricing(value:PriceSettings,revision:number){
 
 export async function beginTeamWorkspace(member:TeamMember){
  if(workspace?.member.id===member.id)return;
- const w:TeamWorkspace={member,rows:new Map(),pending:[],epoch:0,preferences:null,preferencesError:'',running:false,refreshing:false,pricingRefreshing:false,conflict:false,mutationError:'',connectionError:'',draftError:''};
- try{
-  const pending=JSON.parse(sessionStorage.getItem(queueKey(w))??'[]');
-  if(Array.isArray(pending))w.pending=pending;
- }catch{/* Only the authorized user's pending queue is loaded. */}
+ const w:TeamWorkspace={member,rows:new Map(),pending:readTeamMutations(member.id),epoch:0,preferences:null,preferencesError:'',running:false,refreshing:false,pricingRefreshing:false,conflict:false,mutationError:'',connectionError:'',draftError:''};
  workspace=w;
- useStore.setState({teamMember:member,trash:[],teamPricingRevision:null,teamPricingError:'',settings:{...localSettings,...pickPricing(defaults),showPrices:false}});
+ useStore.setState({teamMember:member,trash:[],teamPricingRevision:null,teamPricingError:'',settings:{...local.settings,...pickPricing(defaults),showPrices:false}});
  publishWorkspace(w);
  await Promise.all([refreshTeamPricing(),refreshTeamWorkspace()]);
 }
 export function endTeamWorkspace(){
  if(!workspace)return;
  workspace=undefined;
- useStore.setState({jobs:localJobs,trash:localTrash,settings:localSettings,teamMember:null,teamAssignments:{},teamAssigneeOnly:{},teamConflict:false,teamPricingRevision:null,teamPricingError:'',storageError:'',saveState:'saved'});
+ useStore.setState({...local,teamMember:null,teamAssignments:{},teamAssigneeOnly:{},teamConflict:false,teamPricingRevision:null,teamPricingError:'',storageError:localError,saveState:localError?'error':'saved'});
 }
 export function findLocalJob(id:string){
- return localJobs.find(job=>job.id===id);
+ return local.jobs.find(job=>job.id===id);
 }
 export function listLocalJobs():Job[]{
- return localJobs.filter(job=>!sampleJobs.some(sample=>sample.id===job.id
+ return local.jobs.filter(job=>!sampleJobs.some(sample=>sample.id===job.id
   &&sample.customer.name===job.customer.name&&sample.customer.email===job.customer.email));
 }
 export function workspaceDraft(key:string,offline:boolean){
  const memberId=workspace?.member.id;
- const persistent=offline&&!memberId;
- const storageKey=memberId?`alu-team-draft:${memberId}:${key}`:key;
- const storage=()=>persistent?localStorage:sessionStorage;
- return {
-  read:()=>storage().getItem(storageKey)??(persistent?sessionStorage.getItem(key):null),
-  write:(position:Position)=>storage().setItem(storageKey,JSON.stringify(position)),
-  commit:(save:()=>void,keepDraft=false)=>{
-   if(!persistent){
-    save();
-    const saved=Boolean(memberId)||useStore.getState().saveState!=='error';
-    if(saved&&!keepDraft)try{sessionStorage.removeItem(storageKey);}catch{/* The update was already saved. */}
-    return saved;
-   }
-   // Free space before saving the same photos as part of the job.
-   let previous:string|null=null;
-   try{previous=localStorage.getItem(storageKey);localStorage.removeItem(storageKey);}
-   catch{/* The job save reports storage failures. */}
-   let saved=false;
-   try{
-    save();
-    saved=useStore.getState().saveState!=='error';
-   }finally{
-    try{
-     if(saved)sessionStorage.removeItem(key);
-     else if(previous!==null)localStorage.setItem(storageKey,previous);
-    }catch{/* Keep the existing job storage error. */}
-   }
-   return saved;
-  },
- };
+ return positionDraft(key,memberId,offline,()=>{
+  if(!memberId)return useStore.getState().saveState!=='error';
+  const w=workspace;
+  if(w?.member.id!==memberId)return false;
+  if(w.draftError){
+   persistPending(w);
+   publishWorkspace(w);
+  }
+  return !w.draftError;
+ });
 }
 export function acceptTeamJob(row:TeamJob,memberId:string){
  if(workspace?.member.id!==memberId)return;
@@ -366,14 +326,36 @@ export function renameWorkspaceMember(id:string,name:string){
 }
 
 let timer:ReturnType<typeof setTimeout>;
-function saveLocal(trash=localTrash){try{localStorage.setItem(KEY,JSON.stringify({jobs:localJobs,trash,settings:localSettings}));if(!workspace)useStore.setState({saveState:'saved',storageError:''});return true;}catch{if(!workspace)useStore.setState({saveState:'error',storageError:'Nema dovoljno lokalnog prostora ili je čuvanje blokirano. Izvezite rezervnu kopiju i uklonite velike fotografije.'});return false;}}
-useStore.subscribe((s,prev)=>{
- if(workspace)return;
- if(s.jobs!==prev.jobs)localJobs=s.jobs;
- if(s.trash!==prev.trash)localTrash=s.trash;
- if(s.settings!==prev.settings)localSettings=s.settings;
- if(s.jobs!==prev.jobs||s.trash!==prev.trash){clearTimeout(timer);saveLocal();}
- else if(s.settings!==prev.settings){clearTimeout(timer);timer=setTimeout(saveLocal,350);}
+function publishLocal(){
+ if(!workspace)useStore.setState({...local,saveState:localError?'error':'saved',storageError:localError});
+}
+function saveLocal(next=local,replace=false){
+ try{
+  local=localStorageRepository.save(next,replace);
+  localError='';
+  clearTimeout(timer);
+  publishLocal();
+  return true;
+ }catch(error){
+  localError=error instanceof LocalConflict?error.message:localSaveError;
+  if(!workspace)useStore.setState({saveState:'error',storageError:localError});
+  return false;
+ }
+}
+useStore.subscribe(({jobs,trash,settings})=>{
+ if(workspace||(jobs===local.jobs&&trash===local.trash&&settings===local.settings))return;
+ const jobsChanged=jobs!==local.jobs||trash!==local.trash;
+ local={jobs,trash,settings};
+ clearTimeout(timer);
+ if(jobsChanged)saveLocal();
+ else timer=setTimeout(()=>saveLocal(),350);
+});
+window.addEventListener('storage',event=>{
+ if(event.key!==localWorkspaceKey||local!==localStorageRepository.snapshot)return;
+ const latest=localStorageRepository.load();
+ local=latest.data;
+ localError=latest.error;
+ publishLocal();
 });
 window.addEventListener('pagehide',()=>{if(!workspace&&useStore.getState().saveState==='dirty')saveLocal();});
-if(!initialError)saveLocal();
+if(!initial.error)saveLocal();

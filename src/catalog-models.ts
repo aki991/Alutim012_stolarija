@@ -4,6 +4,7 @@ import { openingRegions, type HingeSide } from './custom/openings';
 import { divideWindow } from './custom/windowLayout';
 import type { Category, Position } from './models';
 import type { Infill, ModelLayout, ModelRow, Movement } from './model-layout';
+import type { SystemRate } from './services/pricing-rates';
 
 export const modelGroups = {
  windows: 'Prozori', doors: 'Vrata', sliding: 'Klizni sistemi', folding: 'Sklopivi sistemi',
@@ -25,8 +26,8 @@ const row=(moves:Movement[],weight:number, infill:Infill='glass',weights?:number
 const fixed='fixed' as const;
 const fill=(count:number,move:Movement)=>Array.from({length:count},()=>move);
 
-function addModel(group:Group,category:Category,system:string,id:string,variant:string,width:number,height:number,rows:ModelRow[],options:{material?:Position['material'];keywords?:string;cornerAfter?:number}={}) {
- models.push({group,category,name:variant?`${system} · ${variant}`:system,id,width,height,material:options.material??'ALU',keywords:options.keywords,layout:{system,rows,cornerAfter:options.cornerAfter}});
+function addModel(group:Group,category:Category,system:string,id:string,variant:string,width:number,height:number,rows:ModelRow[],options:{material?:Position['material'];keywords?:string;cornerAfter?:number;systemRates?:readonly SystemRate[]}={}) {
+ models.push({group,category,name:variant?`${system} · ${variant}`:system,id,width,height,material:options.material??'ALU',keywords:options.keywords,layout:{system,rows,cornerAfter:options.cornerAfter,systemRates:options.systemRates??[]}});
 }
 
 const surrounds = [
@@ -137,7 +138,8 @@ for(const type of doorTypes){
   if(surround.left)middle.cells.unshift({movement:fixed,infill:'glass',weight:430});
   if(surround.right)middle.cells.push({movement:fixed,infill:'glass',weight:430});
   const rows=surround.top?[row([fixed],350),middle]:[middle];
-  addModel('doors',type.category,type.name,`d-${type.id}-${surround.id}-${leaf.id}`,[leaf.label,surround.label].filter(Boolean).join(', '),middle.cells.reduce((n,c)=>n+c.weight,0),surround.top?2450:2100,rows,{material:type.id.startsWith('balcony')?'PVC':'ALU',keywords:type.keywords});
+  const systemRates:SystemRate[]=['escape','fire','security'].includes(type.id)?['certifiedDoor']:[];
+  addModel('doors',type.category,type.name,`d-${type.id}-${surround.id}-${leaf.id}`,[leaf.label,surround.label].filter(Boolean).join(', '),middle.cells.reduce((n,c)=>n+c.weight,0),surround.top?2450:2100,rows,{material:type.id.startsWith('balcony')?'PVC':'ALU',keywords:type.keywords,systemRates});
  }
 }
 
@@ -154,6 +156,10 @@ const slidingPatterns: [string,Movement[]][]=[
  ['pet pokretnih, slaganje ulevo',fill(5,'slideLeft')], ['pet pokretnih, slaganje udesno',fill(5,'slideRight')],
  ['šest pokretnih, otvaranje od sredine',[...fill(3,'slideLeft'),...fill(3,'slideRight')]],
 ];
+const slidingRates:Partial<Record<string,readonly SystemRate[]>>={
+ hs:['liftSlide'],psk:['tiltSlide'],ps:['retractSlide'],minimal:['multiTrack'],
+ pocket:['pocket'],'hs-pocket':['liftSlide','pocket'],telescopic:['multiTrack'],'guillotine-motor':['motor'],
+};
 const slidingTypes:[string,string,number[],string,boolean][]=[
  ['slide','Paralelno klizni',slidingPatterns.map((_,i)=>i),'klasično klizanje dvokanalni trokanalni',false],
  ['hs','Podizno-klizni',[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,17],'HS HST lift slide',true],
@@ -171,7 +177,7 @@ for(const [id,title,patterns,keywords,alu] of slidingTypes)for(const isDoor of [
    const height=isDoor?2250:1250;
    const rows=[row(moves,height)];
    if(top)rows.unshift(row([fixed],350));
-   addModel('sliding',isDoor?slidingCategory:windowCategory,system,`s-${id}-${isDoor?'d':'w'}-${moves.join('-')}${top?'-top':''}`,`${label}${top?', nadsvetlo':''}`,moves.length*(isDoor?950:700),height+(top?350:0),rows,{material:alu?'ALU':'PVC',keywords});
+   addModel('sliding',isDoor?slidingCategory:windowCategory,system,`s-${id}-${isDoor?'d':'w'}-${moves.join('-')}${top?'-top':''}`,`${label}${top?', nadsvetlo':''}`,moves.length*(isDoor?950:700),height+(top?350:0),rows,{material:alu?'ALU':'PVC',keywords,systemRates:slidingRates[id]});
   }
  }
 }
@@ -180,13 +186,13 @@ for(const [id,label,counts] of [['pocket','Klizanje u zidni džep',[1,2,3,4]],['
  for(const count of counts)for(const direction of ['slideLeft','slideRight','split'] as const){
   if(direction==='split'&&count%2)continue;
   const moves=direction==='split'?[...fill(count/2,'slideLeft'),...fill(count/2,'slideRight')]:fill(count,direction);
-  for(const isDoor of [false,true])addModel('sliding',isDoor?slidingCategory:windowCategory,`${label} za ${isDoor?'vrata':'prozor'}`,`s-${id}-${isDoor?'d':'w'}-${count}-${direction}`,`${count} ${count===1?'krilo':'krila'}, ${direction==='split'?'na obe strane':direction==='slideLeft'?'ulevo':'udesno'}`,count*(isDoor?850:650),isDoor?2200:1100,[row(moves,1)],{keywords:'pocket kasa zid skriveno višekanalno slide turn stack'});
+  for(const isDoor of [false,true])addModel('sliding',isDoor?slidingCategory:windowCategory,`${label} za ${isDoor?'vrata':'prozor'}`,`s-${id}-${isDoor?'d':'w'}-${count}-${direction}`,`${count} ${count===1?'krilo':'krila'}, ${direction==='split'?'na obe strane':direction==='slideLeft'?'ulevo':'udesno'}`,count*(isDoor?850:650),isDoor?2200:1100,[row(moves,1)],{keywords:'pocket kasa zid skriveno višekanalno slide turn stack',systemRates:slidingRates[id]});
  }
 }
 for(const [id,system] of [['slide','Klizni ugao'],['hs','Podizno-klizni ugao'],['minimal','Panoramski klizni ugao']] as const){
  for(let left=2;left<=4;left++)for(let right=2;right<=4;right++){
   const moves:Movement[]=[fixed,...fill(left-1,'slideLeft'),...fill(right-1,'slideRight'),fixed];
-  addModel('sliding',slidingCategory,system,`s-corner-${id}-${left}-${right}`,`${left} + ${right} polja`,(left+right)*900,2300,[row(moves,1)],{cornerAfter:left,keywords:'bez stuba 90 stepeni otvoreni ugao'});
+  addModel('sliding',slidingCategory,system,`s-corner-${id}-${left}-${right}`,`${left} + ${right} polja`,(left+right)*900,2300,[row(moves,1)],{cornerAfter:left,keywords:'bez stuba 90 stepeni otvoreni ugao',systemRates:slidingRates[id]});
  }
 }
 
@@ -195,7 +201,7 @@ for(const [id,system,patterns] of [
  ['guillotine','Giljotina prozor',[['fixed','slideUp'],['slideDown','fixed'],['slideDown','slideUp'],['fixed','slideUp','slideUp'],['slideDown','slideDown','fixed'],['slideDown','fixed','slideUp']]],
  ['guillotine-motor','Motorna giljotina',[['fixed','slideUp'],['slideDown','fixed'],['slideDown','slideUp'],['fixed','slideUp','slideUp'],['slideDown','slideDown','fixed']]],
 ] satisfies [string,string,Movement[][]][]){
- for(const moves of patterns)addModel('sliding',windowCategory,system,`s-${id}-${moves.join('-')}`,moves.map(move=>move===fixed?'fiksno':move==='slideUp'?'nagore':'nadole').join(' / '),1200,moves.length*620,moves.map(move=>row([move],1)),{keywords:'single hung double hung sash vertikalni klizni prozor'});
+ for(const moves of patterns)addModel('sliding',windowCategory,system,`s-${id}-${moves.join('-')}`,moves.map(move=>move===fixed?'fiksno':move==='slideUp'?'nagore':'nadole').join(' / '),1200,moves.length*620,moves.map(move=>row([move],1)),{keywords:'single hung double hung sash vertikalni klizni prozor',systemRates:slidingRates[id]});
 }
 
 for(const isDoor of [true,false])for(const outward of [false,true]){
@@ -247,9 +253,10 @@ for(const [id,system,move] of [
 ] as const){
  const right:Movement=move==='left'?'right':move==='foldLeft'?'foldRight':'slideRight';
  const layouts:Movement[][]=id==='tel'?[[fixed,move,move],[right,right,fixed],[fixed,move,move,right,right,fixed]]:id==='fold'?[[move,move],[right,right],[move,move,right,right]]:[[fixed,move],[right,fixed],[fixed,move,right,fixed]];
- for(const moves of layouts)for(const top of [false,true])addModel('automatic',entranceCategory,system,`a-${id}-${moves.join('-')}${top?'-top':''}`,`${moves.filter(m=>m!==fixed).length} pokretna polja, ${moves.includes(move)&&moves.includes(right)?'obostrano':moves.includes(move)?'ulevo':'udesno'}${top?', nadsvetlo':''}`,moves.length*750,top?2550:2200,top?[row([fixed],350),row(moves,2200)]:[row(moves,1)],{keywords:'senzorska motorna fotoćelija poslovni ulaz'});
+ const systemRates:SystemRate[]=id==='tel'?['multiTrack','automaticDoor']:['automaticDoor'];
+ for(const moves of layouts)for(const top of [false,true])addModel('automatic',entranceCategory,system,`a-${id}-${moves.join('-')}${top?'-top':''}`,`${moves.filter(m=>m!==fixed).length} pokretna polja, ${moves.includes(move)&&moves.includes(right)?'obostrano':moves.includes(move)?'ulevo':'udesno'}${top?', nadsvetlo':''}`,moves.length*750,top?2550:2200,top?[row([fixed],350),row(moves,2200)]:[row(moves,1)],{keywords:'senzorska motorna fotoćelija poslovni ulaz',systemRates});
 }
-for(const count of [2,3,4])addModel('automatic',entranceCategory,'Rotirajuća ulazna vrata',`a-revolving-${count}`,`${count} krila`,2800,2350,[row(fill(count,'revolve'),1)],{keywords:'karusel revolving obrtna vrata'});
+for(const count of [2,3,4])addModel('automatic',entranceCategory,'Rotirajuća ulazna vrata',`a-revolving-${count}`,`${count} krila`,2800,2350,[row(fill(count,'revolve'),1)],{keywords:'karusel revolving obrtna vrata',systemRates:['revolvingDoor']});
 
 for(const [id,system,move] of [
  ['sectional','Segmentna garažna vrata','sectional'],['roll','Rolo garažna vrata','roll'],['canopy','Podizno-zakretna garažna vrata','canopy'],
@@ -258,11 +265,12 @@ for(const [id,system,move] of [
  ['vertical','Vertikalno podizna industrijska vrata','slideUp'],['hanger','Klizna industrijska vrata','slideLeft'],
 ] as const){
  const side=id==='side-left'?'ulevo':id==='side-right'?'udesno':'';
- addModel('garage',doorCategory,system,`g-${id}`,side,3000,2400,[row([move],1,'panel')],{keywords:'garaža radionica hangar magacin'});
- if(!['roll','highspeed'].includes(id))addModel('garage',doorCategory,system,`g-${id}-top`,[side,'sa nadsvetlom'].filter(Boolean).join(', '),3000,2800,[row(fill(3,fixed),400),row([move],2400,'panel')]);
+ const systemRates:SystemRate[]=id==='highspeed'?['motor','garageMechanism']:id==='industrial'?[]:['garageMechanism'];
+ addModel('garage',doorCategory,system,`g-${id}`,side,3000,2400,[row([move],1,'panel')],{keywords:'garaža radionica hangar magacin',systemRates});
+ if(!['roll','highspeed'].includes(id))addModel('garage',doorCategory,system,`g-${id}-top`,[side,'sa nadsvetlom'].filter(Boolean).join(', '),3000,2800,[row(fill(3,fixed),400),row([move],2400,'panel')],{systemRates});
 }
-addModel('garage',doorCategory,'Krilna garažna vrata ka spolja','g-hinged','dva krila',2600,2200,[row(['outLeft','outRight'],1,'panel')]);
-addModel('garage',doorCategory,'Sklopiva industrijska vrata','g-fold','2 levo + 2 desno',4400,3000,[row(['foldLeft','foldLeft','foldRight','foldRight'],1,'panel')]);
+addModel('garage',doorCategory,'Krilna garažna vrata ka spolja','g-hinged','dva krila',2600,2200,[row(['outLeft','outRight'],1,'panel')],{systemRates:['garageMechanism']});
+addModel('garage',doorCategory,'Sklopiva industrijska vrata','g-fold','2 levo + 2 desno',4400,3000,[row(['foldLeft','foldLeft','foldRight','foldRight'],1,'panel')],{systemRates:['garageMechanism']});
 addModel('doors',doorCategory,'Dvodelna vrata sa nezavisnom gornjom polovinom','d-dutch-left','šarke levo',950,2100,[row(['left'],1),row(['left'],1,'panel')],{keywords:'holandska vrata dutch stable'});
 addModel('doors',doorCategory,'Dvodelna vrata sa nezavisnom gornjom polovinom','d-dutch-right','šarke desno',950,2100,[row(['right'],1),row(['right'],1,'panel')],{keywords:'holandska vrata dutch stable'});
 

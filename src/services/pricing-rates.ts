@@ -12,6 +12,27 @@ export const supplementRates={
 
 export type SupplementRate=keyof typeof supplementRates;
 
+export const systemRateKeys = ['liftSlide','tiltSlide','retractSlide','multiTrack','pocket','motor',
+ 'automaticDoor','revolvingDoor','garageMechanism','certifiedDoor'] as const satisfies readonly SupplementRate[];
+export type SystemRate = typeof systemRateKeys[number];
+
+export function isSystemRateList(value:unknown):value is readonly SystemRate[]{
+ return Array.isArray(value)&&value.length<=systemRateKeys.length
+  &&new Set(value).size===value.length&&value.every(rate=>systemRateKeys.includes(rate));
+}
+
+const legacySystemRates: [RegExp,SystemRate][] = [
+ [/^Podizno-klizni/i,'liftSlide'],[/^Otklopno-klizni/i,'tiltSlide'],[/^Odmično-klizni/i,'retractSlide'],
+ [/teleskopska|teleskopski|panoramski klizni/i,'multiTrack'],[/zidni džep/i,'pocket'],
+ [/^Motorna|^Brza rolo industrijska/i,'motor'],[/^Automatska/i,'automaticDoor'],[/^Rotirajuća/i,'revolvingDoor'],
+ [/garažna vrata|industrijska vrata/i,'garageMechanism'],[/^Protivpožarna|^Protivprovalna|antipanik/i,'certifiedDoor'],
+];
+
+export function ratesForModel(layout: { system:string; systemRates?:readonly SystemRate[] }) {
+ if(isSystemRateList(layout.systemRates))return layout.systemRates;
+ return legacySystemRates.filter(([match]) => match.test(layout.system)).map(([,rate]) => rate);
+}
+
 export const profileRateKeys={
  'PVC 70 mm':['pvc70Frame','pvc70Sash'],
  'PVC 76 mm':['pvc76Frame','pvc76Sash'],

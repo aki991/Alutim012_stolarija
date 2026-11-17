@@ -8,7 +8,6 @@ import { useOfflineWork } from './team-session';
 import type { Opening, Position } from './models';
 import { uid } from './catalog';
 import { calculate, euro, positionCost, validatePosition, positionPriceLabel, jobReviewLabel } from './services/calculation';
-import { parseBackup } from './services/storage';
 import { fieldTypes, makeFieldPosition, selectableFieldTypes, typeOfPosition } from './field-types';
 import { Empty, Modal, Saved } from './components/UI';
 import { centralWidth } from './fixed-panels';
@@ -100,9 +99,7 @@ export function ElementEditor(){
  const draft=workspaceDraft(`alu-position-draft-v1:${id}:${positionId||(template===6?'kombinacija':type)}:${model?.id??(template===6?'':template??'')}`,offline);
  const [p,setPosition]=useState<Position>(()=>{
   const initial=original?structuredClone(original):{...makeFieldPosition(type||'prozor',template,model?.id),...settings.elementDefaults};
-  if(!job)return initial;
-  try{const raw=draft.read();if(raw)return parseBackup({settings,jobs:[{...job,positions:[JSON.parse(raw)]}]}).jobs[0].positions[0];}catch{/* An unusable draft never changes the saved job. */}
-  return initial;
+  return (job && draft.read()) || initial;
  });
  const [chosen,setChosen]=useState<number|null>(null),[options,setOptions]=useState(false),[expanded,setExpanded]=useState(false),[zoom,setZoom]=useState(1),[message,setMessage]=useState(''),[draftError,setDraftError]=useState(false);
  const [layout,setLayout]=useState(false);
@@ -138,7 +135,13 @@ export function ElementEditor(){
  const save=()=>{
   if(errors.length){setMessage(errors[0]);return;}
   const current=useStore.getState().jobs.find(j=>j.id===job.id);if(!current)return;
-  draft.commit(()=>updateJob(job.id,{positions:original?current.positions.map(pos=>pos.id===original.id?p:pos):[...current.positions,p]}));
+  const positions=current.positions.some(pos=>pos.id===p.id)
+   ?current.positions.map(pos=>pos.id===p.id?p:pos)
+   :[...current.positions,p];
+  if(!draft.commit(()=>updateJob(job.id,{positions}))){
+   setMessage('Element nije sačuvan. Proverite prostor na uređaju i pokušajte ponovo.');
+   return;
+  }
   navigate(`/posao/${job.id}`);
  };
  const drawing=<><div className="field-canvas-toolbar"><span>{modelLayout?.cornerAfter?'Razvijeni pogled':chosen===null?'Pogled iznutra':`Izabrano krilo ${chosen+1}`}</span><div><button className="field-icon-button" aria-label="Resetuj prikaz" onClick={()=>setZoom(1)}><RotateCcw/></button><button className="field-icon-button" aria-label="Proširi prikaz" onClick={()=>setExpanded(true)}><Expand/></button></div></div><div className="field-drawing"><Drawing position={p} selected={chosen??-1} onSelect={combination||modelLayout?undefined:setChosen} zoom={zoom}/></div></>;

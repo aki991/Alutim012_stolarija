@@ -12,7 +12,6 @@ import { Field, Logo } from '../components/UI';
 import { PositionOptions } from '../components/PositionOptions';
 import { MissingJob } from '../pages-editor';
 import { euro, positionCost, validatePosition } from '../services/calculation';
-import { parseBackup } from '../services/storage';
 import { GeometryArtwork, CustomDrawing } from './CustomDrawing';
 import { shutterExtent } from '../components/ShutterArtwork';
 import { openingBoxHeight, shutterOf } from '../shutters';
@@ -32,7 +31,7 @@ export function CustomEditor(){
  const model=findCatalogModel(new URLSearchParams(location.search).get('model'));
  const {offline}=useOfflineWork();
  const draft=workspaceDraft(`alu-custom-draft-v1:${id}:${positionId||(model?`model:${model.id}`:'new')}`,offline);
- const [p,setP]=useState<Position>(()=>{const initial=original?clone(original):{...makeFieldPosition('nacrtaj',undefined,model?.id),...settings.elementDefaults};try{const raw=draft.read();if(raw&&job)return parseBackup({settings,jobs:[{...job,positions:[JSON.parse(raw)]}]}).jobs[0].positions[0];}catch{/* Invalid drafts never replace a saved position. */}return initial;});
+ const [p,setP]=useState<Position>(()=>(job&&draft.read())||(original?clone(original):{...makeFieldPosition('nacrtaj',undefined,model?.id),...settings.elementDefaults}));
  const previewRef=useRef<Geometry|null>(null);
  const ref=useRef(p),svg=useRef<SVGSVGElement>(null),gesture=useRef<Gesture|null>(null),pointers=useRef(new Map<number,Point>()),pinch=useRef<{distance:number;camera:Camera;world:Point}|null>(null);
  const [past,setPast]=useState<Position[]>([]),[future,setFuture]=useState<Position[]>([]),[preview,setPreview]=useState<Geometry|null>(null),[tool,setTool]=useState<Tool>(model?'select':'line'),[selected,setSelected]=useState<string|null>(null),[pendingArc,setPendingArc]=useState<{a:Point;b:Point}|null>(null),[rubber,setRubber]=useState<{a:Point;b:Point;via?:Point}|null>(null);
@@ -172,7 +171,8 @@ export function CustomEditor(){
   if(!current)return;
   const positions=current.positions.some(v=>v.id===p.id)?current.positions.map(v=>v.id===p.id?clone(p):v):[...current.positions,clone(p)];
   const saved=draft.commit(()=>updateJob(job!.id,{positions}),!exit&&!!positionId);
-  if(saved)setMessage('Element je sačuvan u poslu.');
+  if(!saved){setError('Element nije sačuvan. Proverite prostor na uređaju i pokušajte ponovo.');return;}
+  setMessage('Element je sačuvan u poslu.');
   if(exit)navigate(`/posao/${job!.id}`);
   else if(!positionId)navigate(`/posao/${job!.id}/element/${p.id}`,{replace:true,state:{customSaved:saved}});
  }

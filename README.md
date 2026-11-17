@@ -68,7 +68,8 @@ Za prijavu zaposlenih, zajedničke poslove, dodelu merenja i obaveštenja pogled
 - Novo vreme kreiranja se beleži tačno. Za stare poslove koji ga ranije nisu imali koristi se postojeće vreme izmene, ili datum posla kao rezervna vrednost.
 - **Lokalni poslovi** se upisuju u `localStorage` pri svakoj potvrđenoj izmeni. Izmene podešavanja upisuju se posle 350 ms ili pri napuštanju stranice. Aplikacija prikazuje grešku ako upis ne uspe.
 - **Nacrti elemenata** u režimu **Radi bez interneta** čuvaju se u `localStorage`. Ostali nacrti se čuvaju u `sessionStorage`. **Sačuvaj izmene** i **Dodaj u posao** upisuju element u posao i uklanjaju nacrt.
-- JSON rezervna kopija iz Podešavanja sadrži sačuvane poslove i fotografije, a ne nepotvrđene nacrte. Uvoz proverava podatke i traži potvrdu zamene.
+- JSON rezervna kopija iz Podešavanja sadrži poslove, fotografije, korpu i podešavanja. Nepotvrđeni nacrti čuvaju se odvojeno. Uvoz proverava podatke, traži potvrdu zamene i prijavljuje uspeh nakon upisa cele kopije.
+- Ako je lokalni zapis oštećen, aplikacija učitava ispravne poslove. Pre sledećeg uspešnog upisa original se čuva u skladištu pregledača pod ključem `alu-tim-teren-v1:recovery:<broj>`, radi oporavka.
 - Skladišta su odvojena po browseru, adresi i portu. `127.0.0.1`, `localhost`, LAN IP i produkcioni port nemaju iste podatke.
 
 Fotografije: do četiri po elementu, JPG/PNG/WebP do 10 MB pre optimizacije. Slike se smanjuju na najviše 1000 px, JPEG kvalitet 0,65 i ograničenje približno 475 KB posle optimizacije. Ako kvota nije dovoljna, izvezite kopiju i uklonite veće slike.
@@ -122,7 +123,7 @@ Testovi pokrivaju jedno obavezno polje, osam izbora, više elemenata, mere/SVG, 
 ## Organizacija koda
 
 - `src/models.ts`, `src/catalog.ts`, `src/field-types.ts` — sačuvani modeli, sporedni katalog i osam brzih izbora.
-- `src/store.ts`, `src/services/storage.ts` — postojeće lokalno skladište i kompatibilna migracija.
+- `src/store.ts` povezuje stanje ekrana sa lokalnim i timskim podacima. `src/services/local-workspace.ts` upravlja lokalnim upisom, a `src/services/storage.ts` čita rezervne kopije i starije zapise.
 - `src/pages-editor.tsx` — izbor tipa, centralno merenje i lista elemenata posla.
 - `src/pages-quote.tsx` — pregled cene, opcione korekcije i dokumenti.
 - `src/components/NewJobDialog.tsx`, `FieldHeader.tsx`, `ElementGlyph.tsx`, `PositionOptions.tsx` — delovi novog toka.

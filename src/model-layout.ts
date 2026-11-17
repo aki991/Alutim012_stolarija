@@ -1,3 +1,5 @@
+import { isSystemRateList, type SystemRate } from './services/pricing-rates';
+
 export const movements = {
  fixed: 'Fiksno',
  left: 'Šarke levo, ručka desno',
@@ -39,7 +41,7 @@ export const glassPanelFraction=.62;
 export const hasGlass=(infill:Infill)=>infill==='glass'||infill==='glassPanel';
 export interface ModelCell { movement: Movement; infill: Infill; weight: number }
 export interface ModelRow { weight: number; cells: ModelCell[] }
-export interface ModelLayout { system: string; rows: ModelRow[]; cornerAfter?: number }
+export interface ModelLayout { system: string; rows: ModelRow[]; cornerAfter?: number; systemRates?: readonly SystemRate[] }
 
 export const maxModelRows = 8;
 export const maxModelCells = 24;
@@ -56,6 +58,8 @@ export function isModelLayout(value:unknown):value is ModelLayout {
  const layout=value as ModelLayout | undefined;
  const validWeight=(weight:number)=>Number.isFinite(weight)&&weight>0&&weight<=1e8;
  if(!layout||typeof layout.system!=='string'||!layout.system.trim()||layout.system.length>150||!Array.isArray(layout.rows)||layout.rows.length<1||layout.rows.length>maxModelRows)return false;
+ const rates=layout.systemRates;
+ if(rates!==undefined&&!isSystemRateList(rates))return false;
  if(!layout.rows.every(row=>row&&validWeight(row.weight)&&Array.isArray(row.cells)&&row.cells.length>=1&&row.cells.length<=maxModelCells&&row.cells.every(cell=>cell&&validWeight(cell.weight)&&typeof cell.movement==='string'&&Object.hasOwn(movements,cell.movement)&&typeof cell.infill==='string'&&Object.hasOwn(infills,cell.infill)&&(cell.infill!=='space'||cell.movement==='fixed'))))return false;
  const corner=layout.cornerAfter;
  return corner===undefined||(Number.isInteger(corner)&&corner>=1&&layout.rows.length===1&&corner<layout.rows[0].cells.length);

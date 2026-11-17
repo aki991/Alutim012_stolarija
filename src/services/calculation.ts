@@ -5,7 +5,7 @@ import type { Job, Package, Position, Settings } from '../models';
 import { openingBoxHeight, shutterMeasures, shutterTypes } from '../shutters';
 import { isPortaDimension, isPortaRoyalConfig, portaSeriesById } from '../porta-royal';
 import { positionMeasures } from './position-measures';
-import { profileRateKeys, supplementLabels, supplementRates, type SupplementRate } from './pricing-rates';
+import { profileRateKeys, ratesForModel, supplementLabels, supplementRates, type SupplementRate } from './pricing-rates';
 export const packages: Record<Package,{factor:number;description:string}> = {
  Standard:{factor:1,description:'Osnovni profil • odabrano staklo i okov'},
  Optimal:{factor:1.12,description:'Pretpostavljeni unapređeni profil • +12% na profil'},
@@ -20,12 +20,6 @@ const movementRates:Partial<Record<Movement,SupplementRate>>={
  foldLeft:'foldHardware',foldRight:'foldHardware',pivotH:'pivotHardware',pivotV:'pivotHardware',pivotVLeft:'pivotHardware',pivotVRight:'pivotHardware',
  awning:'specialHardware',outBottom:'specialHardware',projected:'specialHardware',parallel:'specialHardware',doubleLeft:'specialHardware',doubleRight:'specialHardware',louvre:'specialHardware',
 };
-const systemRates:[RegExp,SupplementRate][]=[
- [/^Podizno-klizni/i,'liftSlide'],[/^Otklopno-klizni/i,'tiltSlide'],[/^Odmično-klizni/i,'retractSlide'],
- [/teleskopska|teleskopski|panoramski klizni/i,'multiTrack'],[/zidni džep/i,'pocket'],
- [/^Motorna|^Brza rolo industrijska/i,'motor'],[/^Automatska/i,'automaticDoor'],[/^Rotirajuća/i,'revolvingDoor'],
- [/garažna vrata|industrijska vrata/i,'garageMechanism'],[/^Protivpožarna|^Protivprovalna|antipanik/i,'certifiedDoor'],
-];
 
 export function positionCost(p:Position,s:Settings,tier:Package='Standard') {
  const lines: {name:string;basis:string;amount:number}[]=[];
@@ -77,7 +71,7 @@ export function positionCost(p:Position,s:Settings,tier:Package='Standard') {
   const counts=new Map<SupplementRate,number>();
   for(const {movement} of measures.openings){const rate=movementRates[movement];if(rate)counts.set(rate,(counts.get(rate)??0)+1);}
   for(const [rate,count] of counts)addSupplement(rate,count);
-  if(p.modelLayout&&measures.openings.length)for(const [match,rate] of systemRates)if(match.test(p.modelLayout.system))addSupplement(rate,1);
+  if(p.modelLayout&&measures.openings.length)for(const rate of ratesForModel(p.modelLayout))addSupplement(rate,1);
  }
  if(p.shutter&&p.category!=='Roletne'){
   const shutter=p.shutterConfig&&shutterMeasures(p,p.shutterConfig);
