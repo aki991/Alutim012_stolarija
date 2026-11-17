@@ -1,0 +1,45 @@
+.user-guide {
+ color: #252d36;
+ font-family: 'Inter Variable', 'Segoe UI', Arial, sans-serif;
+ font-size: 16px;
+ line-height: 1.6;
+ overflow-wrap: anywhere;
+}
+
+.user-guide-start {
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ flex-wrap: wrap;
+ gap: 12px 20px;
+ margin-bottom: 24px;
+}
+
+.user-guide-start p { max-width: 44ch; color: #495562; }
+.user-guide h2 { color: #590c14; font: 700 28px/1.1 AluNarrow, Arial, sans-serif; scroll-margin-top: 20px; }
+.user-guide h3 { font: 700 22px/1.2 AluNarrow, Arial, sans-serif; margin-bottom: 5px; }
+.user-guide a { color: #970014; text-decoration: underline; text-underline-offset: 3px; }
+
+.user-guide-contents {
+ border: 1px solid #e1e5eb;
+ border-radius: 12px;
+ background: #f7f8fa;
+ padding: 15px 18px;
+}
+
+.user-guide-contents ol {
+ display: grid;
+ grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+ gap: 7px 34px;
+ margin-top: 12px;
+ padding-inline-start: 1.3em;
+}
+.user-guide-contents ol, .user-guide-block ol { list-style: decimal; }
+.user-guide-block ul { list-style: disc; }
+
+.user-guide-chapter { margin-top: 26px; padding-top: 22px; border-top: 1px solid #e1e5eb; }
+.user-guide-chapter h2 { margin-bottom: 14px; }
+.user-guide-block { max-width: 72ch; margin-bottom: 12px; }
+.user-guide-block :is(ol, ul) { padding-inline-start: 1.4em; }
+.user-guide-block li + li { margin-top: 6px; }
+.user-guide-return { font-size: 14px; }

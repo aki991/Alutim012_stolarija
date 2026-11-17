@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
-import { Calculator, ChevronRight, Download, FileText, HardDrive, Layers, Percent, Settings as SettingsIcon, Upload, Users } from 'lucide-react';
+import { BookOpen, Calculator, ChevronRight, Download, FileText, HardDrive, Layers, Percent, Settings as SettingsIcon, Upload, Users } from 'lucide-react';
 import { useStore } from './store';
 import type { Settings } from './models';
 import { Field, Saved } from './components/UI';
 import { ModuleHeader } from './components/ModuleHeader';
 import { PricingSettings } from './components/PricingSettings';
 import { TeamAccounts } from './components/TeamAccounts';
+import { UserGuide } from './components/UserGuide';
 const sections=[
  {id:'profili',title:'Profili i materijali',description:'ALU, PVC, boje i osnovne opcije',Icon:Layers},
  {id:'cenovnik',title:'Cenovnik',description:'Cene profila, stakla, roletni i usluga',Icon:Calculator},
@@ -14,6 +15,7 @@ const sections=[
  {id:'dokumenti',title:'Dokumenti',description:'Podrazumevani uslovi ponude',Icon:FileText},
  {id:'korisnici',title:'Korisnici',description:'Upravljanje nalozima zaposlenih',Icon:Users},
  {id:'podaci',title:'Podaci i rezervne kopije',description:'Majstor, čuvanje, uvoz i izvoz',Icon:HardDrive},
+ {id:'uputstvo',title:'Uputstvo',description:'Vodič kroz aplikaciju i PDF za preuzimanje',Icon:BookOpen},
 ];
 const newDefaults:NonNullable<Settings['elementDefaults']>={material:'PVC',profile:'PVC 70 mm',color:'Bela',glass:'Dvoslojno',hardware:'Standardni'};
 export function SettingsPage({forcedSection}:{forcedSection?:string}){
@@ -29,7 +31,8 @@ export function SettingsPage({forcedSection}:{forcedSection?:string}){
  if((!showPricingSettings&&(current?.id==='cenovnik'||current?.id==='pdv'))||(current?.id==='korisnici'&&!isAdmin))return <Navigate to="/podesavanja" replace/>;
  const categoryList=<nav className="settings-categories" aria-label="Celine podešavanja">{sections.filter(s=>(s.id!=='korisnici'||isAdmin)&&(showPricingSettings||!["cenovnik","pdv"].includes(s.id))).map(({id,title,description,Icon})=><Link key={id} className={current?.id===id?'selected':''} to={id==='cenovnik'?'/cenovnik':`/podesavanja/${id}`}><Icon aria-hidden="true"/><span><strong>{title}</strong><small>{description}</small></span><ChevronRight aria-hidden="true"/></Link>)}</nav>;
  return <div className={`module-page settings-page ${current?'settings-detail':''}`}><ModuleHeader title={current?.title||'Podešavanja'} subtitle={current?undefined:'Osnovna podešavanja aplikacije.'} icon={current?.Icon||SettingsIcon} back={current?'/podesavanja':undefined}/>
- <main className="module-content">{!current?<><label className="settings-price-toggle"><input type="checkbox" checked={showPrices} disabled={Boolean(teamMember&&teamPricingRevision===null)} onChange={e=>setSettings({showPrices:e.target.checked})}/><span><strong>Prikaži cene</strong><small>Isključite za merenje i dokumente bez cena.</small></span></label>{categoryList}</>:<div className="settings-detail-layout"><aside>{categoryList}</aside><section className="settings-detail-panel">{!(current.id==='korisnici'||teamMember&&(current.id==='cenovnik'||current.id==='pdv'))&&<div className="settings-save"><Saved state={saveState} shared={Boolean(teamMember)}/></div>}
+ <main className="module-content">{!current?<><label className="settings-price-toggle"><input type="checkbox" checked={showPrices} disabled={Boolean(teamMember&&teamPricingRevision===null)} onChange={e=>setSettings({showPrices:e.target.checked})}/><span><strong>Prikaži cene</strong><small>Isključite za merenje i dokumente bez cena.</small></span></label>{categoryList}</>:<div className="settings-detail-layout"><aside>{categoryList}</aside><section className="settings-detail-panel">{!(current.id==='uputstvo'||current.id==='korisnici'||teamMember&&(current.id==='cenovnik'||current.id==='pdv'))&&<div className="settings-save"><Saved state={saveState} shared={Boolean(teamMember)}/></div>}
+  {current.id==='uputstvo'&&<UserGuide/>}
   {current.id==='profili'&&<><p className="settings-note">Podrazumevano za nove elemente. Postojeći elementi ostaju neizmenjeni.</p><div className="settings-fields"><Field label="Materijal"><select value={element.material} onChange={e=>setElement({material:e.target.value as 'PVC'|'ALU',profile:e.target.value==='PVC'?'PVC 70 mm':'ALU termo profil'})}><option>PVC</option><option>ALU</option></select></Field><Field label="Profil"><select value={element.profile} onChange={e=>setElement({profile:e.target.value})}>{(element.material==='PVC'?['PVC 70 mm','PVC 76 mm','PVC 82 mm']:['ALU termo profil','ALU hladni profil']).map(s=><option key={s}>{s}</option>)}</select></Field><Field label="Boja"><select value={element.color} onChange={e=>setElement({color:e.target.value})}>{['Bela','Antracit','Zlatni hrast'].map(s=><option key={s}>{s}</option>)}</select></Field><Field label="Staklo"><select value={element.glass} onChange={e=>setElement({glass:e.target.value as typeof element.glass})}>{['Dvoslojno','Troslojno','Sigurnosno'].map(s=><option key={s}>{s}</option>)}</select></Field><Field label="Okov"><select value={element.hardware} onChange={e=>setElement({hardware:e.target.value as typeof element.hardware})}>{['Standardni','Sigurnosni'].map(s=><option key={s}>{s}</option>)}</select></Field></div></>}
   {(current.id==='cenovnik'||current.id==='pdv')&&<PricingSettings key={current.id} section={current.id}/>}
   {current.id==='korisnici'&&teamMember&&<TeamAccounts member={teamMember}/>}

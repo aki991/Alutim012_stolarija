@@ -10,8 +10,7 @@ import { calculate, jobTax, euro, validatePosition, jobReviewLabel, positionRevi
 import { hasGlass, infills, movements, weightTotal } from '../model-layout';
 import { openingBoxHeight, shutterBoxShapes, shutterMeasures, shutterMounts, shutterOf, shutterTypes } from '../shutters';
 import { portaDecorName, portaDirection, portaFills, portaGlazing, portaHandles, portaHinges, portaLocks, portaOptions, portaTechnical, portaVariant } from '../porta-royal';
-const base64=(bytes:Uint8Array)=>{let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(s);};
-let fonts:Promise<string[]>|undefined;
+import { registerPdfFonts } from './pdf-fonts';
 function loadImage(src:string){return new Promise<HTMLImageElement>((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(Error('Slika nije dostupna. Proverite podatke o fotografijama.'));i.src=src;});}
 async function drawingImage(p:Position){const svg=renderToStaticMarkup(<Drawing position={p}/>).replace(/style="[^"]*"/,'').replace('<svg ','<svg width="920" height="730" ');const blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob);try{const i=await loadImage(url),c=document.createElement('canvas');c.width=920;c.height=730;c.getContext('2d')!.drawImage(i,0,0,920,730);return c.toDataURL('image/png');}finally{URL.revokeObjectURL(url);}}
 async function logoImage(){const img=await loadImage('/assets/reference.png');const c=document.createElement('canvas');c.width=508;c.height=162;c.getContext('2d')!.drawImage(img,1387,329,254,81,0,0,508,162);return c.toDataURL('image/png');}
@@ -20,8 +19,7 @@ export async function makeDocument(job:Job,settings:Settings,kind:'kupac'|'kance
  if(job.positions.some(p=>validatePosition(p).length))throw Error('Proverite mere i zbir segmenata u specifikaciji pre izvoza.');
  const showPrices=settings.showPrices!==false;
  const taxSettings=jobTax(job,settings);const {jsPDF}=await import('jspdf');const doc:PDF=new jsPDF({unit:'mm',format:'a4',compress:true,putOnlyUsedFonts:true});
- fonts??=Promise.all(['/assets/arial.ttf','/assets/arial-bold.ttf'].map(async path=>{const response=await fetch(path);if(!response.ok)throw Error('Font za PDF nije dostupan.');return base64(new Uint8Array(await response.arrayBuffer()));}));
- try{const [normal,bold]=await fonts;doc.addFileToVFS('Arial.ttf',normal);doc.addFont('Arial.ttf','Arial','normal');doc.addFileToVFS('ArialBold.ttf',bold);doc.addFont('ArialBold.ttf','Arial','bold');}catch(err){fonts=undefined;throw err;}
+ await registerPdfFonts(doc);
  const logo=await logoImage();doc.setProperties({title:`${kind==='kupac'?'Ponuda':'Specifikacija'} ${job.id}`,author:'ALU TIM 012',subject:'Demonstraciona terenska specifikacija'});
  const emblemResponse = await fetch('/assets/logo.png');
  if (!emblemResponse.ok) throw Error('Logo za PDF nije dostupan.');
