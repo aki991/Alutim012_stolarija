@@ -8,6 +8,7 @@ import { useOfflineWork } from './team-session';
 import type { Opening, Position } from './models';
 import { uid } from './catalog';
 import { calculate, euro, positionCost, validatePosition, positionPriceLabel, jobReviewLabel } from './services/calculation';
+import { formatMeasurementDate, scheduledMeasurementDate, useBelgradeToday } from './services/measurement-schedule';
 import { fieldTypes, makeFieldPosition, selectableFieldTypes, typeOfPosition } from './field-types';
 import { Empty, Modal, Saved } from './components/UI';
 import { centralWidth } from './fixed-panels';
@@ -43,10 +44,13 @@ export function Editor(){
  const {id}=useParams(),state=useStore(),{jobs,settings,updateJob,saveState,teamMember}=state,job=jobs.find(j=>j.id===id);
  const {state:locationState}=useLocation();
  const {offline}=useOfflineWork();
+ const today=useBelgradeToday();
  const [dataOpen,setDataOpen]=useState(false),[deleting,setDeleting]=useState<Position|null>(null);
  if(!job)return <MissingJob/>;
  const editable=canEditJob(state,job),waiting=awaitingMeasurements(state,job);
- const statusLocked=!editable||assignedMeasurement(state,job);
+ const assigned=assignedMeasurement(state,job);
+ const measurementDate=scheduledMeasurementDate(job,assigned,today);
+ const statusLocked=!editable||assigned;
  const total=calculate(job,settings);
  const editPrices=canEditPrices(state);
  function duplicate(p:Position){
@@ -62,6 +66,7 @@ export function Editor(){
    <Saved state={saveState} shared={Boolean(teamMember)}/>
   </div>
   {teamMember&&locationState?.offlineJobTransferred===true&&<p className="field-message" role="status">Posao je prebačen u tim.</p>}
+  {assigned&&measurementDate&&<p className="field-message">Merenje treba uraditi <time dateTime={measurementDate}>{formatMeasurementDate(measurementDate)}</time></p>}
   {waiting?<section className="team-card team-measurement-wait"><h2>Merenje je u toku</h2><p>Elementi, mere i ponuda biće dostupni kad zadužena osoba potvrdi završetak merenja.</p></section>:
   !job.positions.length?<Empty title={editable?"Dodajte prvi element":"Nema sačuvanih elemenata"} action={editable&&<Link className="field-button field-button-red" to={`/posao/${job.id}/dodaj`}><Plus/>Dodaj element</Link>}/>:
   <div className={settings.showPrices===false?"summary-grid without-prices":"summary-grid"}><section className="job-lines" aria-label="Elementi posla"><div className="job-line-head"><span>#</span><span>Element</span><span>Dimenzije (mm)</span><span>Kom.</span>{settings.showPrices!==false&&<span>Cena</span>}<span/></div>
@@ -84,7 +89,7 @@ export function Editor(){
   <TeamJobPanel job={job}/>
  </main>
  {!waiting&&<footer className="field-bottom-actions job-quick-actions">{editable&&<Link className="field-button field-button-red" to={`/posao/${job.id}/dodaj`}><Plus/>Dodaj element</Link>}{settings.showPrices!==false&&editPrices&&<Link className="field-button field-button-light" to={`/posao/${job.id}/korekcija`}><Settings2/>Korekcija cene</Link>}<Link className="field-button field-button-yellow summary-more-offer" to={`/posao/${job.id}/ponuda`}>{!editable?"Pogledaj ponudu":settings.showPrices===false?"Pregledaj i podeli dokument":"Pogledaj cenu i podeli dokument"} <ArrowRight size={18}/></Link></footer>}
- {dataOpen&&<JobForm job={job} readOnly={!editable} statusLocked={statusLocked} onClose={()=>setDataOpen(false)} onSave={(j,baseline)=>{updateJob(job.id,j,baseline);setDataOpen(false);}}/>}
+ {dataOpen&&<JobForm job={job} measurementDate={measurementDate} readOnly={!editable} statusLocked={statusLocked} onClose={()=>setDataOpen(false)} onSave={(j,baseline)=>{updateJob(job.id,j,baseline);setDataOpen(false);}}/>}
  {deleting&&<Modal title="Obriši element?" onClose={()=>setDeleting(null)}><p>{deleting.name}</p><div className="modal-footer"><button className="field-button field-button-light" onClick={()=>setDeleting(null)}>Otkaži</button><button className="field-button field-button-red" onClick={()=>{updateJob(job.id,{positions:job.positions.filter(p=>p.id!==deleting.id)});setDeleting(null);}}>Obriši element</button></div></Modal>}
  </div>;
 }

@@ -5,8 +5,9 @@ import { FieldHeader } from './components/FieldHeader';
 import { DeviceNotifications } from './components/DeviceNotifications';
 import { ChangePassword } from './components/ChangePassword';
 import { uid } from './catalog';
-import { acceptTeamJob, canEditJob, jobFromSettings, todayInBelgrade, useStore } from './store';
+import { acceptTeamJob, canEditJob, jobFromSettings, useStore } from './store';
 import type { Job } from './models';
+import { scheduledMeasurementDate, todayInBelgrade, useBelgradeToday } from './services/measurement-schedule';
 import { assignTeamJob, createTeamJob, fetchTeamAssignees, fetchTeamMessages, sendTeamMessage, TeamRequestError, type TeamMember, type TeamMessage } from './services/team-api';
 import { pollTeam, signOutTeam, teamNotificationLabels, useTeamInbox } from './team-session';
 
@@ -14,7 +15,8 @@ const dateTime = new Intl.DateTimeFormat('sr-Latn-RS', { dateStyle: 'short', tim
 const assignmentDateError = 'Datum merenja mora biti današnji ili budući.';
 
 function AssignmentDateInput({ defaultValue, onPastDate }: { defaultValue?: string; onPastDate: () => void }) {
- return <label>Datum merenja<input name="date" type="date" min={todayInBelgrade()} defaultValue={defaultValue}
+ const today = useBelgradeToday();
+ return <label>Datum merenja<input name="date" type="date" min={today} defaultValue={defaultValue}
   required={defaultValue !== undefined} onInvalid={event => { if (event.currentTarget.validity.rangeUnderflow) onPastDate(); }}/></label>;
 }
 
@@ -205,7 +207,10 @@ export function TeamJobPanel({ job }: { job: Job }) {
  return <section className="team-card team-conversation" aria-label="Merenje i dodela">
   {manager && assignedTo && <p className="team-current-worker">Vidljivost posla · {assigneeOnly ? 'Zadužena osoba i šefovi' : 'Ceo tim'}</p>}
   {job.status === 'Merenje' && (!assignedTo || assignedTo === member.id) && <div className="team-measure-action">
-   <button type="button" className="field-button field-button-yellow" disabled={!job.positions.length} onClick={() => useStore.getState().updateJob(job.id, { status: 'Poslati ponudu' })}><Check size={19}/>Merenje završeno</button>
+   <button type="button" className="field-button field-button-yellow" disabled={!job.positions.length} onClick={() => {
+    const date = scheduledMeasurementDate(job, Boolean(assignedTo), todayInBelgrade());
+    useStore.getState().updateJob(job.id, { status: 'Poslati ponudu', date }, job);
+   }}><Check size={19}/>Merenje završeno</button>
    {!job.positions.length && <small>Dodajte izmerene elemente pre završetka merenja.</small>}
   </div>}
   <div className="team-actions">
@@ -231,7 +236,9 @@ function ExistingAssignment({ job, member, assignedTo, assigneeOnly }: { job: Jo
  const restricted = selectedVisibility ?? currentVisibility;
  const reassigning = assignee !== assignedTo;
  const hasChange = Boolean(assignee) && (reassigning || restricted !== currentVisibility);
- const defaultDate = job.date >= todayInBelgrade() ? job.date : '';
+ const today = useBelgradeToday();
+ const dateForAssignment = scheduledMeasurementDate(job, Boolean(assignedTo), today);
+ const defaultDate = dateForAssignment >= today ? dateForAssignment : '';
 
  async function assign(event: FormEvent<HTMLFormElement>) {
   event.preventDefault();

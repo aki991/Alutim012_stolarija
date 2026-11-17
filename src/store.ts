@@ -5,9 +5,9 @@ import { defaults } from './services/calculation';
 import { parseBackup, type LocalSnapshot } from './services/storage';
 import { LocalConflict, localSaveError, localWorkspaceKey, LocalWorkspaceStorage } from './services/local-workspace';
 import { positionDraft } from './services/position-draft';
+import { todayInBelgrade } from './services/measurement-schedule';
 import { jobsWithPendingChanges, mutationTarget, readTeamMutations, writeTeamMutations, type TeamMutation } from './services/team-mutations';
 import { createTeamJob, deleteTeamJob, fetchTeamJobs, fetchTeamPreferences, fetchTeamPricing, saveTeamPreferences, saveTeamPricing, updateTeamJob, type PriceSettings, type TeamJob, type TeamMember, type TeamPreferences, type TeamPreferencesRow, type TeamPricingRow } from './services/team-api';
-export const todayInBelgrade=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Europe/Belgrade'});
 export function emptyJob(technician:string): Job {return {id:'AT-'+new Date().getFullYear()+'-'+uid().slice(0,8).toUpperCase(),customer:{name:'',phone:'',email:'',address:'',building:'Porodična kuća'},date:todayInBelgrade(),createdAt:new Date().toISOString(),technician,notes:'',status:'Merenje',positions:[],package:'Standard',discount:0,transport:defaults.prices.transport,extraWork:'',extraCost:0,validity:'15 dana',delivery:'Po dogovoru, nakon tehničke provere',payment:'50% avans, ostatak po montaži',updated:new Date().toISOString()};}
 export function jobFromSettings(settings:Settings):Job {
  return {...emptyJob(settings.technician),transport:settings.prices.transport,...settings.documentDefaults};

@@ -1,7 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Calculator, ChevronRight, FileText, MapPin, Plus } from 'lucide-react';
 import { isActiveJob } from './models';
-import { awaitingMeasurements, canEditJob, todayInBelgrade, useStore } from './store';
+import { awaitingMeasurements, canEditJob, useStore } from './store';
+import { scheduledMeasurementDate, useBelgradeToday } from './services/measurement-schedule';
 import { Button, CategoryIcon, Empty, Saved } from './components/UI';
 import { categories } from './catalog';
 
@@ -14,9 +15,10 @@ export function Dashboard({ onNew }: { onNew: () => void }) {
   const navigate = useNavigate();
   const active = jobs.filter(isActiveJob);
   const last = active.find(job => canEditJob(state,job)&&!awaitingMeasurements(state,job));
-  const today = todayInBelgrade();
-  const measurementsToday = teamMember && jobs.filter(job => job.status === 'Merenje' && job.date === today &&
-    (teamMember.role === 'manager' || teamAssignments[job.id] === teamMember.id)).length;
+  const today = useBelgradeToday();
+  const measurementsToday = teamMember && jobs.filter(job => job.status === 'Merenje' &&
+    (teamMember.role === 'manager' || teamAssignments[job.id] === teamMember.id) &&
+    scheduledMeasurementDate(job, Boolean(teamAssignments[job.id]), today) === today).length;
 
   return <div className="reference-home">
     <section className="reference-hero" aria-labelledby="reference-title">

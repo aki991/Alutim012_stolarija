@@ -2,7 +2,7 @@ import { fmt } from './custom/geometry';
 import { lazy, Suspense, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { CheckCircle2, FileText, Share2 } from 'lucide-react';
-import { canEditJob, canEditPrices, useStore } from './store';
+import { assignedMeasurement, canEditJob, canEditPrices, useStore } from './store';
 import { calculate, euro, validatePosition, jobReviewLabel, positionReviewLabel, positionPriceLabel } from './services/calculation';
 import type { Position } from './models';
 import { openingBoxHeight } from './shutters';
@@ -15,6 +15,7 @@ import { downloadFile } from './services/documents';
 import { createJobDocument, jobDocumentTitle, type JobDocumentKind } from './services/document-archive';
 import { JobDocumentArchive } from './components/JobDocumentArchive';
 import { prepareOfficeSubmission, sendOfficeSubmission, submissionSignature, type OfficeSubmission } from './services/office-submission';
+import { scheduledMeasurementDate, useBelgradeToday } from './services/measurement-schedule';
 
 const DocumentPreview = lazy(() => import('./components/DocumentPreview'));
 
@@ -62,13 +63,16 @@ export function Quote(){
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[sharing,setSharing]=useState(false);
  const [preview,setPreview]=useState<{file:File;title:string}|null>(null);
  const [archiveRevision,refreshArchive]=useState(0);
+ const today=useBelgradeToday();
  if(!job)return <MissingJob/>;
  const showPrices=settings.showPrices!==false;
  const editable=canEditJob(state,job);
  const editPrices=editable&&showPrices&&canEditPrices({teamMember});
+ const measurementDate=scheduledMeasurementDate(job,assignedMeasurement(state,job),today);
+ const documentJob=measurementDate===job.date?job:{...job,date:measurementDate};
  async function jobDocument(kind:JobDocumentKind){
   if(!job)throw new Error('Posao nije dostupan.');
-  const file=await createJobDocument(job,settings,kind,teamMember?.document_author??teamMember?.id);
+  const file=await createJobDocument(documentJob,settings,kind,teamMember?.document_author??teamMember?.id);
   if(teamMember)refreshArchive(revision=>revision+1);
   return file;
  }
@@ -99,8 +103,8 @@ export function Quote(){
   if(!navigator.onLine){setOfficeNotice({kind:'error',text:'Za slanje u app potreban je internet. Posao ostaje sačuvan na ovom uređaju.'});return;}
   sending.current=true;setBusy(true);setOfficeNotice({kind:'progress',text:'Pripremam specifikaciju za kancelariju…'});
   try{
-   const signature=submissionSignature(job,settings);
-   if(pendingSubmission.current?.signature!==signature)pendingSubmission.current=await prepareOfficeSubmission(job,settings,await jobDocument('kancelarija'));
+   const signature=submissionSignature(documentJob,settings);
+   if(pendingSubmission.current?.signature!==signature)pendingSubmission.current=await prepareOfficeSubmission(documentJob,settings,await jobDocument('kancelarija'));
    await sendOfficeSubmission(pendingSubmission.current);
    setOfficeNotice({kind:'success',text:'Sačuvano'});
    // Keep the file and submission ID for safe retries of the same saved version.
