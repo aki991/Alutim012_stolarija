@@ -5,7 +5,7 @@ import type { Job, Package, Position, Settings } from '../models';
 import { openingBoxHeight, shutterMeasures, shutterTypes } from '../shutters';
 import { isPortaDimension, isPortaRoyalConfig, portaSeriesById } from '../porta-royal';
 import { positionMeasures } from './position-measures';
-import { supplementLabels, supplementRates, type SupplementRate } from './pricing-rates';
+import { profileRateKeys, supplementLabels, supplementRates, type SupplementRate } from './pricing-rates';
 export const packages: Record<Package,{factor:number;description:string}> = {
  Standard:{factor:1,description:'Osnovni profil • odabrano staklo i okov'},
  Optimal:{factor:1.12,description:'Pretpostavljeni unapređeni profil • +12% na profil'},
@@ -48,11 +48,17 @@ export function positionCost(p:Position,s:Settings,tier:Package='Standard') {
   if(p.category==='Usluge')addSupplement('service',1);
   else lines.push({name:p.category,basis:`${basis.toFixed(2)} ${p.category==='Klupice'?'m':'m²'} × ${rate} €`,amount:basis*rate});
  } else {
-  const profile=p.profile?.startsWith(p.material)?p.profile:p.material==='PVC'?'PVC 70 mm':'ALU termo profil';
-  const profileKey=profile==='PVC 76 mm'?'pvc76':profile==='PVC 82 mm'?'pvc82':profile==='ALU hladni profil'?'aluCold':null;
-  const profileRate=profileKey?rateOf(profileKey):pr[p.material];
-  const profileCost=area*profileRate*packages[tier].factor;
-  lines.push({name:`${profile} · ${tier}`,basis:`${area.toFixed(2)} m² × ${profileRate} € × ${packages[tier].factor}`,amount:profileCost});
+  const selectedProfile=p.profile as keyof typeof profileRateKeys|undefined;
+  const profile=selectedProfile?.startsWith(p.material)&&Object.hasOwn(profileRateKeys,selectedProfile)?selectedProfile:p.material==='PVC'?'PVC 70 mm':'ALU termo profil';
+  const [frameKey,sashKey]=profileRateKeys[profile];
+  const factor=packages[tier].factor;
+  let profileCost=0;
+  for(const [key,length] of [[frameKey,measures.frame],[sashKey,measures.sash]] as const){
+   if(length<=0)continue;
+   const rate=rateOf(key),amount=length*rate*factor;
+   lines.push({name:`${supplementLabels[key][0]} · ${tier}`,basis:`${measure.format(length)} m × ${euro(rate)} × ${factor}`,amount});
+   profileCost+=amount;
+  }
   if(p.color&&p.color!=='Bela')lines.push({name:`Boja profila · ${p.color}`,basis:`${euro(profileCost)} × ${rateOf('profileColor')}%`,amount:profileCost*rateOf('profileColor')/100});
   if(measures.glass>0)lines.push({name:p.glass+' staklo',basis:`${measures.glass.toFixed(2)} m² × ${pr[p.glass]} €`,amount:measures.glass*pr[p.glass]});
   addSupplement('panel',measures.panel);
@@ -60,13 +66,18 @@ export function positionCost(p:Position,s:Settings,tier:Package='Standard') {
   addSupplement('divider',measures.divider);
   addSupplement(p.material==='PVC'?'bendPVC':'bendALU',measures.bend);
   if(measures.shaped)addSupplement('shapedInfill',1);
-  const wings=measures.moves.filter(move=>move!=='fixed').length;
-  const hardwareRate=p.hardware==='Sigurnosni'?pr.secureHardware:pr.hardware;
-  lines.push({name:'Okov',basis:`${wings} ${wings===1?'krilo':'krila'} × ${hardwareRate} €`,amount:wings*hardwareRate});
+  const doorWings=measures.openings.filter(opening=>opening.door).length;
+  const windowWings=measures.openings.length-doorWings;
+  const secure=p.hardware==='Sigurnosni';
+  if(windowWings) {
+   const rate=secure?pr.secureHardware:pr.hardware;
+   lines.push({name:secure?'Sigurnosni okov za prozore':'Standardni okov za prozore',basis:`${windowWings} ${windowWings===1?'krilo':'krila'} × ${euro(rate)}`,amount:windowWings*rate});
+  }
+  addSupplement(secure?'secureDoorHardware':'doorHardware',doorWings);
   const counts=new Map<SupplementRate,number>();
-  for(const move of measures.moves){const rate=movementRates[move];if(rate)counts.set(rate,(counts.get(rate)??0)+1);}
+  for(const {movement} of measures.openings){const rate=movementRates[movement];if(rate)counts.set(rate,(counts.get(rate)??0)+1);}
   for(const [rate,count] of counts)addSupplement(rate,count);
-  if(p.modelLayout&&wings)for(const [match,rate] of systemRates)if(match.test(p.modelLayout.system))addSupplement(rate,1);
+  if(p.modelLayout&&measures.openings.length)for(const [match,rate] of systemRates)if(match.test(p.modelLayout.system))addSupplement(rate,1);
  }
  if(p.shutter&&p.category!=='Roletne'){
   const shutter=p.shutterConfig&&shutterMeasures(p,p.shutterConfig);

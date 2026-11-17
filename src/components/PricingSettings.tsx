@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Prices, Settings } from '../models';
 import { defaults } from '../services/calculation';
-import { supplementLabels, type SupplementRate } from '../services/pricing-rates';
+import { profileRateKeys, supplementLabels, type SupplementRate } from '../services/pricing-rates';
 import { type PriceSettings, TeamRequestError } from '../services/team-api';
 import { shutterTypes, type ShutterRate } from '../shutters';
 import { canEditPrices, localPricingForImport, refreshTeamPricing, saveWorkspacePricing, useStore } from '../store';
@@ -13,10 +13,10 @@ import { Field } from './UI';
 const priceFields=(...keys:SupplementRate[]):[keyof Prices,string,string][]=>keys.map(key=>[key,supplementLabels[key][0],key==='profileColor'?'%':`€/${supplementLabels[key][1]}`]);
 const groups:{title:string;note?:string;keys:[keyof Prices,string,string][]}[]=[
  {title:'Prodajna cena',note:'Marža se dodaje na automatski obračun po komadu. Na primer, 20% na 100 € daje 120 €.',keys:[['marginPercent','Marža','%']]},
- {title:'Profili',keys:[['PVC','PVC profil','€/m²'],['ALU','ALU profil','€/m²'],...priceFields('pvc76','pvc82','aluCold','profileColor')]},
+ {title:'Profili',note:'Za ram, krilo i prečke unosite cenu po dužnom metru. Početne cene rama i krila su demonstracione.',keys:priceFields(...Object.values(profileRateKeys).flat(),'divider','profileColor')},
  {title:'Staklo',keys:[['Dvoslojno','Dvoslojno','€/m²'],['Troslojno','Troslojno','€/m²'],['Sigurnosno','Sigurnosno','€/m²']]},
- {title:'Ispune i posebni oblici',keys:priceFields('panel','louvres','divider','bendPVC','bendALU','shapedInfill')},
- {title:'Okovi',keys:[['hardware','Standardni okov','€/krilo'],['secureHardware','Sigurnosni okov','€/krilo'],...priceFields('tiltHardware','slideHardware','foldHardware','pivotHardware','specialHardware')]},
+ {title:'Ispune i posebni oblici',keys:priceFields('panel','louvres','bendPVC','bendALU','shapedInfill')},
+ {title:'Okovi',note:'Početne cene okova za vrata su demonstracione.',keys:[['hardware','Standardni okov za prozore','€/krilo'],['secureHardware','Sigurnosni okov za prozore','€/krilo'],...priceFields('doorHardware','secureDoorHardware','tiltHardware','slideHardware','foldHardware','pivotHardware','specialHardware')]},
  {title:'Posebni sistemi i pogoni',keys:priceFields('liftSlide','tiltSlide','retractSlide','multiTrack','pocket','motor','automaticDoor','revolvingDoor','garageMechanism','certifiedDoor')},
  {title:'Dodaci',keys:[['shutter','Roletna','€/m²'],['mosquito','Komarnik','€/m²'],['sill','Klupica','€/m']]},
  {title:'Usluge',keys:[['installation','Montaža','€/m obima'],['removal','Demontaža','€/m obima'],['transport','Podrazumevani transport','€'],...priceFields('service')]},

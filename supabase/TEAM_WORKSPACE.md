@@ -58,6 +58,8 @@
 
 4. U Stolariji se prijavite tim nalogom i otvorite **Podešavanja → Korisnici**. Uz vaš nalog piše **Admin**. Šef na svojoj listi vidi ostale šefove i majstore. U porukama i obaveštenjima radnje admina nose naziv **ALU TIM 012**.
 5. Kao šef otvorite **Podešavanja → Korisnici**, unesite podatke i u polju **Uloga** izaberite **Šef** ili **Majstor**. Isti izbor važi i pri povezivanju naloga koji još nema pristup Stolariji. Svaki šef može da dodaje šefove i majstore i briše druge šefove ili majstore.
+6. Za **Uredi profil** primenite [migraciju izmene profila](migrations/202611160004_team_profile_edit.sql), zatim ponovo objavite Edge Function `field-team-accounts` i frontend. Šef uređuje ime i prezime i korisničko ime naloga koji koristi prijavu bez stvarnog e-maila. Admin može da uredi i stvarnu e-mail adresu. Novi podatak za prijavu važi za zajednički nalog u Stolariji i Ogradama.
+7. U **Nalog → Promeni lozinku** zaposleni unosi svoju trenutnu i novu lozinku. Nova lozinka važi u obe aplikacije.
 
 Poslovi i arhivirani dokumenti prikazuju se u Stolariji prema postojećim pravima za posao. Stolarija i Ograde koriste isti Supabase Auth. Brisanje zajedničkog naloga ukida mogućnost prijave u obe aplikacije. Sačuvani poslovi i poruke ostaju povezani sa istorijom korisnika.
 

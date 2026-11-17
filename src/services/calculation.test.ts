@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { calculate, defaults, positionCost, validatePosition } from './calculation';
 import { makePosition } from '../catalog';
+import { presetGeometry } from '../custom/geometry';
+import { openingRegions } from '../custom/openings';
+import { makeFieldPosition } from '../field-types';
 import { changeShutter, makeShutter } from '../shutters';
 import type { Job, Position } from '../models';
+import { parseBackup } from './storage';
 const job = ():Job=>({id:'TEST',customer:{name:'Petrović',phone:'',email:'',address:'Pančevo',building:'Kuća'},date:'2026-11-01',technician:'Majstor',notes:'',status:'U izradi',positions:[{...makePosition(),manualPrice:100}],package:'Standard',discount:0,transport:20,extraWork:'',extraCost:0,validity:'15 dana',delivery:'Dogovor',payment:'Avans',updated:''});
 describe('Demonstraciona kalkulacija',()=>{
- it('kombinuje površinu, broj krila, kip okov, obim i količinu',()=>{const p=makePosition();expect(positionCost(p,defaults).unit).toBeCloseTo(432.08);p.quantity=2;p.shutter=true;p.mosquito=true;p.removal=true;expect(positionCost(p,defaults).total).toBeCloseTo(1267.68);});
+ it('kombinuje dužine profila, površinu stakla, kip okov, obim i količinu',()=>{const p=makePosition();expect(positionCost(p,defaults).unit).toBeCloseTo(434.08);p.quantity=2;p.shutter=true;p.mosquito=true;p.removal=true;expect(positionCost(p,defaults).total).toBeCloseTo(1271.68);});
  it('računa ram i roletnu po njihovim merama i primenjuje cenu izabranog tipa',()=>{
   const p=makePosition();
   const settings={...defaults,prices:{...defaults.prices,shutterTop:60,shutterFacade:55}};
@@ -28,13 +32,71 @@ describe('Demonstraciona kalkulacija',()=>{
   const settings={...defaults,prices:{...defaults.prices,marginPercent:20}};
   const result=calculate(j,settings);
   expect(result.positions[0].unit).toBe(100);
-  expect(result.positions[1].unit).toBe(518.50);
-  expect(result.positions[1].lines.find(line=>line.name==='Marža')?.amount).toBe(86.42);
-  expect(result.net).toBe(1157);
-  expect(result.total).toBeCloseTo(1388.4);
+  expect(result.positions[1].unit).toBe(520.90);
+  expect(result.positions[1].lines.find(line=>line.name==='Marža')?.amount).toBe(86.82);
+  expect(result.net).toBeCloseTo(1161.8);
+  expect(result.total).toBeCloseTo(1394.16);
  });
- it('paketi menjaju samo cenu profila',()=>{const p=makePosition();expect(positionCost(p,defaults,'Premium').unit-positionCost(p,defaults).unit).toBeCloseTo(2.24*110*.28);p.manualPrice=300;expect(positionCost(p,defaults,'Premium').unit).toBe(300);});
- it('fiksno zastakljenje nema cenu okova',()=>{const p=makePosition();p.segments.forEach(s=>s.opening='Fiksno');expect(positionCost(p,defaults).lines.find(l=>l.name==='Okov')!.amount).toBe(0);});
+ it('paketi menjaju samo cenu profila',()=>{const p=makePosition();expect(positionCost(p,defaults,'Premium').unit-positionCost(p,defaults).unit).toBeCloseTo((6*15+8.8*18)*.28);p.manualPrice=300;expect(positionCost(p,defaults,'Premium').unit).toBe(300);});
+ it('računa ram i prečku fiksnog zastakljenja bez okova ili krila',()=>{
+  const p=makePosition();
+  p.segments.forEach(s=>s.opening='Fiksno');
+  const lines=positionCost(p,defaults).lines;
+  expect(lines.find(line=>line.name==='PVC ram 70 mm · Standard')?.amount).toBe(6*15);
+  expect(lines.find(line=>line.name==='Prečka')?.amount).toBeCloseTo(1.4*22);
+  expect(lines.some(line=>/okov|PVC krilo/i.test(line.name))).toBe(false);
+ });
+ it('koristi dužinu i stope izabrane serije profila, čak i kada je površina ista',()=>{
+  const p=makeFieldPosition('fiksni');
+  p.profile='PVC 82 mm';
+  const rates={...defaults,prices:{...defaults.prices,pvc82Frame:7}};
+  const square=positionCost({...p,width:1200,height:1200,segments:[{width:1200,opening:'Fiksno'}]},rates);
+  const rectangle=positionCost({...p,width:800,height:1800,segments:[{width:800,opening:'Fiksno'}]},rates);
+  expect(square.area).toBe(rectangle.area);
+  expect(square.lines.find(line=>line.name==='PVC ram 82 mm · Standard')?.amount).toBeCloseTo(4.8*7);
+  expect(rectangle.lines.find(line=>line.name==='PVC ram 82 mm · Standard')?.amount).toBeCloseTo(5.2*7);
+ });
+ it('učitava stari cenovnik i koristi početnu stopu za dužinu profila',()=>{
+  const prices={...defaults.prices,PVC:999,pvc76:555,hardware:30};
+  delete prices.pvc76Frame;
+  delete prices.pvc76Sash;
+  delete prices.doorHardware;
+  const {settings}=parseBackup({jobs:[],settings:{...defaults,prices}});
+  const lines=positionCost({...makePosition(),profile:'PVC 76 mm'},settings).lines;
+  expect(lines.find(line=>line.name==='PVC ram 76 mm · Standard')?.amount).toBe(6*17);
+  expect(lines.find(line=>line.name==='Standardni okov za prozore')?.amount).toBe(2*30);
+  const door=positionCost(makeFieldPosition('vrata'),settings);
+  expect(door.lines.find(line=>line.name==='Standardni okov za vrata')?.amount).toBe(45);
+ });
+ it('odvojeno obračunava standardni i sigurnosni okov za prozore i vrata',()=>{
+  const rates={...defaults,prices:{...defaults.prices,hardware:21,secureHardware:35,doorHardware:55,secureDoorHardware:86}};
+  const window=makeFieldPosition('prozor');
+  const door=makeFieldPosition('vrata');
+  expect(positionCost(window,rates).lines.find(line=>line.name==='Standardni okov za prozore')?.amount).toBe(42);
+  expect(positionCost(door,rates).lines.find(line=>line.name==='Standardni okov za vrata')?.amount).toBe(55);
+  const combination={...makeFieldPosition('kombinacija'),hardware:'Sigurnosni' as const};
+  const lines=positionCost(combination,rates).lines;
+  expect(lines.find(line=>line.name==='Sigurnosni okov za prozore')?.amount).toBe(35);
+  expect(lines.find(line=>line.name==='Sigurnosni okov za vrata')?.amount).toBe(86);
+  expect(lines.find(line=>line.name==='PVC ram 70 mm · Standard')?.amount).toBeCloseTo(10.6*15);
+  expect(lines.find(line=>line.name==='PVC krilo 70 mm · Standard')?.amount).toBeCloseTo(10.6*18);
+ });
+ it('računa staklo prema spoljnim merama okruglog i nepravilnog prozora',()=>{
+  const circle=presetGeometry('circle',2400,2400);
+  const [{id:region}]=openingRegions(circle);
+  circle.openings=[{region,side:'left'}];
+  const round=positionCost({...makePosition(),width:2400,height:2400,customGeometry:circle},defaults);
+  expect(round.area).toBeCloseTo(Math.PI*1.2**2);
+  expect(round.lines.find(line=>line.name==='Dvoslojno staklo')?.amount).toBeCloseTo(5.76*32);
+  expect(round.lines.find(line=>line.name==='PVC ram 70 mm · Standard')?.amount).toBeCloseTo(2.4*Math.PI*15);
+  expect(round.lines.find(line=>line.name==='PVC krilo 70 mm · Standard')?.amount).toBeCloseTo(2.4*Math.PI*18);
+  const triangle:Position={...makePosition(),width:1200,height:800,customGeometry:presetGeometry('triangle',1200,800)};
+  const irregular=positionCost(triangle,defaults);
+  expect(irregular.area).toBeCloseTo(.48);
+  expect(irregular.lines.find(line=>line.name==='Dvoslojno staklo')?.amount).toBeCloseTo(.96*32);
+  const panel=positionCost({...triangle,customInfill:'panel'},defaults);
+  expect(panel.lines.find(line=>line.name==='Puni panel')?.amount).toBeCloseTo(.48*65);
+ });
  it('proverava zbir širina, granice mera i količinu',()=>{const p=makePosition();expect(validatePosition(p)).toEqual([]);p.segments[0].width=1000;expect(validatePosition(p).join()).toContain('Zbir širina');p.width=0;p.quantity=1.5;expect(validatePosition(p).length).toBeGreaterThan(2);});
  it('izostavlja prazno polje i deli površinu kombinovane ispune',()=>{
   const p:Position={...makePosition(),width:2000,height:1000,modelLayout:{system:'Portal',rows:[{weight:1,cells:[{movement:'fixed',infill:'space',weight:1},{movement:'right',infill:'glassPanel',weight:1}]}]}};

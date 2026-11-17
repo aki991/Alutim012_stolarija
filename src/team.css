@@ -61,6 +61,10 @@
 .team-content > .team-error { color: #ffb1b7; }
 .team-account, .team-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .team-account { justify-content: space-between; }
+.team-profile-form { grid-template-columns: minmax(0, 1fr); }
+.team-profile-form .field { margin-bottom: 0; }
+.team-profile-form .field input { font-size: 16px; }
+.team-profile-form .modal-footer { flex-wrap: wrap; margin-top: 0; }
 .team-device-notifications { margin-top: 16px; }
 .team-device-notifications > button { margin-top: 12px; }
 .team-account > div { min-width: 0; overflow-wrap: anywhere; }

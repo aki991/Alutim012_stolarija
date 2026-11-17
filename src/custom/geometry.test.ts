@@ -36,14 +36,14 @@ describe('Stvarna geometrija u milimetrima',()=>{
  it('serijalizuje i ponovo učitava geometriju i prečke kroz postojeću rezervnu kopiju',()=>{const g=presetGeometry('arch',1600,2000);g.bars=[{id:'b',a:{x:0,y:1600},b:{x:1600,y:1600}}];const data={settings:defaults,jobs:[job(g)]};expect(parseBackup(JSON.parse(JSON.stringify(data))).jobs[0].positions[0].customGeometry).toEqual(g);const bad=structuredClone(data);bad.jobs[0].positions[0].customGeometry!.points[0].x=NaN;expect(()=>parseBackup(bad)).toThrow();});
  it('čuva namenu, ram i puni panel kroz rezervnu kopiju',()=>{const j=job(presetGeometry('arch'));Object.assign(j.positions[0],{customKind:'door',customFrameMm:85,customInfill:'panel'});const loaded=parseBackup(JSON.parse(JSON.stringify({settings:defaults,jobs:[j]}))).jobs[0].positions[0];expect(loaded.customKind).toBe('door');expect(loaded.customFrameMm).toBe(85);expect(loaded.customInfill).toBe('panel');expect(loaded.customGeometry).toEqual(j.positions[0].customGeometry);loaded.customFrameMm=10;expect(()=>parseBackup({settings:defaults,jobs:[{...j,positions:[loaded]}]})).toThrow();});
  it('proverava strukturu ID-jeva i numeričke mere sačuvanog crteža',()=>{const g=presetGeometry('triangle');g.edges[0].from='missing';expect(isGeometry(g)).toBe(false);const p=position(presetGeometry('triangle'));p.width+=20;expect(validatePosition(p).join()).toContain('ne odgovaraju');});
- it('obračunava čisti polukrug po stvarnoj površini, obimu i dužini luka',()=>{
+ it('obračunava ram i savijanje polukruga po dužini, a staklo po pravougaonom komadu',()=>{
   const g=presetGeometry('arch',1000,500);
   const p={...position(g),installation:true};
   const price=positionCost(p,defaults);
   const area=Math.PI*.5**2/2,arc=Math.PI*.5;
   expect(price.area).toBeCloseTo(area);
   expect(price.perimeter).toBeCloseTo(1+arc);
-  expect(price.unit).toBeCloseTo(area*(110+32)+arc*48+40+(1+arc)*9);
+  expect(price.unit).toBeCloseTo((1+arc)*15+.5*32+arc*48+40+(1+arc)*9);
   expect(calculate(job(g),defaults).hasUnpriced).toBe(false);
   expect(positionCost({...p,manualPrice:0},defaults).total).toBe(0);
  });

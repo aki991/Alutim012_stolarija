@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0';
-import { loginEmail, usernameDomain, usernameHint, usernamePattern } from '../_shared/team-login.ts';
+import { canChangeLoginIdentifier, loginEmail, usernameDomain, usernameHint, usernamePattern } from '../_shared/team-login.ts';
 
 const headers = {
  'Access-Control-Allow-Origin': '*',
@@ -75,6 +75,43 @@ Deno.serve(async request => {
    if (error?.code === 'weak_password') return reply(400, 'Unesite jaču lozinku.');
    if (error?.code === 'email_address_invalid' || error?.code === 'validation_failed') return reply(400, 'Proverite podatke za prijavu.');
    return error ? reply(503, unavailable) : reply(201);
+  }
+
+  if (body?.action === 'update' && typeof body.id === 'string' && uuid.test(body.id)) {
+   const name = typeof body.name === 'string' ? body.name.trim() : '';
+   if (!name || name.length > 100) return reply(400, 'Unesite ime i prezime do 100 znakova.');
+   if ('password' in body || 'role' in body) return reply(400, 'Zahtev za izmenu profila nije ispravan.');
+   if (body.identifier !== undefined && typeof body.identifier !== 'string') return reply(400, 'Zahtev za izmenu profila nije ispravan.');
+
+   const { data: permission, error: permissionError } = await admin.rpc('field_team_authorize_profile_edit', {
+    p_actor: user.id, p_target: body.id,
+   }).single<{ is_admin: boolean; email: string | null }>();
+   if (permissionError?.code === '42501') return reply(403, accessDenied);
+   if (permissionError?.code === 'P0002') return reply(404, 'Nalog nije pronađen.');
+   if (permissionError || !permission) return reply(503, unavailable);
+
+   let email: string | undefined;
+   if (body.identifier !== undefined) {
+    const identifier = body.identifier.trim().toLowerCase();
+    if (loginEmail(identifier) !== permission.email) {
+     const invalidIdentifier = identifierError(identifier);
+     if (invalidIdentifier) return reply(400, invalidIdentifier);
+     email = loginEmail(identifier);
+     if (!canChangeLoginIdentifier(permission.is_admin, permission.email, email)) {
+      return reply(403, 'Stvarnu e-mail adresu za prijavu može da promeni samo admin.');
+     }
+    }
+   }
+   const { error } = await admin.auth.admin.updateUserById(body.id, {
+    ...(email ? { email, email_confirm: true } : {}),
+    user_metadata: { full_name: name },
+    app_metadata: { field_team_profile_edit: { actor_id: user.id, name, previous_email: email ? permission.email : null, email: email ?? null } },
+   });
+   if (error?.code === 'email_exists' || error?.code === 'user_already_exists' || error?.code === 'identity_already_exists') {
+    return reply(409, 'Korisničko ime ili e-mail već se koristi.');
+   }
+   if (error?.code === 'user_not_found') return reply(404, 'Nalog nije pronađen.');
+   return error ? reply(503, unavailable) : reply(200);
   }
 
   if (body?.action === 'delete' && typeof body.id === 'string' && uuid.test(body.id)) {

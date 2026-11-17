@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, LogIn, WifiOff } from 'lucide-react';
-import { beginTeamWorkspace, endTeamWorkspace, findLocalJob, refreshTeamWorkspace, useStore } from './store';
+import { beginTeamWorkspace, endTeamWorkspace, findLocalJob, refreshTeamWorkspace, renameWorkspaceMember, useStore } from './store';
 import { fetchTeamConversations, fetchTeamMember, fetchTeamMessageNotices, fetchTeamNotifications, markTeamMessagesRead, markTeamNotificationRead, type TeamConversation, type TeamNotification } from './services/team-api';
 import { getSupabase, isSupabaseConfigured } from './services/supabase';
 import { removeDeviceNotifications } from './components/DeviceNotifications';
@@ -190,10 +190,11 @@ function TeamSession({ children, loginPath, onTeamReady }: { children: ReactNode
   return pollTeam(async isCurrent => {
    try {
     const current = await fetchTeamMember(activeProfileId);
-    if (isCurrent() && !current?.active) {
+    if (!isCurrent()) return;
+    if (!current?.active) {
      endTeamWorkspace();
      setProfile({ id: activeProfileId, error: 'Nalog nema pristup timu. Obratite se administratoru.' });
-    }
+    } else renameWorkspaceMember(current.id, current.name);
    } catch { /* A temporary connection failure does not revoke the session. */ }
   });
  }, [activeProfileId, userId]);

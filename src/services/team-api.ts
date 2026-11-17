@@ -75,7 +75,7 @@ export async function fetchTeamAccounts():Promise<TeamAccount[]>{
  }
 }
 
-export async function changeTeamAccount(body:{action:'create';identifier:string;name:string;password:string;role:TeamMember['role']}|{action:'link';identifier:string;role:TeamMember['role']}|{action:'delete';id:string}){
+export async function changeTeamAccount(body:{action:'create';identifier:string;name:string;password:string;role:TeamMember['role']}|{action:'link';identifier:string;role:TeamMember['role']}|{action:'update';id:string;name:string;identifier?:string}|{action:'delete';id:string}){
  const {error}=await getSupabase().functions.invoke('field-team-accounts',{body});
  if(!error)return;
  if(error instanceof FunctionsHttpError){

@@ -359,6 +359,11 @@ export function discardConflictingTeamChange(){
  publishWorkspace(w);
  void refreshTeamWorkspace();
 }
+export function renameWorkspaceMember(id:string,name:string){
+ if(!workspace||workspace.member.id!==id||workspace.member.name===name)return;
+ workspace.member={...workspace.member,name};
+ useStore.setState({teamMember:workspace.member});
+}
 
 let timer:ReturnType<typeof setTimeout>;
 function saveLocal(trash=localTrash){try{localStorage.setItem(KEY,JSON.stringify({jobs:localJobs,trash,settings:localSettings}));if(!workspace)useStore.setState({saveState:'saved',storageError:''});return true;}catch{if(!workspace)useStore.setState({saveState:'error',storageError:'Nema dovoljno lokalnog prostora ili je čuvanje blokirano. Izvezite rezervnu kopiju i uklonite velike fotografije.'});return false;}}

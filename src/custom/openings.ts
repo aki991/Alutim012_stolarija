@@ -3,11 +3,11 @@ import { distance, edgeArc, ends, isClosed, lineLine, pointAt, projectEdge, proj
 export type HingeSide = 'left' | 'right';
 export const hingeLabel = (side: HingeSide) => side === 'left' ? 'Šarke levo' : 'Šarke desno';
 export const customOpeningLabel=(mark:CustomOpening)=>mark.side==='bottom'?'Kip, šarke dole':`${hingeLabel(mark.side)}${mark.tilt?' + kip':''}`;
-export type OpeningRegion = { id: string; points: Point[]; center: Point };
+export type OpeningRegion = { id: string; points: Point[]; center: Point; perimeter: number };
 
-type Segment = { id: string; points: Point[] };
+type Segment = { id: string; points: Point[]; radius?: number };
 type Vertex = Point & { links: HalfEdge[] };
-type HalfEdge = { from: Vertex; to: Vertex; source: string; reverse?: HalfEdge; seen?: boolean };
+type HalfEdge = { from: Vertex; to: Vertex; source: string; length: number; reverse?: HalfEdge; seen?: boolean };
 
 export function regionContains(region: OpeningRegion, point: Point) {
  let inside = false;
@@ -55,7 +55,7 @@ export function openingRegions(g: Geometry): OpeningRegion[] {
      return distance(point, a) < .001 ? 0 : angle;
     };
     const points = Array.from({length: count - 1}, (_, i) => pointAt(g, edge, (i + 1) / count));
-    segments.push({id: edge.id, points: [a, ...[...points, ...attached].filter(p => distance(p,a) >= .001 && distance(p,b) >= .001).sort((p,q) => angleProgress(p) - angleProgress(q)), b]});
+    segments.push({id: edge.id, radius: arc.radius, points: [a, ...[...points, ...attached].filter(p => distance(p,a) >= .001 && distance(p,b) >= .001).sort((p,q) => angleProgress(p) - angleProgress(q)), b]});
    }
   }
  } catch {
@@ -72,8 +72,11 @@ export function openingRegions(g: Geometry): OpeningRegion[] {
   for (let i = 1; i < segment.points.length; i++) {
    const from = vertex(segment.points[i - 1]), to = vertex(segment.points[i]);
    if (from === to || from.links.some(link => link.to === to)) continue;
-   const forward: HalfEdge = {from, to, source: '+' + segment.id};
-   const reverse: HalfEdge = {from: to, to: from, source: '-' + segment.id, reverse: forward};
+   const chord = distance(from, to), radius = segment.radius;
+   // Arc subdivisions span less than a semicircle, so each chord determines its arc length.
+   const length = radius ? 2 * radius * Math.asin(Math.min(1, chord / (2 * radius))) : chord;
+   const forward: HalfEdge = {from, to, source: '+' + segment.id, length};
+   const reverse: HalfEdge = {from: to, to: from, source: '-' + segment.id, length, reverse: forward};
    forward.reverse = reverse;
    from.links.push(forward);
    to.links.push(reverse);
@@ -85,19 +88,20 @@ export function openingRegions(g: Geometry): OpeningRegion[] {
  for (const node of vertices.values()) for (const first of node.links) {
   if (first.seen) continue;
   const points: Point[] = [], sources = new Set<string>();
-  let area = 0, x = 0, y = 0, edge = first;
+  let area = 0, perimeter = 0, x = 0, y = 0, edge = first;
   do {
    edge.seen = true;
    const {from, to} = edge;
    points.push({x: from.x, y: from.y});
    sources.add(edge.source);
+   perimeter += edge.length;
    const cross = from.x * to.y - to.x * from.y;
    area += cross;
    x += (from.x + to.x) * cross;
    y += (from.y + to.y) * cross;
    edge = to.links[(to.links.indexOf(edge.reverse!) + to.links.length - 1) % to.links.length];
   } while (!edge.seen);
-  if (edge === first && area > 1) regions.push({id: JSON.stringify([...sources].sort()), points, center: {x: x/(3*area), y: y/(3*area)}});
+  if (edge === first && area > 1) regions.push({id: JSON.stringify([...sources].sort()), points, center: {x: x/(3*area), y: y/(3*area)}, perimeter});
  }
  regions.sort((a,b) => a.center.x - b.center.x || a.center.y - b.center.y);
  const occurrences = new Map<string,number>();

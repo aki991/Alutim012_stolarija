@@ -1,11 +1,57 @@
 import { useEffect, useId, useState, type FormEvent } from 'react';
-import { Eye, EyeOff, Trash2, UserPlus } from 'lucide-react';
-import { usernameDomain, usernameHint, usernamePattern } from '../../supabase/functions/_shared/team-login';
+import { Eye, EyeOff, Pencil, Trash2, UserPlus } from 'lucide-react';
+import { canChangeLoginIdentifier, usernameDomain, usernameHint, usernamePattern } from '../../supabase/functions/_shared/team-login';
+import { renameWorkspaceMember } from '../store';
 import { changeTeamAccount, fetchTeamAccounts, type TeamAccount, type TeamMember } from '../services/team-api';
 import { Field, Modal } from './UI';
 
 const loadError = 'Lista korisnika trenutno nije dostupna.';
 const roleLabels = { admin: 'Admin', manager: 'Šef', worker: 'Majstor' };
+const loginIdentifier = (email: string | null) => email?.endsWith(usernameDomain) ? email.slice(0, -usernameDomain.length) : email ?? '';
+
+function EditAccount({ account, isAdmin, onClose, onSaved }: {
+ account: TeamAccount; isAdmin: boolean; onClose: () => void; onSaved: (name: string) => void;
+}) {
+ const [busy, setBusy] = useState(false);
+ const [error, setError] = useState('');
+ const editableIdentifier = canChangeLoginIdentifier(isAdmin, account.email);
+ const originalIdentifier = loginIdentifier(account.email);
+
+ async function submit(event: FormEvent<HTMLFormElement>) {
+  event.preventDefault();
+  if (busy) return;
+  const data = new FormData(event.currentTarget);
+  const name = String(data.get('name') ?? '').trim();
+  const identifier = String(data.get('identifier') ?? '').trim().toLowerCase();
+  setError('');
+  setBusy(true);
+  try {
+   await changeTeamAccount({
+    action: 'update', id: account.id, name,
+    ...(editableIdentifier && identifier !== originalIdentifier ? { identifier } : {}),
+   });
+   renameWorkspaceMember(account.id, name);
+   onSaved(name);
+  } catch (failure) {
+   setError((failure as Error).message);
+  } finally { setBusy(false); }
+ }
+
+ return <Modal title="Uredi profil" onClose={() => { if (!busy) onClose(); }}>
+  <form className="settings-fields team-profile-form" onSubmit={submit}>
+   <Field label="Ime i prezime"><input name="name" defaultValue={account.name} required maxLength={100} disabled={busy}/></Field>
+   <Field label="Korisničko ime ili e-mail" hint={editableIdentifier ? undefined : 'Stvarnu e-mail adresu može da promeni samo admin.'}>
+    <input name="identifier" defaultValue={originalIdentifier} readOnly={!editableIdentifier} disabled={busy} maxLength={254}
+     autoComplete="off" autoCapitalize="none" spellCheck={false}/>
+   </Field>
+   {error && <p className="team-error" role="alert">{error}</p>}
+   <div className="modal-footer">
+    <button type="button" className="field-button field-button-light" disabled={busy} onClick={onClose}>Otkaži</button>
+    <button type="submit" className="field-button field-button-yellow" disabled={busy}>{busy ? 'Čuvam…' : 'Sačuvaj profil'}</button>
+   </div>
+  </form>
+ </Modal>;
+}
 
 export function TeamAccounts({member}: {member:TeamMember}){
  const [accounts,setAccounts]=useState<TeamAccount[]|null>(null);
@@ -17,6 +63,7 @@ export function TeamAccounts({member}: {member:TeamMember}){
  const [showPassword,setShowPassword]=useState(false);
  const passwordId=useId();
  const [formError,setFormError]=useState('');
+ const [editing,setEditing]=useState<TeamAccount|null>(null);
  const [deleting,setDeleting]=useState<TeamAccount|null>(null);
  const [busyDelete,setBusyDelete]=useState(false);
  const [deleteError,setDeleteError]=useState('');
@@ -101,13 +148,21 @@ export function TeamAccounts({member}: {member:TeamMember}){
    {!accounts&&!listError&&<p role="status">Učitavanje korisnika…</p>}
    {accounts?.length===0&&<p>Nema korisnika.</p>}
    {Boolean(accounts?.length)&&<ul className="team-account-list">{accounts?.map(account=><li key={account.id}>
-    <div><strong>{account.name}</strong><span>{account.email?.endsWith(usernameDomain)?account.email.slice(0,-usernameDomain.length):account.email}</span></div>
+    <div><strong>{account.name}</strong><span>{loginIdentifier(account.email)}</span></div>
     <div><span>{roleLabels[account.role]}{account.id===member.id?' · Vaš nalog':''}{account.active?'':' · Pristup ukinut'}</span>
+     <button type="button" className="field-button field-button-light" aria-label={`Uredi profil za ${account.name}`} onClick={()=>setEditing(account)}>
+      <Pencil size={17} aria-hidden="true"/>Uredi
+     </button>
      {account.id!==member.id&&account.role!=='admin'&&<button type="button" className="field-button field-button-light" aria-label={`Obriši nalog za ${account.name}`}
       onClick={()=>{setDeleteError('');setDeleting(account);}}><Trash2 size={17}/>Obriši</button>}
     </div>
    </li>)}</ul>}
   </section>
+  {editing&&<EditAccount account={editing} isAdmin={Boolean(member.is_admin)} onClose={()=>setEditing(null)} onSaved={name=>{
+   setFeedback(`Profil za ${name} je sačuvan.`);
+   setEditing(null);
+   setReload(value=>value+1);
+  }}/>}
   {deleting&&<Modal title="Obriši nalog?" onClose={()=>{if(!busyDelete)setDeleting(null);}}>
    <p>Brisanjem zajedničkog naloga korisnik {deleting.name} gubi mogućnost prijave u Stolariju i Ograde. Poslovi i poruke ostaju sačuvani.</p>
    {deleteError&&<p className="team-error" role="alert">{deleteError}</p>}

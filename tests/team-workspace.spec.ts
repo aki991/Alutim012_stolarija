@@ -17,6 +17,7 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
  const admin = { id: '10000000-0000-4000-8000-000000000004', name: 'Privatni nalog', role: 'manager', active: true, is_admin: true } as const;
  const accounts: TeamAccount[] = [{...boss,email:'manager@example.test'},{...worker,email:'milos@alutim012.local'},{...observer,email:'ivan@alutim012.local'},
   {...admin,role:'admin',email:'admin@example.test'}];
+ const passwords = new Map<string, string>();
  let pricing: TeamPricingRow = {prices:{},porta_royal_prices:{},vat:20,vat_mode:'exclusive',revision:0};
  const preferences = new Map<string,TeamPreferencesRow>();
  const archived = new Map<string, {pdf:Buffer; createdAt:string}>();
@@ -77,10 +78,26 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
    if (endpoint === 'token') {
     const { email, password } = request.postDataJSON();
     expect(email).toBe(accounts.find(account=>account.id===member.id)?.email);
-    if (password !== 'test-password') return route.fulfill({ status: 400, headers, json: { code: 'invalid_credentials', message: 'Invalid login credentials' } });
+    if (password !== (passwords.get(member.id) ?? 'test-password')) {
+     return route.fulfill({
+      status: 400, headers: { ...headers, 'access-control-expose-headers': 'x-supabase-api-version', 'x-supabase-api-version': '2024-01-01' },
+      json: { code: 'invalid_credentials', message: 'Invalid login credentials' },
+     });
+    }
     const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
-    const token = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: member.id, exp: Math.floor(Date.now() / 1000) + 3600 })}.signature`;
+    const signature = Buffer.from('test-signature').toString('base64url');
+    const token = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: member.id, exp: Math.floor(Date.now() / 1000) + 3600 })}.${signature}`;
     return reply({ access_token: token, refresh_token: 'test-refresh', token_type: 'bearer', expires_in: 3600, user: { id: member.id, email, aud: 'authenticated' } });
+   }
+   if (endpoint === 'user' && url.pathname.startsWith('/auth/v1/')) {
+    expect(request.headers().authorization).toMatch(/^Bearer /);
+    if (request.method() === 'PUT') {
+     const body = request.postDataJSON();
+     expect(body).toMatchObject({ current_password: 'test-password', password: 'nova-test-lozinka' });
+     expect(member.id).toBe(worker.id);
+     passwords.set(member.id, body.password);
+    }
+    return reply({ id: member.id, email: accounts.find(account => account.id === member.id)?.email, aud: 'authenticated' });
    }
    if (endpoint === 'logout') return route.fulfill({ headers, status: 204 });
    const body = request.postDataJSON() ?? {};
@@ -120,6 +137,17 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
      }else if(body.action==='link'){
       expect(body).toEqual({action:'link',identifier:'jelena',role:'worker'});
       accounts.push({id:crypto.randomUUID(),name:'Jelena Ograde',role:'worker',active:true,email:'jelena@alutim012.local'});
+     }else if(body.action==='update'){
+      const account=accounts.find(account=>account.id===body.id);
+      expect(account).toBeDefined();
+      expect(body).not.toHaveProperty('password');
+      expect(body).not.toHaveProperty('role');
+      expect(member.is_admin||account!.role!=='admin').toBe(true);
+      if(body.identifier){
+       if(!member.is_admin)expect(body.identifier).not.toContain('@');
+       account!.email=body.identifier.includes('@')?body.identifier:body.identifier+'@alutim012.local';
+      }
+      account!.name=body.name;
      }else{
       const index=accounts.findIndex(account=>account.id===body.id&&account.id!==member.id&&account.role!=='admin');
       expect(index).toBeGreaterThan(-1);
@@ -279,6 +307,11 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
  await expect(page.getByRole('combobox',{name:'Uloga'}).locator('option')).toHaveText(['Majstor','Šef']);
  await expect(page.getByText('milos', {exact:true})).toBeVisible();
  await expect(page.getByRole('button', {name:'Obriši nalog za Šef'})).toHaveCount(0);
+ await page.getByRole('button', {name:'Uredi profil za Šef'}).click();
+ const editProfile = page.getByRole('dialog', { name: 'Uredi profil' });
+ await expect(editProfile.getByLabel('Korisničko ime ili e-mail')).toHaveAttribute('readonly', '');
+ await expect(editProfile.locator('input[type=password]')).toHaveCount(0);
+ await editProfile.getByRole('button', { name: 'Otkaži' }).click();
  await page.getByLabel('Korisničko ime ili e-mail').fill('petar');
  await page.getByLabel('Ime i prezime').fill('Petar Petrović');
  const newPassword=page.getByLabel('Lozinka',{exact:true});
@@ -294,10 +327,15 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
  await expect(page.getByText('petar', {exact:true})).toBeVisible();
  await expect(newPassword).toHaveValue('');
  await expect(newPassword).toHaveAttribute('type','password');
- await page.getByRole('button', {name:'Obriši nalog za Petar Petrović'}).click();
+ await page.getByRole('button', { name: 'Uredi profil za Petar Petrović' }).click();
+ await editProfile.getByLabel('Ime i prezime').fill('Petar P.');
+ await editProfile.getByLabel('Korisničko ime ili e-mail').fill('petar.p');
+ await editProfile.getByRole('button', { name: 'Sačuvaj profil' }).click();
+ await expect(page.getByText('petar.p', {exact:true})).toBeVisible();
+ await page.getByRole('button', {name:'Obriši nalog za Petar P.'}).click();
  await page.getByRole('dialog').getByRole('button', {name:'Obriši nalog',exact:true}).click();
- await expect(page.getByText('Nalog za Petar Petrović je obrisan.')).toBeVisible();
- await expect(page.getByText('petar', {exact:true})).toHaveCount(0);
+ await expect(page.getByText('Nalog za Petar P. je obrisan.')).toBeVisible();
+ await expect(page.getByText('petar.p', {exact:true})).toHaveCount(0);
  await page.getByRole('checkbox',{name:'Postojeći nalog'}).check();
  await expect(newPassword).toHaveCount(0);
  await page.getByLabel('Korisničko ime ili e-mail').fill('jelena');
@@ -331,6 +369,11 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
   await adminPage.goto('/podesavanja/korisnici');
   await expect(adminPage.getByText('Admin · Vaš nalog')).toBeVisible();
   await expect(adminPage.getByText('Sara',{exact:true})).toBeVisible();
+  await adminPage.getByRole('button', { name: 'Uredi profil za Sara' }).click();
+  const adminEdit = adminPage.getByRole('dialog', { name: 'Uredi profil' });
+  await adminEdit.getByLabel('Korisničko ime ili e-mail').fill('sara@example.test');
+  await adminEdit.getByRole('button', { name: 'Sačuvaj profil' }).click();
+  await expect(adminPage.getByText('sara@example.test', { exact: true })).toBeVisible();
  } finally { await accountsContext.close(); }
  await page.goto('/podesavanja/dokumenti');
  const validity=page.getByLabel('Važenje ponude');
@@ -339,7 +382,8 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
  await page.reload();
  await expect(validity).toHaveValue('30 dana');
  await page.goto('/cenovnik');
- await page.getByRole('spinbutton', {name:'PVC profil (€/m²)',exact:true}).fill('126');
+ await page.getByRole('spinbutton', {name:'PVC ram 70 mm (€/m)',exact:true}).fill('26');
+ await page.getByRole('spinbutton', {name:'Standardni okov za vrata (€/krilo)',exact:true}).fill('57');
  await page.getByRole('button', {name:'Sačuvaj cenovnik'}).click();
  await expect(page.getByText('Cene su sačuvane za ceo tim.')).toBeVisible();
  await expect(page.getByLabel('Zadužena osoba', { exact: true })).toHaveCount(0);
@@ -563,8 +607,9 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
   await expect(mobile).toHaveURL(/\/podesavanja$/);
   await expect(mobile.getByRole('link', {name:/Korisnici/})).toHaveCount(0);
   await mobile.goto('/cenovnik');
-  const sharedRate=mobile.locator('dl').filter({hasText:'PVC profil (€/m²)'}).locator('dd');
-  await expect(sharedRate).toHaveText('126');
+  const sharedRate=mobile.locator('dl').filter({hasText:'PVC ram 70 mm (€/m)'}).locator('dd');
+  await expect(sharedRate).toHaveText('26');
+  await expect(mobile.locator('dl').filter({hasText:'Standardni okov za vrata (€/krilo)'}).locator('dd')).toHaveText('57');
   await sharedRate.click();
   await expect(sharedRate).not.toBeFocused();
   await expect(mobile.getByRole('spinbutton')).toHaveCount(0);
@@ -719,8 +764,24 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
   } finally { await chiefContext.close(); }
 
   await mobile.goto('/nalog');
+  await mobile.getByRole('button', { name: 'Promeni lozinku' }).click();
+  const passwordDialog = mobile.getByRole('dialog', { name: 'Promeni lozinku' });
+  await passwordDialog.getByLabel('Trenutna lozinka').fill('pogresna-lozinka');
+  await passwordDialog.getByLabel('Nova lozinka', { exact: true }).fill('nova-test-lozinka');
+  await passwordDialog.getByLabel('Potvrdi novu lozinku').fill('nova-test-lozinka');
+  await passwordDialog.getByRole('button', { name: 'Sačuvaj lozinku' }).click();
+  await expect(passwordDialog.getByRole('alert')).toHaveText('Trenutna lozinka nije ispravna.');
+  await passwordDialog.getByLabel('Trenutna lozinka').fill('test-password');
+  await passwordDialog.getByRole('button', { name: 'Sačuvaj lozinku' }).click();
+  await expect(mobile.getByText('Lozinka je promenjena.')).toBeVisible();
+  expect(passwords.get(worker.id)).toBe('nova-test-lozinka');
   await mobile.getByRole('button', { name: 'Odjavi se' }).click();
   await expect(mobile.getByRole('heading', { name: 'Prijava', exact: true })).toBeVisible();
+  await mobile.goto('/nalog');
+  await mobile.getByLabel('E-mail ili korisničko ime').fill('milos');
+  await mobile.getByLabel('Lozinka', { exact: true }).fill('nova-test-lozinka');
+  await mobile.getByRole('button', { name: 'Prijavi se' }).click();
+  await expect(mobile.getByRole('heading', { name: 'Nalog', exact: true })).toBeVisible();
   await workerContext.setOffline(true);
   await expect(mobile.getByRole('button', { name: 'Nastavi bez interneta (gost)' })).toHaveCount(0);
  } finally { await Promise.all([workerContext.close(),observerContext.close()]); }

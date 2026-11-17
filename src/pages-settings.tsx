@@ -12,7 +12,7 @@ const sections=[
  {id:'cenovnik',title:'Cenovnik',description:'Cene profila, stakla, roletni i usluga',Icon:Calculator},
  {id:'pdv',title:'PDV i obračun',description:'Stopa PDV-a i način obračuna',Icon:Percent},
  {id:'dokumenti',title:'Dokumenti',description:'Podrazumevani uslovi ponude',Icon:FileText},
- {id:'korisnici',title:'Korisnici',description:'Dodavanje i brisanje naloga zaposlenih',Icon:Users},
+ {id:'korisnici',title:'Korisnici',description:'Upravljanje nalozima zaposlenih',Icon:Users},
  {id:'podaci',title:'Podaci i rezervne kopije',description:'Majstor, čuvanje, uvoz i izvoz',Icon:HardDrive},
 ];
 const newDefaults:NonNullable<Settings['elementDefaults']>={material:'PVC',profile:'PVC 70 mm',color:'Bela',glass:'Dvoslojno',hardware:'Standardni'};

@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { Check, LogOut, MessageSquare, Send } from 'lucide-react';
+import { Check, KeyRound, LogOut, MessageSquare, Send } from 'lucide-react';
 import { FieldHeader } from './components/FieldHeader';
 import { DeviceNotifications } from './components/DeviceNotifications';
+import { ChangePassword } from './components/ChangePassword';
 import { uid } from './catalog';
 import { acceptTeamJob, canEditJob, jobFromSettings, todayInBelgrade, useStore } from './store';
 import type { Job } from './models';
@@ -47,6 +48,8 @@ export function AccountPage() {
  const member = useStore(state => state.teamMember);
  const navigate = useNavigate();
  const [actionError, setActionError] = useState('');
+ const [changingPassword, setChangingPassword] = useState(false);
+ const [passwordChanged, setPasswordChanged] = useState(false);
  if (!member) return null;
 
  return <div className="team-page">
@@ -54,13 +57,23 @@ export function AccountPage() {
   <main className="team-content">
    <div className="team-account">
     <div><strong>{member.name}</strong><small>{member.is_admin ? 'Admin' : member.role === 'manager' ? 'Šef' : 'Majstor'}</small></div>
-    <button type="button" className="field-button field-button-light" onClick={() => {
-     void signOutTeam().then(() => navigate('/prijava', { replace: true })).catch(() => setActionError('Odjava trenutno nije uspela.'));
-    }}><LogOut size={18}/>Odjavi se</button>
+    <div className="team-actions">
+     <button type="button" className="field-button field-button-light" onClick={() => { setPasswordChanged(false); setChangingPassword(true); }}>
+      <KeyRound size={18} aria-hidden="true"/>Promeni lozinku
+     </button>
+     <button type="button" className="field-button field-button-light" onClick={() => {
+      void signOutTeam().then(() => navigate('/prijava', { replace: true })).catch(() => setActionError('Odjava trenutno nije uspela.'));
+     }}><LogOut size={18}/>Odjavi se</button>
+    </div>
    </div>
    {actionError && <p className="team-error" role="alert">{actionError}</p>}
+   {passwordChanged && <p className="field-message" role="status">Lozinka je promenjena.</p>}
    <DeviceNotifications/>
   </main>
+  {changingPassword && <ChangePassword memberId={member.id} onClose={() => setChangingPassword(false)} onSaved={() => {
+   setChangingPassword(false);
+   setPasswordChanged(true);
+  }}/>}
  </div>;
 }
 

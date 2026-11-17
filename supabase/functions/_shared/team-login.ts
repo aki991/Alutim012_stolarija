@@ -6,3 +6,7 @@ export function loginEmail(identifier: string) {
  const login = identifier.trim().toLowerCase();
  return login.includes('@') ? login : `${login}${usernameDomain}`;
 }
+
+export function canChangeLoginIdentifier(isAdmin: boolean, email: string | null, nextEmail = email) {
+ return isAdmin || (email?.endsWith(usernameDomain) === true && nextEmail?.endsWith(usernameDomain) === true);
+}

@@ -1,4 +1,4 @@
-import { distance, edgeLength, ends, isClosed, signedArea, type Geometry } from '../custom/geometry';
+import { bounds, distance, edgeLength, ends, isClosed, signedArea, type Geometry } from '../custom/geometry';
 import { openingRegions } from '../custom/openings';
 import { noPanels } from '../fixed-panels';
 import { glassPanelFraction, weightTotal, type Movement } from '../model-layout';
@@ -19,6 +19,9 @@ function isRectangle(g:Geometry){
 export function positionMeasures(p:Position){
  const {width,height,modelLayout,customGeometry,combination}=p;
  if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0)return null;
+ const door=customGeometry&&p.customKind?p.customKind==='door':p.category==='Vrata'||p.category==='Ulazna vrata'||p.category==='Sobna vrata'||p.category==='Klizni sistemi';
+ const openings:{movement:Movement;door:boolean}[]=[];
+ let sash=0;
  if(customGeometry){
   if(!isClosed(customGeometry))return null;
   try{
@@ -33,16 +36,27 @@ export function positionMeasures(p:Position){
    const divider=customGeometry.bars.reduce((total,bar)=>total+distance(bar.a,bar.b)/1000,0);
    const panel=customInfillOf(p)==='panel';
    const marks=customGeometry.openings??[];
-   const regions=marks.length?new Set(openingRegions(customGeometry).map(region=>region.id)):new Set<string>();
-   const moves:Movement[]=marks.filter(mark=>regions.has(mark.region)).map(mark=>mark.side==='bottom'?'tilt':mark.tilt?(mark.side==='left'?'tiltLeft':'tiltRight'):mark.side);
-   return {area,perimeter,bend,divider,glass:panel?0:area,panel:panel?area:0,louvres:0,shaped:!isRectangle(customGeometry),moves};
+   const regions=marks.length?new Map(openingRegions(customGeometry).map(region=>[region.id,region])):null;
+   for(const mark of marks){
+    const region=regions?.get(mark.region);
+    if(!region)continue;
+    sash+=region.perimeter;
+    const movement=mark.side==='bottom'?'tilt':mark.tilt?(mark.side==='left'?'tiltLeft':'tiltRight'):mark.side;
+    openings.push({movement,door});
+   }
+   const shaped=!isRectangle(customGeometry);
+   let glass=panel?0:area;
+   if(!panel&&shaped){
+    const blank=bounds(customGeometry);
+    glass=blank.width*blank.height/mm2ToM2;
+   }
+   return {area,perimeter,frame:perimeter,sash:sash/1000,bend,divider,glass,panel:panel?area:0,louvres:0,shaped,openings};
   }catch{return null;}
  }
 
  if(modelLayout){
   const rowsHeight=weightTotal(modelLayout.rows);
   let area=0,glass=0,panel=0,louvres=0,perimeter=0,divider=0;
-  const moves:Movement[]=[];
   let previous:{left:number;right:number}[]=[];
   for(const row of modelLayout.rows){
    const rowHeight=height*row.weight/rowsHeight;
@@ -59,8 +73,12 @@ export function positionMeasures(p:Position){
      if(cell.infill==='panel'||cell.infill==='glassPanel')panel+=field*(cell.infill==='glassPanel'?1-glassPanelFraction:1);
      if(cell.infill==='slats')louvres+=field;
      if(cell.infill==='glassPanel')divider+=cellWidth;
-     moves.push(cell.movement);
-     perimeter+=2*(cellWidth+rowHeight);
+     const cellPerimeter=2*(cellWidth+rowHeight);
+     if(cell.movement!=='fixed'){
+      sash+=cellPerimeter;
+      openings.push({movement:cell.movement,door});
+     }
+     perimeter+=cellPerimeter;
      const neighbor=row.cells[index-1];
      if(neighbor&&neighbor.infill!=='space'){
       perimeter-=2*rowHeight;
@@ -77,14 +95,37 @@ export function positionMeasures(p:Position){
    });
    previous=current;
   }
-  return area>0?{area,perimeter:perimeter/1000,divider:divider/1000,bend:0,glass,panel,louvres,shaped:false,moves}:null;
+  return area>0?{area,perimeter:perimeter/1000,frame:perimeter/1000,sash:sash/1000,divider:divider/1000,bend:0,glass,panel,louvres,shaped:false,openings}:null;
  }
 
- const area=(combination?p.segments[0].width*height+p.segments[1].width*combination.windowHeight:width*height)/mm2ToM2;
+ const perimeter=2*(width+height)/1000;
+ if(combination){
+  if(p.segments.length!==2||!Number.isFinite(combination.windowHeight)||combination.windowHeight<=0)return null;
+  const heights=[height,combination.windowHeight];
+  let area=0,frame=0;
+  p.segments.forEach((segment,index)=>{
+   const partHeight=heights[index];
+   const partPerimeter=2*(segment.width+partHeight);
+   area+=segment.width*partHeight;
+   frame+=partPerimeter;
+   if(segment.opening!=='Fiksno'){
+    sash+=partPerimeter;
+    openings.push({movement:segmentMovements[segment.opening],door:index===0});
+   }
+  });
+  return {area:area/mm2ToM2,perimeter,frame:frame/1000,sash:sash/1000,divider:0,bend:0,glass:area/mm2ToM2,panel:0,louvres:0,shaped:false,openings};
+ }
+ const area=width*height/mm2ToM2;
  const {top,bottom,left,right}=p.fixedPanels??noPanels;
  const centerHeight=Math.max(0,height-top-bottom);
  const vertical=Number(left>0)+Number(right>0);
  const horizontal=Number(top>0)+Number(bottom>0);
- const divider=(horizontal*width+vertical*centerHeight)/1000;
- return {area,perimeter:2*(width+height)/1000,divider,bend:0,glass:area,panel:0,louvres:0,shaped:false,moves:p.segments.map(segment=>segmentMovements[segment.opening])};
+ let divider=horizontal*width+vertical*centerHeight;
+ p.segments.forEach((segment,index)=>{
+  if(index>0&&(segment.opening==='Fiksno'||p.segments[index-1].opening==='Fiksno'))divider+=centerHeight;
+  if(segment.opening==='Fiksno')return;
+  sash+=2*(segment.width+centerHeight);
+  openings.push({movement:segmentMovements[segment.opening],door});
+ });
+ return {area,perimeter,frame:perimeter,sash:sash/1000,divider:divider/1000,bend:0,glass:area,panel:0,louvres:0,shaped:false,openings};
 }
