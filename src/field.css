@@ -246,7 +246,7 @@
 @media(max-width:999px){
  .measuring-page>.measurement-workspace{align-content:start}
  .summary-grid{grid-template-columns:1fr}.summary-price{max-width:none;display:grid;grid-template-columns:1fr 1fr;gap:0 24px}.summary-price>section{grid-column:2;grid-row:1/4;margin:0;align-self:center}.summary-price>p{grid-column:1/-1;margin-top:16px}.summary-price>div{grid-column:1}
- .measurement-workspace{grid-template-columns:minmax(0,1fr);padding:16px}.measurement-canvas{min-height:440px}.field-drawing,.field-drawing>svg{min-height:350px;max-height:420px}.measurement-controls{display:grid;grid-template-columns:1fr 1fr;grid-template-areas:'dimensions dimensions' 'layout layout' 'wings material' 'opening opening' 'extras extras';align-items:start;gap:14px}.dimension-controls{grid-area:dimensions}.measurement-controls>.visual-control:has(.wing-count-options){grid-area:wings}.measurement-controls>.visual-control:has(.opening-options){grid-area:opening}.measurement-controls>.material-control{grid-area:material}.measurement-controls>.field-options-button{grid-area:extras}.measurement-controls>.fixed-panel-trigger{grid-area:layout}.measurement-controls>.field-error{grid-column:1/-1}.dimension-control input{font-size:30px}.opening-options{grid-template-columns:repeat(5,minmax(0,1fr))}.material-control{min-height:123px;flex-direction:column;align-items:stretch;gap:8px}.material-control h2{margin:0}.material-control>div{flex:1}.material-control button{min-height:66px}.field-options-button{grid-column:1/-1}.measurement-amount{flex-direction:column;gap:1px;align-items:flex-start}
+ .measurement-workspace{grid-template-columns:minmax(0,1fr);padding:16px}.measurement-canvas{min-height:440px}.field-drawing,.field-drawing>svg{min-height:350px;max-height:420px}.measurement-controls{display:grid;grid-template-columns:1fr 1fr;grid-template-areas:'dimensions dimensions' 'layout layout' 'wings material' 'opening opening' 'equipment equipment' 'extras extras';align-items:start;gap:14px}.dimension-controls{grid-area:dimensions}.measurement-controls>.visual-control:has(.wing-count-options){grid-area:wings}.measurement-controls>.visual-control:has(.opening-options){grid-area:opening}.measurement-controls>.material-control{grid-area:material}.measurement-controls>.field-options-button{grid-area:extras}.measurement-controls>.fixed-panel-trigger{grid-area:layout}.measurement-controls>.field-error{grid-column:1/-1}.dimension-control input{font-size:30px}.opening-options{grid-template-columns:repeat(5,minmax(0,1fr))}.material-control{min-height:123px;flex-direction:column;align-items:stretch;gap:8px}.material-control h2{margin:0}.material-control>div{flex:1}.material-control button{min-height:66px}.field-options-button{grid-column:1/-1}.measurement-amount{flex-direction:column;gap:1px;align-items:flex-start}
  .price-workspace{grid-template-columns:1fr}.price-total{position:static}.price-total>div{font-size:19px}.price-total>section>strong{font-size:38px}
  .work-modules .catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.work-modules .settings-grid{grid-template-columns:1fr}
 }
@@ -294,3 +294,12 @@
 .model-layout-cell{display:grid;gap:6px;margin-top:8px;padding:8px;background:#f6f7f9;border-radius:6px;min-width:0}
 .model-layout-cell select,.model-layout-cell input,.model-layout-row input{width:100%;min-width:0}
 .model-layout-details .field-text-button{display:inline-flex;align-items:center;gap:5px;margin-top:8px}
+
+/* Frequently used accessories stay visible beside the main element controls. */
+.equipment-control{min-width:0;width:100%}
+.measurement-controls>.equipment-control{grid-area:equipment}
+.equipment-control .field-checks{grid-template-columns:repeat(auto-fit,minmax(120px,1fr));margin:0;gap:8px}
+.equipment-control .field-checks>label{min-width:0;border:1px solid #d8dadd;background:#fff;cursor:pointer;padding:10px;gap:8px}
+.equipment-control .field-checks>label:has(input:checked){border-color:#b00015;background:#fff1f2}
+.equipment-control .shutter-controls{margin-top:10px}
+.custom-settings>.equipment-control{grid-column:1/-1;margin-bottom:16px}

@@ -29,7 +29,7 @@ Adresa je **http://127.0.0.1:4187/**. Za postavljanje poslužite `dist/`, sa SPA
 3. Izaberite **Prozor**. Odmah se otvara dvokrilni prozor 1600 × 1400 mm.
 4. Unesite širinu i visinu; crtež, kote i cena se menjaju odmah. Brojevi su 24–30 px. `−` i `+` menjaju mere za 10 mm.
 5. Velikim dugmadima izaberite jedno, dva ili tri krila i način otvaranja. Dodir na krilo u crtežu omogućava podešavanje samo tog krila; **Sva krila** vraća zajedničko podešavanje.
-6. Izaberite ALU/PVC. Profil, boju, staklo, okov, dodatke, količinu, radove, napomene i fotografije otvorite kroz **Dodatne opcije**.
+6. Izaberite ALU/PVC i dodatnu opremu (roletnu, komarnik i klupicu) na glavnom ekranu. Profil, boju, staklo, okov, količinu, radove, napomene i fotografije otvorite kroz **Dodatne opcije**.
 7. Kliknite **Dodaj u posao**. Otvara se jednostavna lista elemenata.
 8. Izaberite **Dodaj sledeći element**, dodajte drugi prozor i balkonska vrata (početna mera 900 × 2200 mm).
 9. Kliknite **Pogledaj cenu**, pa **Ponuda za kupca** i **Specifikacija za kancelariju**.
@@ -159,7 +159,7 @@ Preuređeni moduli su u `src/pages-lists.tsx` i `src/pages-settings.tsx`, zaglav
 
 ## Pojednostavljene mobilne opcije
 
-`src/refinements.css` uređuje panel Dodatne opcije i meni Više kao mobilne panele koji se otvaraju odozdo. Naziv i količina su u istom redu; Bela, Antracit i Orah su dugmad. Ranije sačuvana druga boja ostaje dostupan izbor. Profil, staklo i okov ostaju obična polja. Dodatna oprema, Montaža, Napomena i Fotografije otvaraju se po potrebi, a Raspored krila čuva pristup pojedinačnim širinama. Gotovo i zatvaranje panela čuvaju postojeći način rada sa nacrtom. Na tabletu i desktopu panel je centriran, a bočna navigacija ostaje dostupna.
+`src/refinements.css` uređuje panel Dodatne opcije i meni Više kao mobilne panele koji se otvaraju odozdo. Naziv i količina su u istom redu; Bela, Antracit i Orah su dugmad. Ranije sačuvana druga boja ostaje dostupan izbor. Profil, staklo i okov ostaju obična polja. Dodatna oprema je dostupna direktno na glavnom ekranu, ispod materijala; podešavanja roletne prikazuju se kada je uključena. Montaža, Napomena i Fotografije otvaraju se po potrebi, a Raspored krila čuva pristup pojedinačnim širinama. Gotovo i zatvaranje panela čuvaju postojeći način rada sa nacrtom. Na tabletu i desktopu panel je centriran, a bočna navigacija ostaje dostupna.
 
 Gornji hamburger je uklonjen. Osnovni crtež ima reset i proširenje; kontrole uvećanja su u proširenom prikazu. Obračun, skladištenje i PDF servis nisu menjani.
 

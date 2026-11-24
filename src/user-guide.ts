@@ -73,7 +73,7 @@ export const guideChapters: readonly GuideChapter[] = [
    { heading: 'Katalog i fiksna polja', items: [
     'Iz posla otvorite Dodaj element → Pretraži sve modele. Pretražujte naziv ili grupu, izaberite model i unesite mere. Katalog možete otvoriti i iz glavne navigacije.',
     'Kod modela sa više redova ili polja podesite njihove visine, širine, ispune i otvaranja. Kod osnovnih elemenata koristite fiksna polja za nadsvetlo i bočne delove.',
-    'U Dodatnim opcijama podesite naziv, količinu, materijal, profil, boju, staklo i okov. Tamo se dodaju oprema, montaža, demontaža, pristup objektu, dodatni radovi, napomene i do četiri fotografije po elementu.',
+    'Materijal i dodatnu opremu (roletnu, komarnik i klupicu) izaberite na glavnom ekranu. U Dodatnim opcijama podesite naziv, količinu, profil, boju, staklo i okov. Tamo se dodaju montaža, demontaža, pristup objektu, dodatni radovi, napomene i do četiri fotografije po elementu.',
    ] },
    { text: 'Gotovo zatvara dodatne opcije. Dodaj u posao potvrđuje novu poziciju, a Sačuvaj izmene potvrđuje postojeću. Nacrt omogućava nastavak rada. Potvrđene pozicije su vidljive u spisku i ulaze u dokument. Mere sa terena i izvodljivost konfiguracije proverava kancelarija.' },
   ],

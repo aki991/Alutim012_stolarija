@@ -19,6 +19,7 @@ import { DimensionControls } from './components/DimensionControls';
 import { ElementGlyph } from './components/ElementGlyph';
 import { FieldHeader } from './components/FieldHeader';
 import { PositionOptions } from './components/PositionOptions';
+import { PositionEquipment } from './components/PositionEquipment';
 import { ShutterControls } from './components/ShutterControls';
 import { openingBoxHeight, shutterOf } from './shutters';
 import { JobStatus } from './components/JobStatus';
@@ -160,6 +161,7 @@ export function ElementEditor(){
  {!special&&<section className="visual-control"><h2>Broj krila</h2><div className="wing-count-options" role="group" aria-label="Broj krila">{(isDoor?[1,2]:p.segments.length===4?[1,2,3,4]:[1,2,3]).map(n=><button key={n} className={p.segments.length===n?'selected':''} aria-pressed={p.segments.length===n} aria-label={n===1?'Jedno krilo':n===2?'Dva krila':n===3?'Tri krila':'Četiri krila'} onClick={()=>count(n)}><ElementGlyph type="prozor" wings={n}/><span>{n===1?'Jedno':n===2?'Dva':n===3?'Tri':'Četiri'}</span></button>)}</div></section>}
  {!special&&<section className="visual-control"><div className="opening-heading"><h2>Otvaranje</h2>{chosen!==null&&<button className="field-text-button" onClick={()=>setChosen(null)}>Sva krila</button>}</div><div className="opening-options" role="group" aria-label="Otvaranje">{openingChoices.map(([value,label])=><button key={value} className={activeOpening===value?'selected':''} aria-pressed={activeOpening===value} onClick={()=>opening(value)}><ElementGlyph type={value==='Fiksno'?'fiksni':isSliding?'klizni':'prozor'} wings={value==='pair'?2:1} opening={value==='pair'?undefined:value}/><span>{label}</span></button>)}</div></section>}</>}</>}
  <section className="visual-control material-control"><h2>Materijal</h2><div role="group" aria-label="Materijal">{(['PVC','ALU'] as const).map(material=><button key={material} aria-pressed={p.material===material} className={p.material===material?'selected':''} onClick={()=>patch({material,profile:material==='PVC'?'PVC 70 mm':'ALU termo profil'})}>{material}</button>)}</div></section>
+ <PositionEquipment position={p} onChange={patch}/>
  <button className="field-options-button" onClick={()=>setOptions(true)}><Settings2/>Dodatne opcije<ChevronRight/></button>
  {(errors.length>0||message)&&<div className="field-error" role="alert">{message||errors[0]}</div>}
  {draftError&&<p className="field-error" role="alert">Nacrt se ne može sačuvati. Dodajte element pre napuštanja ekrana.</p>}
