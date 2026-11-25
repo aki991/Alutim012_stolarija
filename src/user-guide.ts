@@ -85,6 +85,7 @@ export const guideChapters: readonly GuideChapter[] = [
    { heading: 'Vrata sa prozorom', text: 'Izaberite Kombinacija. Unesite odvojene mere i otvaranja za vrata i prozor, odredite da li je prozor levo ili desno i izaberite poravnanje. U poslu se vodi kao jedna pozicija, sa posebnim merama i okovom za svaki deo.' },
    { heading: 'Roletna, komarnik i klupica', items: [
     'Roletnu dodajte kao poseban element ili kao dodatak prozoru. Izaberite tip i unesite mere prema mestu ugradnje. Kada je kutija u otvoru, proverite ukupnu visinu otvora i preostalu visinu rama.',
+    'Za kutiju roletne izaberite PVC ili ALU. Izaberite pogon bez motora i levu ili desnu stranu kanapa (gledano iznutra), ili pogon sa motorom pa sa daljinskim ili bez daljinskog upravljača. Izbori se čuvaju uz poziciju i navode u dokumentima.',
     'Kod kombinacije unesite roletnu na deo na koji se ugrađuje. Komarnik možete dodati kao poseban element ili kroz dodatnu opremu. Klupicu uključite u dodatnoj opremi pozicije.',
     'Za jednu stvarnu roletnu ili komarnik koristite jedan način unosa, da se u ponudi obračuna jednom.',
    ] },

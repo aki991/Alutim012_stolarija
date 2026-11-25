@@ -23,6 +23,10 @@ export interface ShutterConfig {
  part?:ShutterPart;
  width?:number;
  shape?:keyof typeof shutterBoxShapes;
+ cordSide?:'left'|'right';
+ motor?:boolean;
+ remote?:boolean;
+ boxMaterial?:'PVC'|'ALU';
 }
 
 export const shutterMaxBox=2000;
@@ -32,6 +36,23 @@ export const supportsShutter=(p:Position)=>['Prozori','Vrata','Ulazna vrata','Kl
 export function makeShutter(type:ShutterType='reveal',part?:ShutterPart):ShutterConfig {
  const {mount,boxHeight}=shutterTypes[type];
  return {type,mount,boxHeight,part,shape:type==='reveal'||type==='facade'?'bevel':undefined};
+}
+
+export function changeShutterType(config:ShutterConfig,type:ShutterType):ShutterConfig {
+ return {...makeShutter(type,config.part),cordSide:config.cordSide,motor:config.motor,
+  remote:config.motor?config.remote:undefined,boxMaterial:config.boxMaterial};
+}
+
+export function changeShutterMotor(config:ShutterConfig,motor?:boolean):ShutterConfig {
+ return {...config,motor,remote:motor?config.remote:undefined};
+}
+
+export function shutterEquipmentLabel(config:ShutterConfig):string {
+ return [config.boxMaterial&&`Kutija: ${config.boxMaterial}`,
+  config.motor===true?'Sa motorom':config.motor===false?'Bez motora (kanap)':'',
+  config.motor===true?(config.remote===true?'Sa daljinskim upravljačem':config.remote===false?'Bez daljinskog upravljača':'Daljinski upravljač: nije navedeno')
+   :config.cordSide?`Kanap ${config.cordSide==='left'?'levo':'desno'} (pogled iznutra)`:'',
+ ].filter(Boolean).join(' · ');
 }
 
 export function shutterOf(p:Position):ShutterConfig|undefined {
@@ -46,7 +67,11 @@ export function isShutterConfig(value:unknown):value is ShutterConfig {
   &&Number.isFinite(config.boxHeight)&&config.boxHeight>=1&&config.boxHeight<=shutterMaxBox
   &&(config.part===undefined||config.part==='door'||config.part==='window')
   &&(config.width===undefined||config.mount==='above'&&Number.isFinite(config.width)&&config.width>=1&&config.width<=shutterMaxWidth)
-  &&(config.shape===undefined||typeof config.shape==='string'&&Object.hasOwn(shutterBoxShapes,config.shape));
+  &&(config.shape===undefined||typeof config.shape==='string'&&Object.hasOwn(shutterBoxShapes,config.shape))
+  &&(config.cordSide===undefined||config.cordSide==='left'||config.cordSide==='right')
+  &&(config.motor===undefined||typeof config.motor==='boolean')
+  &&(config.remote===undefined||typeof config.remote==='boolean'&&config.motor===true)
+  &&(config.boxMaterial===undefined||config.boxMaterial==='PVC'||config.boxMaterial==='ALU');
 }
 
 export function shutterPart(p:Position,config:ShutterConfig):ShutterPart {

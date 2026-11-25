@@ -113,6 +113,7 @@
 .shutter-controls{padding:10px 12px;border:1px solid #d6e0e5;border-radius:10px;background:#f5f8fa;min-width:0}
 .measurement-controls>.shutter-controls{grid-column:1/-1;width:100%}
 .shutter-measure-note{margin:8px 0 0;color:#284955;font:700 17px AluNarrow,Arial,sans-serif}
+.shutter-control-note{margin:8px 0 0;color:#53636c;font:400 16px AluNarrow,Arial,sans-serif}
 .position-options h3{font:700 22px AluNarrow,Arial,sans-serif;margin:18px 0 14px}
 .option-section-title{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .field-checks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:8px 0 18px}

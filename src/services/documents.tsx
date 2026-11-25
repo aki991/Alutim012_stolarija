@@ -9,7 +9,7 @@ import type { Job, Position, Settings } from '../models';
 import { Drawing } from '../components/Drawing';
 import { calculate, jobTax, euro, validatePosition, jobReviewLabel, positionReviewLabel } from './calculation';
 import { hasGlass, infills, movements, weightTotal } from '../model-layout';
-import { openingBoxHeight, shutterBoxShapes, shutterMeasures, shutterMounts, shutterOf, shutterTypes } from '../shutters';
+import { openingBoxHeight, shutterBoxShapes, shutterEquipmentLabel, shutterMeasures, shutterMounts, shutterOf, shutterTypes } from '../shutters';
 import { portaDecorName, portaDirection, portaFills, portaGlazing, portaHandles, portaHinges, portaLocks, portaOptions, portaTechnical, portaVariant } from '../porta-royal';
 import { registerPdfFonts } from './pdf-fonts';
 function loadImage(src:string){return new Promise<HTMLImageElement>((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(Error('Slika nije dostupna. Proverite podatke o fotografijama.'));i.src=src;});}
@@ -85,6 +85,7 @@ export async function makeDocument(job:Job,settings:Settings,kind:'kupac'|'kance
    const target=p.combination?` na delu ${part==='window'?'prozor':'vrata'}`:'';
    text(`Roletna${target} · ${shutterTypes[shutter.type].label} · ${shutterMounts[shutter.mount]}`,9,true);
    text(`Mera roletne ${fmt(width)} × ${fmt(totalHeight)} mm · Visina kutije ${fmt(shutter.boxHeight)} mm${shutter.shape?` · ${shutterBoxShapes[shutter.shape]}`:''}`,9);
+   const equipment=shutterEquipmentLabel(shutter);if(equipment)text(equipment,9);
    if(!p.shutterConfig)text('Predloženi prikaz roletne · tip i mere kutije čekaju potvrdu',8);
    if(p.category!=='Roletne'&&shutter.mount==='inside')text(`Visina otvora ${fmt(openingHeight)} mm = ram ${fmt(frameHeight)} mm + kutija ${fmt(shutter.boxHeight)} mm`,9);
   }

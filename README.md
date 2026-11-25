@@ -260,3 +260,10 @@ Na poslu su stalno dostupni Dodaj element, Korekcija cene i veliko dugme Pogleda
 Nova polja su opciona: `discountMode` i `surchargeMode` (percent/amount), `surcharge`, `manualTotal`, `vat` i `vatMode`. Stari popust i dalje je procenat; stari poslovi bez novih polja zadržavaju isti obračun. Popust se primenjuje na elemente + radove + transport, ograničen tim zbirom. Uvećanje ide na zbir posle popusta, zatim se primenjuje postojeći poreski režim. Ručna ukupna cena je konačan iznos za plaćanje: popust i uvećanje se tada ne primenjuju, a PDV se izdvaja iz tog iznosa (ili je nula u režimu bez PDV-a). Isključivanje ručnog režima vraća sačuvane korekcije. Poreske izmene na korekciji važe samo za taj posao; demonstracioni cenovnik nije izmenjen.
 
 Provere: `src/services/corrections.test.ts` i `tests/workflow.spec.ts`, uključujući čuvanje, stari format kopije, statuse, kupca, pojedinačne cene, oba tipa korekcija, poreske režime, PDF i širine 320/390/620/768/1024/1440 px. Screenshotovi su u `output/design/workflow`, a primeri PDF-a u `output/pdf/workflow-*.pdf`.
+
+
+## Pogon i kutija roletne
+
+U podešavanjima roletne biraju se **Materijal kutije: PVC / ALU** i **Pogon roletne: Bez motora (kanap) / Sa motorom**. Za kanap se bira leva ili desna strana, gledano iznutra. Za motor se bira sa daljinskim ili bez daljinskog upravljača. Isključivanje motora uklanja prethodni izbor daljinskog. Promena tipa roletne zadržava izabranu opremu, a prilagođava tip, položaj i mere kutije kao ranije.
+
+Polja se čuvaju u `shutterConfig` uz postojeći element, rade za samostalne roletne, dodatke prozorima, kombinacije i nacrtane elemente, i prikazuju se u ponudi i kancelarijskoj specifikaciji. Ranije sačuvane roletne ostaju čitljive; neuneseni podaci prikazuju se kao **Nije navedeno**. Za ova polja nije potrebna nova migracija baze. Ove opcije ne uvode dodatne tarifne stavke u obračun.
