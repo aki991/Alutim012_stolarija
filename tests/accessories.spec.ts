@@ -1,0 +1,57 @@
+import { expect, test } from '@playwright/test';
+import { pdfText } from './helpers/pdf';
+
+for(const width of [390,1366])test(`Mere komarnika, klupice i okapnice ostaju u poslu i PDF-u: ${width}`,async({page},testInfo)=>{
+ await page.setViewportSize({width,height:900});
+ await page.goto('/cenovnik');await page.getByLabel('Okapnica (€/m)',{exact:true}).fill('12');await page.getByLabel('Motor za komarnik (€/kom.)',{exact:true}).fill('75');
+ await page.goto('/posao/AT-2026-012/nov/prozor');
+ const equipment=page.getByRole('region',{name:'Dodatna oprema'});
+ await equipment.getByRole('checkbox',{name:'Komarnik',exact:true}).check();
+ await equipment.getByRole('checkbox',{name:'Motor za komarnik',exact:true}).check();
+ await expect(page.getByLabel('Širina komarnika (mm)',{exact:true})).toHaveValue('1550');
+ await expect(page.getByLabel('Visina komarnika (mm)',{exact:true})).toHaveValue('1390');
+ await page.getByLabel('Širina (mm)',{exact:true}).fill('1800');
+ await page.getByLabel('Visina (mm)',{exact:true}).fill('1500');
+ await expect(page.getByLabel('Širina komarnika (mm)',{exact:true})).toHaveValue('1750');
+ await expect(page.getByLabel('Visina komarnika (mm)',{exact:true})).toHaveValue('1490');
+ await page.getByLabel('Širina komarnika (mm)',{exact:true}).fill('1700');
+ await page.getByLabel('Visina komarnika (mm)',{exact:true}).fill('1450');
+ await page.getByLabel('Širina (mm)',{exact:true}).fill('1900');
+ await expect(page.getByLabel('Širina komarnika (mm)',{exact:true})).toHaveValue('1700');
+ for(const label of ['Klupica','Okapnica'])await equipment.getByRole('checkbox',{name:label,exact:true}).check();
+ await expect(page.getByLabel('Dužina klupice (mm)',{exact:true})).toHaveValue('1900');
+ await expect(page.getByLabel('Dužina okapnice (mm)',{exact:true})).toHaveValue('1900');
+ await page.getByLabel('Dužina klupice (mm)',{exact:true}).fill('2000');
+ await page.getByLabel('Dubina klupice (mm)',{exact:true}).fill('250');
+ await page.getByLabel('Dužina okapnice (mm)',{exact:true}).fill('1950');
+ await page.getByLabel('Dubina okapnice (mm)',{exact:true}).fill('80');
+ await page.getByLabel('Širina komarnika (mm)',{exact:true}).fill('0');
+ await expect(page.getByRole('button',{name:'Dodaj u posao',exact:true})).toBeDisabled();
+ await page.reload();
+ await expect(page.getByLabel('Širina komarnika (mm)',{exact:true})).toHaveValue('0');
+ await equipment.getByRole('group',{name:'Komarnik',exact:true}).getByRole('button',{name:'Vrati automatske mere'}).click();
+ await expect(page.getByLabel('Širina komarnika (mm)',{exact:true})).toHaveValue('1850');
+ await page.getByLabel('Širina komarnika (mm)',{exact:true}).fill('1800');
+ await page.getByLabel('Visina komarnika (mm)',{exact:true}).fill('1400');
+ await page.reload();
+ await expect(page.getByLabel('Dužina okapnice (mm)',{exact:true})).toHaveValue('1950');
+ await expect(page.getByLabel('Dubina klupice (mm)',{exact:true})).toHaveValue('250');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.getByRole('button',{name:'Dodaj u posao',exact:true}).click();
+ await page.locator('.job-line').last().getByRole('link',{name:/Izmeni element/}).click();
+ await expect(page.getByLabel('Širina komarnika (mm)',{exact:true})).toHaveValue('1800');
+ await expect(page.getByLabel('Dubina okapnice (mm)',{exact:true})).toHaveValue('80');
+ await page.getByRole('button',{name:'Sačuvaj izmene',exact:true}).click();
+ await page.getByRole('link',{name:/Podeli dokument/i}).click();
+ for(const title of ['Ponuda za kupca','Specifikacija za kancelariju']){
+  await page.getByRole('button',{name:title,exact:true}).click();
+  const downloading=page.waitForEvent('download');await page.getByRole('button',{name:'Preuzmi PDF'}).click();
+  const path=testInfo.outputPath(title==='Ponuda za kupca'?'dodaci-ponuda.pdf':'dodaci-specifikacija.pdf');
+  await (await downloading).saveAs(path);const text=await pdfText(page,path);
+  expect(text).toContain('Komarnik: 1800 × 1400 mm');
+  expect(text).toContain('Komarnik: sa motorom');
+  expect(text).toContain('Klupica: dužina 2000 mm');expect(text).toContain('dubina 250 mm');
+  expect(text).toContain('Okapnica: dužina 1950 mm');expect(text).toContain('dubina 80 mm');
+  await page.getByRole('dialog',{name:/Pregled:/}).getByRole('button',{name:'Zatvori',exact:true}).click();
+ }
+});

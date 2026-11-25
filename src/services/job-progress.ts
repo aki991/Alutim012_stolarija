@@ -1,4 +1,4 @@
-import type { Job } from '../models';
+import type { Job, Status } from '../models';
 import { todayInBelgrade } from './measurement-schedule';
 
 export const progressDateFields = ['completionDeadline','measuredOn','completedOn','installedOn'] as const;
@@ -18,6 +18,13 @@ export function jobProgressPatch(job:Job,patch:Partial<Job>,today=todayInBelgrad
 }
 
 export function canFinishMeasurement(job:Job){
- return job.positions.length>0&&isJobDate(job.completionDeadline)
-  &&job.completionDeadline>=(job.measuredOn||todayInBelgrade());
+ return job.positions.length>0;
+}
+
+export function hasCompletionDeadline(job:Pick<Job,'completionDeadline'|'measuredOn'>){
+ return isJobDate(job.completionDeadline)&&(!job.measuredOn||job.completionDeadline>=job.measuredOn);
+}
+
+export function canChangeJobStatus(job:Job,status:Status,completionDeadline=job.completionDeadline){
+ return job.status!=='Ponuda'||status===job.status||hasCompletionDeadline({...job,completionDeadline});
 }

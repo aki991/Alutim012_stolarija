@@ -18,7 +18,7 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
  const accounts: TeamAccount[] = [{...boss,email:'manager@example.test'},{...worker,email:'milos@alutim012.local'},{...observer,email:'ivan@alutim012.local'},
   {...admin,role:'admin',email:'admin@example.test'}];
  const passwords = new Map<string, string>();
- let pricing: TeamPricingRow = {prices:{},porta_royal_prices:{},vat:20,vat_mode:'exclusive',revision:0};
+ let pricing: TeamPricingRow = {prices:{},porta_royal_prices:{},vat:20,vat_mode:'exclusive',revision:0,worker_prices_visible:true};
  const preferences = new Map<string,TeamPreferencesRow>();
  const archived = new Map<string, {pdf:Buffer; createdAt:string}>();
  const jobs = new Map<string, TeamJob>();
@@ -110,6 +110,13 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
     case 'field_team_members': return reply(accounts.filter(account => account.active && (member.is_admin || account.role !== 'admin'))
      .map(account => ({ id: account.id, name: account.name, active: account.active, role: account.role === 'admin' ? 'manager' : account.role })));
     case 'field_team_pricing': return reply(pricing);
+    case 'field_team_set_worker_prices': {
+     expect(member.role).toBe('manager');
+     expect(body.p_revision).toBe(pricing.revision);
+     expect(typeof body.p_visible).toBe('boolean');
+     pricing={...pricing,worker_prices_visible:body.p_visible,revision:pricing.revision+1};
+     return reply(pricing);
+    }
     case 'field_team_preferences': return reply(preferences.has(member.id)?[preferences.get(member.id)]:[]);
     case 'field_team_save_preferences': {
      const previous=preferences.get(member.id);
@@ -513,7 +520,6 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
   await expect(page.getByRole('link', { name: 'Dodaj element' })).toHaveCount(0);
   await expect(bossStatus).toBeDisabled();
   await expect(mobile.getByRole('combobox', { name: statusName })).toBeDisabled();
-  await mobile.getByLabel('Rok završetka', {exact:true}).fill('2099-12-20');
   await mobile.getByRole('button', { name: 'Merenje završeno' }).click();
   await expect(mobile.getByRole('combobox', { name: statusName })).toHaveValue('Poslati ponudu');
   await expect(bossStatus).toHaveValue('Poslati ponudu', { timeout: 10000 });
@@ -532,7 +538,6 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
   await mobile.getByRole('button', { name: 'Sačuvaj izmene' }).click();
   await expect(mobile.getByText(/1700 ×/)).toBeVisible();
   await expect(page.getByText(/1700 ×/)).toHaveCount(0);
-  await mobile.getByLabel('Rok završetka', {exact:true}).fill('2099-12-20');
   await mobile.getByRole('button', { name: 'Merenje završeno' }).click();
   await expect(page.getByText(/1700 ×/)).toBeVisible({ timeout: 10000 });
 
@@ -574,6 +579,8 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
   await bossStatus.selectOption('Ponuda');
   const workerStatus = mobile.getByRole('combobox', { name: statusName });
   await expect(workerStatus).toHaveValue('Ponuda', { timeout: 10000 });
+  await expect(workerStatus.locator('option').filter({hasText:'Prihvaćeno'})).toHaveAttribute('disabled','');
+  await mobile.getByLabel('Rok završetka',{exact:true}).fill('2099-12-20');
   await workerStatus.selectOption('Prihvaćeno');
 
   await openInbox(page, 'Obaveštenja');
@@ -596,6 +603,21 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
   await mobile.locator('.job-document-archive').getByRole('button',{name:'Ponuda za kupca'}).click();
   await expect(mobile.getByRole('dialog',{name:'Pregled: Ponuda za kupca'}).getByRole('button',{name:'Preuzmi PDF'})).toBeVisible();
   expect(archived.size).toBe(1);
+  await page.goto('/podesavanja');
+  const workerPriceToggle=page.getByRole('checkbox',{name:/Prikaži cene majstorima/});
+  await expect(workerPriceToggle).toBeChecked();
+  await workerPriceToggle.uncheck();
+  await expect(page.getByText('Prikaz cena je isključen za majstore.')).toBeVisible();
+  await expect(mobile.getByRole('dialog',{name:'Pregled: Ponuda za kupca'})).toHaveCount(0,{timeout:10000});
+  await expect(mobile.getByTestId('quote-total')).toHaveCount(0);
+  await mobile.goto('/podesavanja');
+  await expect(mobile.getByText('Šef je isključio prikaz cena majstorima.')).toBeVisible();
+  await expect(mobile.getByRole('checkbox',{name:/Prikaži cene/})).toHaveCount(0);
+  await expect(page.locator('.settings-price-toggle').filter({hasText:'Isključite za merenje'}).getByRole('checkbox')).toBeChecked();
+  await page.reload();
+  await expect(workerPriceToggle).not.toBeChecked();
+  await workerPriceToggle.check();
+  await expect(mobile.getByRole('checkbox',{name:/Prikaži cene/})).toBeChecked({timeout:10000});
   await mobile.goto('/podesavanja');
   await mobile.getByRole('checkbox',{name:/Prikaži cene/}).uncheck();
   await expect.poll(()=>preferences.get(worker.id)?.data.showPrices).toBe(false);
@@ -702,7 +724,6 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
    await chiefPage.getByRole('button', { name: 'Dodaj u posao' }).click();
    await expect(chiefPage.getByRole('region', { name: 'Elementi posla' })).toBeVisible();
    await expect(page.getByRole('heading', { name: 'Merenje je u toku' })).toBeVisible();
-   await chiefPage.getByLabel('Rok završetka', {exact:true}).fill('2099-12-20');
    await chiefPage.getByRole('button', { name: 'Merenje završeno' }).click();
    await expect(page.getByRole('region', { name: 'Elementi posla' })).toBeVisible({ timeout: 10000 });
    expect(chiefJob.data.status).toBe('Poslati ponudu');

@@ -12,7 +12,9 @@ export const shutterMounts={
  overlay:'Kutija ispred rama',
  above:'Kutija iznad otvora',
 } as const;
-export const shutterBoxShapes={square:'Pravougaona',bevel:'Zakošena 45°',round:'Obla',halfRound:'Poluobla'} as const;
+export const shutterBoxShapes={square:'Pravougaona',bevel:'Zakošena 45°',round:'Obla',halfRoundRondo:'Poluobla rondo',halfRoundEko:'Poluobla eko'} as const;
+export const shutterBoxShapeLabels={...shutterBoxShapes,halfRound:'Poluobla (ranije sačuvano)'} as const;
+export const shutterGuides={withExtension:'Vodilica sa dodatkom',flat:'Ravna vodilica'} as const;
 export type ShutterType=keyof typeof shutterTypes;
 export type ShutterRate=typeof shutterTypes[ShutterType]['rate'];
 export type ShutterPart='door'|'window';
@@ -22,8 +24,11 @@ export interface ShutterConfig {
  mount:keyof typeof shutterMounts;
  part?:ShutterPart;
  width?:number;
- shape?:keyof typeof shutterBoxShapes;
+ shape?:keyof typeof shutterBoxShapeLabels;
+ guide?:keyof typeof shutterGuides;
  cordSide?:'left'|'right';
+ motorSide?:'left'|'right';
+ manualControl?:'cord'|'strap';
  motor?:boolean;
  remote?:boolean;
  boxMaterial?:'PVC'|'ALU';
@@ -39,19 +44,26 @@ export function makeShutter(type:ShutterType='reveal',part?:ShutterPart):Shutter
 }
 
 export function changeShutterType(config:ShutterConfig,type:ShutterType):ShutterConfig {
- return {...makeShutter(type,config.part),cordSide:config.cordSide,motor:config.motor,
-  remote:config.motor?config.remote:undefined,boxMaterial:config.boxMaterial};
+ return {...makeShutter(type,config.part),cordSide:config.cordSide,motorSide:config.motorSide,manualControl:config.manualControl,motor:config.motor,
+  remote:config.motor?config.remote:undefined,boxMaterial:config.boxMaterial,guide:config.guide};
 }
 
 export function changeShutterMotor(config:ShutterConfig,motor?:boolean):ShutterConfig {
  return {...config,motor,remote:motor?config.remote:undefined};
 }
 
+export function changeShutterDrive(config:ShutterConfig,drive:'cord'|'strap'|'motor'|undefined):ShutterConfig {
+ return {...changeShutterMotor(config,drive===undefined?undefined:drive==='motor'),
+  manualControl:drive==='motor'?config.manualControl:drive};
+}
+
 export function shutterEquipmentLabel(config:ShutterConfig):string {
  return [config.boxMaterial&&`Kutija: ${config.boxMaterial}`,
-  config.motor===true?'Sa motorom':config.motor===false?'Bez motora (kanap)':'',
+  config.guide&&shutterGuides[config.guide],
+  config.motor===true?'Sa motorom':config.motor===false?`Bez motora (${config.manualControl==='strap'?'traka':'kanap'})`:'',
+  config.motor===true&&config.motorSide?`Motor ${config.motorSide==='left'?'levo':'desno'} (pogled iznutra)`:'',
   config.motor===true?(config.remote===true?'Sa daljinskim upravljačem':config.remote===false?'Bez daljinskog upravljača':'Daljinski upravljač: nije navedeno')
-   :config.cordSide?`Kanap ${config.cordSide==='left'?'levo':'desno'} (pogled iznutra)`:'',
+   :config.cordSide?`${config.manualControl==='strap'?'Traka':'Kanap'} ${config.cordSide==='left'?'levo':'desno'} (pogled iznutra)`:'',
  ].filter(Boolean).join(' · ');
 }
 
@@ -67,8 +79,11 @@ export function isShutterConfig(value:unknown):value is ShutterConfig {
   &&Number.isFinite(config.boxHeight)&&config.boxHeight>=1&&config.boxHeight<=shutterMaxBox
   &&(config.part===undefined||config.part==='door'||config.part==='window')
   &&(config.width===undefined||config.mount==='above'&&Number.isFinite(config.width)&&config.width>=1&&config.width<=shutterMaxWidth)
-  &&(config.shape===undefined||typeof config.shape==='string'&&Object.hasOwn(shutterBoxShapes,config.shape))
+  &&(config.shape===undefined||typeof config.shape==='string'&&Object.hasOwn(shutterBoxShapeLabels,config.shape))
+  &&(config.guide===undefined||typeof config.guide==='string'&&Object.hasOwn(shutterGuides,config.guide))
   &&(config.cordSide===undefined||config.cordSide==='left'||config.cordSide==='right')
+  &&(config.motorSide===undefined||config.motorSide==='left'||config.motorSide==='right')
+  &&(config.manualControl===undefined||config.manualControl==='cord'||config.manualControl==='strap')
   &&(config.motor===undefined||typeof config.motor==='boolean')
   &&(config.remote===undefined||typeof config.remote==='boolean'&&config.motor===true)
   &&(config.boxMaterial===undefined||config.boxMaterial==='PVC'||config.boxMaterial==='ALU');

@@ -1,0 +1,36 @@
+import { expect, test } from '@playwright/test';
+
+for(const width of [390,1366])test(`Pretraga cenovnika čuva izmene i nalazi motor komarnika: ${width}`,async({page},testInfo)=>{
+ await page.setViewportSize({width,height:900});await page.goto('/cenovnik');
+ const search=page.getByRole('searchbox',{name:'Pretraži cenovnik'});
+ await search.fill('motor komarnik');
+ const motor=page.getByLabel('Motor za komarnik (€/kom.)',{exact:true});
+ await expect(motor).toBeVisible();await expect(motor).toHaveValue('');
+ await expect(page.getByLabel('PVC ram 70 mm (€/m)',{exact:true})).toHaveCount(0);
+ await motor.fill('75');
+ await page.screenshot({path:testInfo.outputPath('cenovnik-pretraga.png')});
+ await search.fill('70 pvc ram');
+ await page.getByLabel('PVC ram 70 mm (€/m)',{exact:true}).fill('19');
+ await search.fill('roletne');
+ await page.getByLabel('Nadgradna (nasadna) (€/m²)',{exact:true}).fill('60');
+ await search.fill('porta');
+ await expect(page.locator('.porta-equipment')).toHaveAttribute('open','');
+ await expect(page.locator('.porta-equipment').getByRole('spinbutton').first()).toBeVisible();
+ await search.fill('nepostojeca stavka');
+ await expect(page.getByText('Nema stavki za ovu pretragu.',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Obriši pretragu cenovnika'}).click();
+ await expect(motor).toHaveValue('75');
+ await expect(page.getByLabel('PVC ram 70 mm (€/m)',{exact:true})).toHaveValue('19');
+ await page.reload();await expect(motor).toHaveValue('75');
+ await expect(page.getByLabel('Nadgradna (nasadna) (€/m²)',{exact:true})).toHaveValue('60');
+ await page.goto('/posao/AT-2026-012/nov/prozor');
+ await page.getByRole('checkbox',{name:'Komarnik',exact:true}).check();
+ const before=await page.locator('.measurement-amount strong').innerText();
+ await page.getByRole('checkbox',{name:'Motor za komarnik',exact:true}).check();
+ await expect(page.locator('.measurement-amount strong')).not.toHaveText(before);
+ await page.reload();await expect(page.getByRole('checkbox',{name:'Motor za komarnik',exact:true})).toBeChecked();
+ await page.goto('/posao/AT-2026-012/nov/komarnik');
+ await page.getByRole('checkbox',{name:'Motor za komarnik',exact:true}).check();
+ await page.reload();await expect(page.getByRole('checkbox',{name:'Motor za komarnik',exact:true})).toBeChecked();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});

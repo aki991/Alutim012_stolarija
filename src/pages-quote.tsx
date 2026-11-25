@@ -1,5 +1,5 @@
 import { fmt } from './custom/geometry';
-import { lazy, Suspense, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { CheckCircle2, FileText, Share2 } from 'lucide-react';
 import { assignedMeasurement, canEditJob, canEditPrices, useStore } from './store';
@@ -51,7 +51,7 @@ function QuotePositionPrice({position, price, onChange}: {
    <button type="button" className="quote-price-auto" title={price.requiresReview?positionReviewLabel(position):`Automatska cena ${euro(price.calculated)} po komadu`}
     aria-label={`Auto za ${position.name}`} onClick={()=>{setDraft(null);if(manual)onChange(null);}}>Auto</button>
   </div>
-  {price.requiresReview&&position.portaRoyal&&<small>Cena po upitu</small>}
+  {price.requiresReview&&(position.portaRoyal||position.drip||position.mosquitoMotor)&&<small>{positionReviewLabel(position)}</small>}
   {position.quantity>1&&!price.requiresReview&&<strong className="quote-line-total">Ukupno {euro(price.total)}</strong>}
  </div>;
 }
@@ -63,6 +63,9 @@ export function Quote(){
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[sharing,setSharing]=useState(false);
  const [preview,setPreview]=useState<{file:File;title:string}|null>(null);
  const [archiveRevision,refreshArchive]=useState(0);
+ useEffect(()=>{
+  if(settings.showPrices===false){setPreview(null);setSharing(false);pendingSubmission.current=null;}
+ },[settings.showPrices]);
  const today=useBelgradeToday();
  if(!job)return <MissingJob/>;
  const showPrices=settings.showPrices!==false;
@@ -73,6 +76,7 @@ export function Quote(){
  async function jobDocument(kind:JobDocumentKind){
   if(!job)throw new Error('Posao nije dostupan.');
   const file=await createJobDocument(documentJob,settings,kind,teamMember?.document_author??teamMember?.id);
+  if((useStore.getState().settings.showPrices!==false)!==(settings.showPrices!==false))throw new Error('Prikaz cena je promenjen. Otvorite dokument ponovo.');
   if(teamMember)refreshArchive(revision=>revision+1);
   return file;
  }

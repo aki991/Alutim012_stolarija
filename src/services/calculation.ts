@@ -2,6 +2,7 @@ import { bounds, validateGeometry } from '../custom/geometry';
 import { centralWidth } from '../fixed-panels';
 import { isModelLayout, maxModelDimension, type Movement } from '../model-layout';
 import type { Job, Package, Position, Settings } from '../models';
+import { accessorySize, hasMosquitoMotor, validateAccessories } from '../accessories';
 import { openingBoxHeight, shutterMeasures, shutterTypes } from '../shutters';
 import { isPortaDimension, isPortaRoyalConfig, portaSeriesById } from '../porta-royal';
 import { positionMeasures } from './position-measures';
@@ -78,8 +79,10 @@ export function positionCost(p:Position,s:Settings,tier:Package='Standard') {
   const shutterArea=shutter?shutter.width*shutter.totalHeight/1e6:area;
   lines.push({name:'Roletna',basis:`${shutterArea.toFixed(2)} m² × ${shutterRate} €`,amount:shutterArea*shutterRate});
  }
- if(p.mosquito)lines.push({name:'Komarnik',basis:`${area.toFixed(2)} m² × ${pr.mosquito} €`,amount:area*pr.mosquito});
- if(p.sill)lines.push({name:'Klupica',basis:`${(p.width/1000).toFixed(2)} m × ${pr.sill} €`,amount:p.width/1000*pr.sill});
+ if(p.mosquito){const size=accessorySize(p,'mosquito'),mosquitoArea=size.width*size.height!/1e6;lines.push({name:'Komarnik',basis:`${mosquitoArea.toFixed(2)} m² × ${pr.mosquito} €`,amount:mosquitoArea*pr.mosquito});}
+ if(hasMosquitoMotor(p)&&pr.mosquitoMotor!==undefined)lines.push({name:'Motor za komarnik',basis:`1 kom. × ${pr.mosquitoMotor} €`,amount:pr.mosquitoMotor});
+ if(p.sill){const length=accessorySize(p,'sill').width/1000;lines.push({name:'Klupica',basis:`${length.toFixed(2)} m × ${pr.sill} €`,amount:length*pr.sill});}
+ if(p.drip&&pr.drip!==undefined){const length=accessorySize(p,'drip').width/1000;lines.push({name:'Okapnica',basis:`${length.toFixed(2)} m × ${pr.drip} €`,amount:length*pr.drip});}
  if(p.installation)lines.push({name:'Montaža',basis:`${perimeter.toFixed(2)} m × ${pr.installation} €`,amount:perimeter*pr.installation});
  if(p.removal)lines.push({name:'Demontaža',basis:`${perimeter.toFixed(2)} m × ${pr.removal} €`,amount:perimeter*pr.removal});
  if(p.extraCost)lines.push({name:p.extraWork||'Dodatni radovi',basis:'paušal',amount:p.extraCost});
@@ -88,8 +91,9 @@ export function positionCost(p:Position,s:Settings,tier:Package='Standard') {
  const marginCents=Math.round(baseCents*marginPercent/100);
  if(marginPercent>0)lines.push({name:'Marža',basis:`${euro(baseCents/100)} × ${measure.format(marginPercent)}%`,amount:marginCents/100});
  const calculated=(baseCents+marginCents)/100;
- const unit=p.manualPrice??calculated;
- return {area,perimeter,lines,calculated,unit,total:unit*p.quantity,requiresReview:false};
+ const requiresReview=Boolean((p.drip&&pr.drip===undefined||hasMosquitoMotor(p)&&pr.mosquitoMotor===undefined)&&p.manualPrice==null);
+ const unit=p.manualPrice??(requiresReview?0:calculated);
+ return {area,perimeter,lines,calculated,unit,total:unit*p.quantity,requiresReview};
 }
 export function jobTax(job:Job,s:Settings){return {vat:job.vat??s.vat,vatMode:job.vatMode??s.vatMode};}
 export function calculate(job:Job,s:Settings) {
@@ -107,7 +111,7 @@ export function calculate(job:Job,s:Settings) {
  return {positions,elements,services,subtotal,discount,surcharge,net,tax,total:manual?job.manualTotal!:net+tax,manual,vat,vatMode,hasUnpriced:!manual&&positions.some(p=>p.requiresReview)};
 }
 export function validatePosition(p:Position):string[] {
- const errors:string[]=[];
+ const errors:string[]=validateAccessories(p);
  if(p.portaRoyal){
   if(!isPortaRoyalConfig(p.portaRoyal))errors.push('Proverite seriju, dekor, tip i opremu sobnih vrata.');
   if(!p.name.trim())errors.push('Unesite naziv pozicije.');
@@ -143,7 +147,7 @@ export function validatePosition(p:Position):string[] {
 }
 
 export const reviewPrice='Proverite mere elementa';
-export const positionReviewLabel=(p?:Position)=>p?.portaRoyal?'Cena po upitu':reviewPrice;
+export const positionReviewLabel=(p?:Position)=>p?.portaRoyal?'Cena po upitu':p&&hasMosquitoMotor(p)?p.drip?'Cena dodatne opreme po upitu':'Cena motora za komarnik po upitu':p?.drip?'Cena okapnice po upitu':reviewPrice;
 export function positionPriceLabel(price:ReturnType<typeof positionCost>,p?:Position){return price.requiresReview?positionReviewLabel(p):euro(price.total);}
-export function jobReviewLabel(job:Job,calc:ReturnType<typeof calculate>){return job.positions.some((position,i)=>position.portaRoyal&&calc.positions[i].requiresReview)?'Neke stavke čekaju potvrdu cene':reviewPrice;}
+export function jobReviewLabel(job:Job,calc:ReturnType<typeof calculate>){return job.positions.some((position,i)=>(position.portaRoyal||position.drip||hasMosquitoMotor(position))&&calc.positions[i].requiresReview)?'Neke stavke čekaju potvrdu cene':reviewPrice;}
 export function jobPriceLabel(job:Job,settings:Settings){const c=calculate(job,settings);return c.hasUnpriced?'Cena za proveru':euro(c.total);}

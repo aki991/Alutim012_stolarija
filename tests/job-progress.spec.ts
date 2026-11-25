@@ -6,15 +6,29 @@ for(const width of [390,1024])test(`Rok, merenje i ugradnja ostaju sačuvani: ${
  await page.goto('/posao/AT-2026-012');
  await page.getByRole('combobox',{name:/Status posla/}).selectOption('Merenje');
  const progress=page.getByRole('region',{name:'Evidencija posla'});
- await expect(progress.getByRole('button',{name:'Merenje završeno'})).toBeDisabled();
- await expect(page.getByRole('combobox',{name:/Status posla/}).locator('option').filter({hasText:'Poslati ponudu'})).toHaveAttribute('disabled','');
- await progress.getByLabel('Rok završetka').fill('2026-11-24');
- await expect(progress.getByRole('button',{name:'Merenje završeno'})).toBeDisabled();
- await progress.getByLabel('Rok završetka').fill('2026-12-15');
+ await expect(progress.getByLabel('Rok završetka')).toHaveCount(0);
+ await expect(progress.getByRole('button',{name:'Merenje završeno'})).toBeEnabled();
  await progress.getByRole('button',{name:'Merenje završeno'}).click();
  await expect(progress.locator('time')).toHaveAttribute('datetime','2026-11-25');
+ await expect(progress.getByLabel('Rok završetka')).toHaveCount(0);
  await page.reload();
- await expect(progress.getByLabel('Rok završetka')).toHaveValue('2026-12-15');
+ await page.getByRole('combobox',{name:/Status posla/}).selectOption('Ponuda');
+ const nextStatus=page.getByRole('combobox',{name:/Status posla/}).locator('option').filter({hasText:'Prihvaćeno'});
+ await expect(nextStatus).toHaveAttribute('disabled','');
+ await expect(progress.getByLabel('Rok završetka')).toHaveValue('');
+ await page.reload();
+ await expect(nextStatus).toHaveAttribute('disabled','');
+ for(const route of ['/poslovi','/ponude']){
+  await page.goto(route);
+  const offer=page.locator('.job-card').filter({hasText:'Porodica Petrović'});
+  await expect(offer.getByRole('combobox',{name:/Status posla/}).locator('option').filter({hasText:'Prihvaćeno'})).toHaveAttribute('disabled','');
+  await expect(offer).toContainText('Izaberite rok završetka u poslu');
+ }
+ await page.goto('/posao/AT-2026-012');
+ await progress.getByLabel('Rok završetka').fill('2026-11-24');
+ await expect(nextStatus).toHaveAttribute('disabled','');
+ await progress.getByLabel('Rok završetka').fill('2026-12-15');
+ await expect(nextStatus).not.toHaveAttribute('disabled','');
  await page.getByRole('combobox',{name:/Status posla/}).selectOption('U izradi');
  await page.clock.setFixedTime(new Date('2026-12-05T11:00:00Z'));
  await progress.getByRole('button',{name:'Ugrađeno',exact:true}).click();
@@ -33,5 +47,28 @@ for(const width of [390,1024])test(`Rok, merenje i ugradnja ostaju sačuvani: ${
  await card.getByLabel('Meni posla Porodica Petrović').click();
  await card.getByRole('button',{name:'Dupliraj Porodica Petrović'}).click();
  await expect(page.getByRole('region',{name:'Evidencija posla'}).locator('time')).toHaveCount(0);
- await expect(page.getByLabel('Rok završetka')).toHaveValue('');
+ await expect(page.getByLabel('Rok završetka')).toHaveCount(0);
+});
+
+test('Podaci o kupcu zahtevaju rok pri izlasku iz Ponude, a dozvoljavaju ostale izmene',async({page})=>{
+ await page.goto('/posao/AT-2026-012');
+ await page.getByRole('combobox',{name:/Status posla/}).selectOption('Ponuda');
+ await page.getByRole('button',{name:'Podaci o kupcu'}).click();
+ const dialog=page.getByRole('dialog',{name:'Podaci o kupcu'});
+ await dialog.getByLabel('Naziv kupca').fill('Ponuda sa rokom');
+ await dialog.getByRole('button',{name:'Sačuvaj podatke'}).click();
+ await expect(dialog).toHaveCount(0);
+ await page.getByRole('button',{name:'Podaci o kupcu'}).click();
+ await expect(dialog.getByRole('combobox',{name:'Status posla'}).locator('option').filter({hasText:'Prihvaćeno'})).toHaveAttribute('disabled','');
+ await dialog.getByLabel('Rok završetka').fill('2099-12-20');
+ await dialog.getByRole('combobox',{name:'Status posla'}).selectOption('Prihvaćeno');
+ await dialog.getByLabel('Rok završetka').fill('');
+ await dialog.getByRole('button',{name:'Sačuvaj podatke'}).click();
+ await expect(dialog).toBeVisible();
+ await dialog.getByLabel('Rok završetka').fill('2099-12-20');
+ await dialog.getByRole('button',{name:'Sačuvaj podatke'}).click();
+ await expect(dialog).toHaveCount(0);
+ await page.reload();
+ await expect(page.getByRole('combobox',{name:/Status posla/})).toHaveValue('Prihvaćeno');
+ await expect(page.getByLabel('Rok završetka')).toHaveValue('2099-12-20');
 });

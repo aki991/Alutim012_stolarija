@@ -9,7 +9,7 @@ import type { Job, Position } from '../models';
 import { parseBackup } from './storage';
 const job = ():Job=>({id:'TEST',customer:{name:'Petrović',phone:'',email:'',address:'Pančevo',building:'Kuća'},date:'2026-11-01',technician:'Majstor',notes:'',status:'U izradi',positions:[{...makePosition(),manualPrice:100}],package:'Standard',discount:0,transport:20,extraWork:'',extraCost:0,validity:'15 dana',delivery:'Dogovor',payment:'Avans',updated:''});
 describe('Demonstraciona kalkulacija',()=>{
- it('kombinuje dužine profila, površinu stakla, kip okov, obim i količinu',()=>{const p=makePosition();expect(positionCost(p,defaults).unit).toBeCloseTo(434.08);p.quantity=2;p.shutter=true;p.mosquito=true;p.removal=true;expect(positionCost(p,defaults).total).toBeCloseTo(1271.68);});
+ it('kombinuje dužine profila, površinu stakla, kip okov, obim i količinu',()=>{const p=makePosition();expect(positionCost(p,defaults).unit).toBeCloseTo(434.08);p.quantity=2;p.shutter=true;p.mosquito=true;p.removal=true;expect(positionCost(p,defaults).total).toBeCloseTo(1267.24);});
  it('računa ram i roletnu po njihovim merama i primenjuje cenu izabranog tipa',()=>{
   const p=makePosition();
   const settings={...defaults,prices:{...defaults.prices,shutterTop:60,shutterFacade:55}};

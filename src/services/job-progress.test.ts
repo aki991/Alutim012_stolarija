@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Job } from '../models';
 import { isActiveJob } from '../models';
 import { makePosition } from '../catalog';
-import { canFinishMeasurement, isJobDate, jobProgressPatch } from './job-progress';
+import { canChangeJobStatus, canFinishMeasurement, hasCompletionDeadline, isJobDate, jobProgressPatch } from './job-progress';
 
 const job={status:'Merenje',date:'2026-11-01',positions:[makePosition()],completionDeadline:'2099-12-20'} as Job;
 describe('Evidencija posla',()=>{
@@ -22,13 +22,22 @@ describe('Evidencija posla',()=>{
   expect(jobProgressPatch({...job,status:'Završeno'},{notes:'Beleška'},'2026-11-25')).toEqual({notes:'Beleška'});
   expect(jobProgressPatch(job,{status:'Odbijeno'},'2026-11-25')).toEqual({status:'Odbijeno'});
  });
- it('zahteva elemente i važeći rok od dana merenja nadalje',()=>{
-  expect(canFinishMeasurement(job)).toBe(true);
+ it('merenju je dovoljan sačuvan element, a rok nije potreban',()=>{
+  expect(canFinishMeasurement({...job,completionDeadline:''})).toBe(true);
   expect(canFinishMeasurement({...job,positions:[]})).toBe(false);
-  expect(canFinishMeasurement({...job,completionDeadline:''})).toBe(false);
-  expect(canFinishMeasurement({...job,completionDeadline:'2026-02-30'})).toBe(false);
-  expect(canFinishMeasurement({...job,measuredOn:'2026-11-25',completionDeadline:'2026-11-24'})).toBe(false);
-  expect(canFinishMeasurement({...job,measuredOn:'2026-11-25',completionDeadline:'2026-11-25'})).toBe(true);
+  expect(canChangeJobStatus({...job,completionDeadline:''},'Poslati ponudu')).toBe(true);
+ });
+ it('blokira sve promene iz Ponude dok nije izabran važeći rok',()=>{
+  const offer={...job,status:'Ponuda' as const,measuredOn:'2026-11-25',completionDeadline:''};
+  expect(canChangeJobStatus(offer,'Ponuda')).toBe(true);
+  for(const status of ['Merenje','Poslati ponudu','Prihvaćeno','Odbijeno','U izradi','Završeno','Ugrađeno'] as const){
+   expect(canChangeJobStatus(offer,status)).toBe(false);
+   expect(canChangeJobStatus(offer,status,'2026-02-30')).toBe(false);
+   expect(canChangeJobStatus(offer,status,'2026-11-24')).toBe(false);
+   expect(canChangeJobStatus(offer,status,'2026-12-15')).toBe(true);
+  }
+  expect(hasCompletionDeadline({...offer,completionDeadline:'2026-11-25'})).toBe(true);
+  expect(hasCompletionDeadline({completionDeadline:'2026-11-25'})).toBe(true);
   expect(isJobDate('2028-02-29')).toBe(true);
   expect(isJobDate('2026-02-29')).toBe(false);
  });

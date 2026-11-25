@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { readFile } from 'node:fs/promises';
+import { pdfText } from './helpers/pdf';
 
 const job='/posao/AT-2026-012';
 
@@ -48,17 +48,7 @@ test('Kutija u otvoru ima svoju kotu i ostaje uz element u ponudi i PDF-u',async
  await page.getByRole('button',{name:'Preuzmi PDF',exact:true}).click();
  const pdfPath=testInfo.outputPath('roletna-specifikacija.pdf');
  await (await download).saveAs(pdfPath);
- const text=await page.evaluate(async data=>{
-  const {getDocument,GlobalWorkerOptions}=await import('/node_modules/pdfjs-dist/build/pdf.mjs');
-  GlobalWorkerOptions.workerSrc='/node_modules/pdfjs-dist/build/pdf.worker.mjs';
-  const loading=getDocument({data:new Uint8Array(data),useWasm:false}),pdf=await loading.promise;
-  const pages=[];
-  for(let i=1;i<=pdf.numPages;i++){
-   const content=await (await pdf.getPage(i)).getTextContent();
-   pages.push(content.items.map((item:{str?:string})=>item.str||'').join(' '));
-  }
-  await loading.destroy();return pages.join(' ');
- },Array.from(await readFile(pdfPath)));
+ const text=await pdfText(page,pdfPath);
  expect(text).toContain('Kutija: ALU');
  expect(text).toContain('Bez motora (kanap)');
  expect(text).toContain('Kanap desno (pogled iznutra)');
@@ -130,4 +120,46 @@ test('Samostalna roletna koristi cenu tipa i prikazuje kutiju, a ručna skica pr
  await expect(page.locator('.custom-canvas [data-shutter-box="flush"]')).toBeVisible();
  await expect(page.locator('.custom-canvas [data-contour-angle]')).toHaveCount(2);
  await expect(page.getByRole('button',{name:'Dodaj u posao',exact:true})).toBeEnabled();
+});
+
+for(const variant of [
+ {drive:'strap',side:'Strana trake',width:390,guide:'flat',guideLabel:'Ravna vodilica',shape:'halfRoundEko',shapeLabel:'Poluobla eko'},
+ {drive:'motor',side:'Strana motora',width:1366,guide:'withExtension',guideLabel:'Vodilica sa dodatkom',shape:'halfRoundRondo',shapeLabel:'Poluobla rondo'},
+])test(`Ponuda samostalne roletne ima vodilicu i oblik, bez stakla i okova: ${variant.width}`,async({page},testInfo)=>{
+ await page.setViewportSize({width:variant.width,height:900});
+ await page.goto('/');
+ await page.getByRole('button',{name:'Novi posao',exact:true}).first().click();
+ await page.getByLabel('Naziv posla ili prezime kupca').fill('Samo roletna');
+ await page.getByRole('button',{name:'Započni merenje'}).click();
+ await page.getByRole('link',{name:'Roletna',exact:true}).click();
+ await page.getByLabel('Pogon roletne',{exact:true}).selectOption(variant.drive);
+ await page.getByLabel(variant.side,{exact:true}).selectOption('right');
+ const shape=page.getByLabel('Oblik kutije',{exact:true});
+ await expect(shape.getByRole('option',{name:'Poluobla',exact:true})).toHaveCount(0);
+ await page.getByLabel('Vodilica',{exact:true}).selectOption(variant.guide);
+ await shape.selectOption(variant.shape);
+ await page.reload();
+ await expect(page.getByLabel('Vodilica',{exact:true})).toHaveValue(variant.guide);
+ await expect(shape).toHaveValue(variant.shape);
+ await expect(page.getByLabel('Pogon roletne',{exact:true})).toHaveValue(variant.drive);
+ await expect(page.getByLabel(variant.side,{exact:true})).toHaveValue('right');
+ await page.getByRole('button',{name:'Dodaj u posao',exact:true}).click();
+ await page.getByRole('link',{name:/Podeli dokument/i}).click();
+ for(const title of ['Ponuda za kupca','Specifikacija za kancelariju']){
+  await page.getByRole('button',{name:title,exact:true}).click();
+  const download=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Preuzmi PDF',exact:true}).click();
+  const path=testInfo.outputPath(title==='Ponuda za kupca'?'roletna-ponuda.pdf':'roletna-specifikacija.pdf');
+  await (await download).saveAs(path);
+  const text=await pdfText(page,path);
+  expect(text).toContain(variant.guideLabel);
+  expect(text).toContain(variant.shapeLabel);
+  expect(text).toContain(variant.drive==='strap'?'Bez motora (traka)':'Sa motorom');
+  expect(text).toContain(variant.drive==='strap'?'Traka desno':'Motor desno');
+  expect(text).not.toContain('Dvoslojno staklo');
+  expect(text.toLowerCase()).not.toContain('standardni okov');
+  expect(text).not.toContain('PVC 70 mm');
+  if(title==='Ponuda za kupca')await page.locator('.document-preview-page canvas').screenshot({path:testInfo.outputPath('roletna-ponuda.png')});
+  await page.getByRole('dialog',{name:/Pregled:/}).getByRole('button',{name:'Zatvori',exact:true}).click();
+ }
 });

@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { BriefcaseBusiness, ChevronRight, Copy, FileText, LayoutGrid, MoreVertical, Plus, Search, Trash2 } from 'lucide-react';
 import { assignedMeasurement, awaitingMeasurements, canEditJob, listLocalJobs, useStore } from './store';
-import { isActiveJob, jobStatuses, type Job, type Package, type Settings } from './models';
+import { isActiveJob, jobStatuses, type Status, type Job, type Package, type Settings } from './models';
 import { useNavigation } from './navigation';
-import { canFinishMeasurement } from './services/job-progress';
+import { canFinishMeasurement, hasCompletionDeadline } from './services/job-progress';
 import { JobStatus } from './components/JobStatus';
 import { Empty, Modal } from './components/UI';
 import { ModuleHeader } from './components/ModuleHeader';
@@ -35,19 +35,25 @@ export function catalogChoicePath(jobId:string,choice:CatalogChoice){
 }
 
 export function Jobs({onNew,offers=false}:{onNew:()=>void;offers?:boolean}){
- const state=useStore(),{jobs,settings,deleteJob,duplicateJob,updateJob,teamMember}=state,navigate=useNavigate(),[params]=useSearchParams();
+ const state=useStore(),{jobs,settings,deleteJob,duplicateJob,updateJob,teamMember}=state,navigate=useNavigate(),[params,setParams]=useSearchParams();
  const {offline}=useOfflineWork();
  const today=useBelgradeToday();
- const [search,setSearch]=useState(''),[filter,setFilter]=useState(params.get('status')||'Sve'),[deleting,setDeleting]=useState<Job|null>(null);
- const selectedFilter = jobStatuses.some(status=>status===filter) ? filter : 'Sve';
- const matches=(job:Job)=>(offers?job.status==='Ponuda'||job.status==='Poslati ponudu':selectedFilter==='Sve'||selectedFilter===job.status)
+ const [search,setSearch]=useState(''),[deleting,setDeleting]=useState<Job|null>(null);
+ const selectedFilters=jobStatuses.filter(status=>params.getAll('status').some(value=>value.split(',').includes(status)));
+ function setStatusFilters(statuses:readonly Status[]){
+  const next=new URLSearchParams(params);next.delete('status');
+  for(const status of statuses)next.append('status',status);
+  setParams(next,{replace:true});
+ }
+ function toggleStatus(status:Status){setStatusFilters(selectedFilters.includes(status)?selectedFilters.filter(value=>value!==status):[...selectedFilters,status]);}
+ const matches=(job:Job)=>(offers?job.status==='Ponuda'||job.status==='Poslati ponudu':!selectedFilters.length||selectedFilters.includes(job.status))
   &&`${job.customer.name} ${job.customer.address} ${job.id}`.toLowerCase().includes(search.toLowerCase());
  const localJobs=teamMember&&!offers?unsentLocalJobs(listLocalJobs(),jobs):[];
  const filtered=jobs.filter(job=>matches(job)&&!(teamMember&&state.teamAssignments[job.id]===teamMember.id&&isUnfinishedLocalTransfer(job,localJobs)));
  const deviceJobs=localJobs.filter(matches);
  const subtitle=offline?'Rad bez interneta · Poslovi na ovom uređaju':offers?'Pregled pripremljenih ponuda i poslova koji čekaju slanje ponude.':'Pregled, pretraga i nastavak rada na poslovima.';
  return <div className="module-page"><ModuleHeader title={offers?'Ponude':'Svi poslovi'} subtitle={subtitle} icon={offers?FileText:BriefcaseBusiness}><button className="field-button field-button-yellow module-new-job" onClick={onNew}><Plus/>Novi posao</button></ModuleHeader>
-  <main className="module-content"><div className="jobs-controls"><label className="jobs-search"><Search/><input aria-label="Pretraži poslove" placeholder="Pretraži posao…" value={search} onChange={e=>setSearch(e.target.value)}/></label>{!offers&&<div className="jobs-status-filters" role="group" aria-label="Status posla">{[['Sve','Svi'],...jobStatuses.map(status=>[status,status])].map(([value,label])=><button key={value} className={selectedFilter===value?'selected':''} aria-pressed={selectedFilter===value} onClick={()=>setFilter(value)}>{label}</button>)}</div>}</div>
+  <main className="module-content"><div className="jobs-controls"><label className="jobs-search"><Search/><input aria-label="Pretraži poslove" placeholder="Pretraži posao…" value={search} onChange={e=>setSearch(e.target.value)}/></label>{!offers&&<div className="jobs-status-filters" role="group" aria-label="Status posla"><button className={!selectedFilters.length?'selected':''} aria-pressed={!selectedFilters.length} onClick={()=>setStatusFilters([])}>Svi</button>{jobStatuses.map(status=><button key={status} className={selectedFilters.includes(status)?'selected':''} aria-pressed={selectedFilters.includes(status)} onClick={()=>toggleStatus(status)}>{status}</button>)}<small>Možete izabrati više statusa.</small></div>}</div>
    <div className="job-cards">
     {deviceJobs.map(job=><article className="job-card local-job-card" key={`local:${job.id}`}>
      <Link className="local-job-details" to="/radi-bez-interneta" state={{localJobId:job.id}}>
@@ -62,7 +68,7 @@ export function Jobs({onNew,offers=false}:{onNew:()=>void;offers?:boolean}){
     {filtered.map(job=>{
     const waiting=awaitingMeasurements(state,job),editable=canEditJob(state,job);
     const assigned=assignedMeasurement(state,job),date=job.status==='Merenje'?scheduledMeasurementDate(job,assigned,today):job.measuredOn||job.date;
-    return <article className="job-card" key={job.id}><div className="job-card-open"><Link to={`/posao/${job.id}`} className="job-card-sketch">{!waiting&&job.positions[0]?<Drawing position={job.positions[0]} compact/>:<BriefcaseBusiness/>}</Link><Link to={`/posao/${job.id}${offers?'/ponuda':''}`} className="job-card-info"><h2>{job.customer.name}</h2><p>{waiting?'Čeka završetak merenja':`${job.positions.length} ${job.positions.length===1?'pozicija':'pozicije'} · ${job.positions.reduce((n,p)=>n+p.quantity,0)} elemenata`}</p><p className="job-card-assignee">{state.teamAssignments[job.id]?`Merenje: ${job.technician||'Zadužena osoba'}`:teamMember?'Merenje nije dodeljeno':`Merenje: ${job.technician||'Nije navedeno'}`}</p>{(job.completionDeadline||job.installedOn||job.completedOn)&&<p className="job-card-progress">{job.installedOn?`Ugrađeno: ${formatMeasurementDate(job.installedOn)}`:job.completedOn?`Završeno: ${formatMeasurementDate(job.completedOn)}`:`Rok: ${formatMeasurementDate(job.completionDeadline!)}`}</p>}</Link><span className="job-card-status"><JobStatus value={job.status} name={job.customer.name} locked={!editable||assigned} measurementReady={canFinishMeasurement(job)} onChange={status=>{updateJob(job.id,{status});useStore.getState().retrySave();}}/></span><span className="job-card-value">{!waiting&&settings.showPrices!==false&&<strong>{jobPriceLabel(job,settings)}</strong>}<small>{date?<>{assigned&&'Merenje · '}<time dateTime={date}>{formatMeasurementDate(date)}</time></>:'Datum nije naveden'}</small></span><Link to={`/posao/${job.id}`} aria-label={`Otvori ${job.customer.name}`}><ChevronRight className="job-card-arrow"/></Link>
+    return <article className="job-card" key={job.id}><div className="job-card-open"><Link to={`/posao/${job.id}`} className="job-card-sketch">{!waiting&&job.positions[0]?<Drawing position={job.positions[0]} compact/>:<BriefcaseBusiness/>}</Link><Link to={`/posao/${job.id}${offers?'/ponuda':''}`} className="job-card-info"><h2>{job.customer.name}</h2><p>{waiting?'Čeka završetak merenja':`${job.positions.length} ${job.positions.length===1?'pozicija':'pozicije'} · ${job.positions.reduce((n,p)=>n+p.quantity,0)} elemenata`}</p><p className="job-card-assignee">{state.teamAssignments[job.id]?`Merenje: ${job.technician||'Zadužena osoba'}`:teamMember?'Merenje nije dodeljeno':`Merenje: ${job.technician||'Nije navedeno'}`}</p>{(job.completionDeadline||job.installedOn||job.completedOn||job.status==='Ponuda')&&<p className="job-card-progress">{job.installedOn?`Ugrađeno: ${formatMeasurementDate(job.installedOn)}`:job.completedOn?`Završeno: ${formatMeasurementDate(job.completedOn)}`:job.completionDeadline?`Rok: ${formatMeasurementDate(job.completionDeadline)}`:'Izaberite rok završetka u poslu'}</p>}</Link><span className="job-card-status"><JobStatus value={job.status} name={job.customer.name} locked={!editable||assigned} measurementReady={canFinishMeasurement(job)} offerReady={hasCompletionDeadline(job)} onChange={status=>{updateJob(job.id,{status});useStore.getState().retrySave();}}/></span><span className="job-card-value">{!waiting&&settings.showPrices!==false&&<strong>{jobPriceLabel(job,settings)}</strong>}<small>{date?<>{assigned&&'Merenje · '}<time dateTime={date}>{formatMeasurementDate(date)}</time></>:'Datum nije naveden'}</small></span><Link to={`/posao/${job.id}`} aria-label={`Otvori ${job.customer.name}`}><ChevronRight className="job-card-arrow"/></Link>
     </div>{editable&&<details className="job-card-menu"><summary className="field-icon-button" aria-label={`Meni posla ${job.customer.name}`}><MoreVertical/></summary><div>{!waiting&&<button aria-label={`Dupliraj ${job.customer.name}`} onClick={()=>navigate(`/posao/${duplicateJob(job.id)}`)}><Copy/>Dupliraj</button>}{teamMember?.role!=='worker'&&<button aria-label={`Obriši ${job.customer.name}`} onClick={e=>{setDeleting(job);e.currentTarget.closest('details')?.removeAttribute('open');}}><Trash2/>Obriši</button>}</div></details>}
    </article>;})}</div>
    {!filtered.length&&!deviceJobs.length&&<Empty title={offers?'Nema ponuda za ovaj izbor':'Nema poslova za ovaj izbor'} action={<button className="field-button field-button-yellow" onClick={onNew}><Plus/>Novi posao</button>}/>}

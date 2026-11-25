@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { Search, X } from 'lucide-react';
+import { matchesTextSearch } from '../services/text-search';
+import { portaRoyalSeries } from '../porta-royal';
 import type { Prices, Settings } from '../models';
 import { defaults } from '../services/calculation';
 import { profileRateKeys, supplementLabels, type SupplementRate } from '../services/pricing-rates';
@@ -18,7 +21,7 @@ const groups:{title:string;note?:string;keys:[keyof Prices,string,string][]}[]=[
  {title:'Ispune i posebni oblici',keys:priceFields('panel','louvres','bendPVC','bendALU','shapedInfill')},
  {title:'Okovi',note:'Početne cene okova za vrata su demonstracione.',keys:[['hardware','Standardni okov za prozore','€/krilo'],['secureHardware','Sigurnosni okov za prozore','€/krilo'],...priceFields('doorHardware','secureDoorHardware','tiltHardware','slideHardware','foldHardware','pivotHardware','specialHardware')]},
  {title:'Posebni sistemi i pogoni',keys:priceFields('liftSlide','tiltSlide','retractSlide','multiTrack','pocket','motor','automaticDoor','revolvingDoor','garageMechanism','certifiedDoor')},
- {title:'Dodaci',keys:[['shutter','Roletna','€/m²'],['mosquito','Komarnik','€/m²'],['sill','Klupica','€/m']]},
+ {title:'Dodaci',keys:[['shutter','Roletna','€/m²'],['mosquito','Komarnik','€/m²'],['mosquitoMotor','Motor za komarnik','€/kom.'],['sill','Klupica','€/m'],['drip','Okapnica','€/m']]},
  {title:'Usluge',keys:[['installation','Montaža','€/m obima'],['removal','Demontaža','€/m obima'],['transport','Podrazumevani transport','€'],...priceFields('service')]},
 ];
 
@@ -34,10 +37,14 @@ export function PricingSettings({section}:{section:'cenovnik'|'pdv'}){
  const editable=canEditPrices({teamMember});
  const [draft,setDraft]=useState<{values:PriceSettings;revision:number}|null>(null);
  const [busy,setBusy]=useState(false);
+ const [query,setQuery]=useState('');
  const [feedback,setFeedback]=useState<{text:string;error:boolean}|null>(null);
  const values=draft?.values??settings;
  const localPrices=teamMember&&editable&&revision===0&&section==='cenovnik'?localPricingForImport():null;
  const conflicting=draft!==null&&draft.revision!==revision;
+ const visibleGroups=groups.map(group=>({...group,keys:group.keys.filter(([,name,unit])=>matchesTextSearch(query,group.title,name,unit))})).filter(group=>group.keys.length);
+ const visibleShutters=Object.values(shutterTypes).filter(({label})=>matchesTextSearch(query,'Cene po tipu roletne','Roletna',label));
+ const found=visibleGroups.reduce((count,group)=>count+group.keys.length,0)+visibleShutters.length+portaRoyalSeries.filter(series=>matchesTextSearch(query,'Sobna vrata Porta Royal',series.name)).length;
 
  function change(patch:Partial<PriceSettings>){
   if(!editable||busy)return;
@@ -64,7 +71,7 @@ export function PricingSettings({section}:{section:'cenovnik'|'pdv'}){
   }finally{setBusy(false);}
  }
 
- function setShutterRate(key:ShutterRate,value:string){
+ function setOptionalRate(key:ShutterRate|'drip'|'mosquitoMotor',value:string){
   const prices={...values.prices};
   if(value==='')delete prices[key];
   else prices[key]=rate(value);
@@ -85,30 +92,34 @@ export function PricingSettings({section}:{section:'cenovnik'|'pdv'}){
     feedback&&<p role={feedback.error?'alert':'status'}>{feedback.text}</p>}
   </div>}
   {section==='cenovnik'?<>
+   <div className="pricing-search"><label className="jobs-search"><Search aria-hidden="true"/><input type="search" aria-label="Pretraži cenovnik" placeholder="Pretraži naziv, grupu ili materijal…" value={query} onChange={e=>setQuery(e.target.value)}/></label>{query&&<button type="button" className="field-icon-button" aria-label="Obriši pretragu cenovnika" onClick={()=>setQuery('')}><X/></button>}</div>
+   {query.trim()&&<p className="settings-note" role="status">{found?`Pronađeno stavki: ${found}`:'Nema stavki za ovu pretragu.'}</p>}
    {(!teamMember||revision===0)&&<p className="settings-note price-demo-note">Početne stope su demonstracione.</p>}
    {localPrices&&<button type="button" className="field-button field-button-light pricing-import" disabled={busy} onClick={()=>change(localPrices)}>Učitaj ranije cene sa ovog uređaja</button>}
-   {groups.map(group=><section className="price-settings-group" key={group.title}>
+   {visibleGroups.map(group=><section className="price-settings-group" key={group.title}>
     <h2>{group.title}</h2>{group.note&&<p className="settings-note">{group.note}</p>}
     <div className="settings-fields">{group.keys.map(([key,name,unit])=>{
-     const label=`${name} (${unit})`,value=values.prices[key]??defaults.prices[key]??0;
+     const label=`${name} (${unit})`,optional=key==='drip'||key==='mosquitoMotor';
+     const value=values.prices[key]??(optional?undefined:defaults.prices[key]??0);
      return editable?<Field key={key} label={label}>
-      <span className="price-input"><NumberInput clearToZero aria-label={label} inputMode="decimal" min={0} max={100000} step="0.01"
-       disabled={busy} value={value} onChange={event=>change({prices:{...values.prices,[key]:rate(event.target.value)}})}/><span>{unit}</span></span>
-     </Field>:<PriceDisplay key={key} label={label} value={value}/>;
+      <span className="price-input">{optional?<input aria-label={label} type="number" inputMode="decimal" min={0} max={100000} step="0.01" disabled={busy} value={value??''} placeholder="Cena po upitu" onChange={event=>{if(!event.target.validity.badInput&&(key==='drip'||key==='mosquitoMotor'))setOptionalRate(key,event.target.value);}}/>:<NumberInput clearToZero aria-label={label} inputMode="decimal" min={0} max={100000} step="0.01"
+       disabled={busy} value={value??0} onChange={event=>change({prices:{...values.prices,[key]:rate(event.target.value)}})}/>}<span>{unit}</span></span>
+     </Field>:<PriceDisplay key={key} label={label} value={value??'Cena po upitu'}/>;
     })}</div>
+
    </section>)}
-   <section className="price-settings-group"><h2>Cene po tipu roletne</h2>
+   {visibleShutters.length>0&&<section className="price-settings-group"><h2>Cene po tipu roletne</h2>
     <p className="settings-note">{editable?'Za prazno polje primenjuje se osnovna cena roletne.':'Za tipove bez posebne stope prikazana je osnovna cena roletne.'}</p>
-    <div className="settings-fields">{Object.values(shutterTypes).map(({rate:key,label:name})=>{
+    <div className="settings-fields">{visibleShutters.map(({rate:key,label:name})=>{
      const label=`${name} (€/m²)`;
      return editable?<Field key={key} label={label}>
       <span className="price-input"><input aria-label={label} type="number" inputMode="decimal" min={0} max={100000} step="0.01" disabled={busy}
-       value={values.prices[key]??''} placeholder={String(values.prices.shutter)} onChange={event=>{if(!event.target.validity.badInput)setShutterRate(key,event.target.value);}}/><span>€/m²</span></span>
+       value={values.prices[key]??''} placeholder={String(values.prices.shutter)} onChange={event=>{if(!event.target.validity.badInput)setOptionalRate(key,event.target.value);}}/><span>€/m²</span></span>
      </Field>:<PriceDisplay key={key} label={label} value={values.prices[key]??values.prices.shutter}/>;
     })}</div>
-   </section>
-   <PortaPriceSettings rates={values.portaRoyalPrices} editable={editable} busy={busy} onChange={portaRoyalPrices=>change({portaRoyalPrices})}/>
-   {editable&&<button type="button" className="field-button field-button-light" disabled={busy} onClick={()=>{
+   </section>}
+   <PortaPriceSettings query={query} rates={values.portaRoyalPrices} editable={editable} busy={busy} onChange={portaRoyalPrices=>change({portaRoyalPrices})}/>
+   {editable&&!query.trim()&&<button type="button" className="field-button field-button-light" disabled={busy} onClick={()=>{
     if(confirm('Vratiti početne demonstracione cene?'))change({prices:{...defaults.prices},portaRoyalPrices:undefined});
    }}>Vrati početni cenovnik</button>}
   </>:<div className="settings-fields">

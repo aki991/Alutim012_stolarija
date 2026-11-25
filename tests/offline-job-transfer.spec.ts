@@ -78,7 +78,6 @@ test('Poslovi prikazuju lokalno merenje posle prijave i prenose ga na zahtev', a
  await options.getByRole('button', { name: 'Gotovo' }).click();
  await page.getByRole('button', { name: 'Dodaj u posao' }).click();
  await expect(page.getByRole('heading', { name: 'Posao: ' + customer })).toBeVisible();
- await page.getByLabel('Rok završetka',{exact:true}).fill('2099-12-20');
  const jobUrl = page.url();
  const transfer = page.getByRole('button', { name: 'Dodaj u bazu' });
  await expect(page.getByRole('combobox', { name: 'Status posla: ' + customer })).toHaveValue('Merenje');

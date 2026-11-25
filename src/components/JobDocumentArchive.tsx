@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FileText } from 'lucide-react';
 import { downloadJobDocument, jobDocumentTitle, listJobDocuments, type ArchivedJobDocument } from '../services/document-archive';
 
@@ -16,6 +16,7 @@ export function JobDocumentArchive({ jobId, revision, showPrices, onPreview }: {
  const [listError, setListError] = useState('');
  const [openError, setOpenError] = useState('');
  const [opening, setOpening] = useState(false);
+ const pricesVisible=useRef(showPrices);pricesVisible.current=showPrices;
  const visible = showPrices ? documents : documents?.filter(document => !document.hasPrices);
 
  useEffect(() => {
@@ -33,7 +34,10 @@ export function JobDocumentArchive({ jobId, revision, showPrices, onPreview }: {
  async function preview(document: ArchivedJobDocument) {
   setOpening(true);
   setOpenError('');
-  try { onPreview(await downloadJobDocument(jobId, document), jobDocumentTitle(document.kind)); }
+  try {
+   const file=await downloadJobDocument(jobId, document);
+   if(!document.hasPrices||pricesVisible.current)onPreview(file, jobDocumentTitle(document.kind));
+  }
   catch (error) { setOpenError((error as Error).message); }
   finally { setOpening(false); }
  }

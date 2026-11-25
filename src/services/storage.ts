@@ -1,3 +1,4 @@
+import { isAccessoryDimensions } from '../accessories';
 import { isGeometry } from '../custom/geometry';
 import { isModelLayout } from '../model-layout';
 import { supplementRates } from './pricing-rates';
@@ -20,7 +21,7 @@ function parseSettings(settings:unknown):Settings{
  const priceKeys=['PVC','ALU','Dvoslojno','Troslojno','Sigurnosno','hardware','secureHardware','shutter','mosquito','sill','installation','removal','transport'];
  if(!priceKeys.every(k=>number((settings.prices as Record<string,unknown>)[k])))return fail();
  if(settings.prices.marginPercent!==undefined&&!number(settings.prices.marginPercent))return fail();
- const optionalRates=[...Object.keys(supplementRates),...Object.values(shutterTypes).map(type=>type.rate)];
+ const optionalRates=['drip','mosquitoMotor',...Object.keys(supplementRates),...Object.values(shutterTypes).map(type=>type.rate)];
  if(optionalRates.some(key=>Object.hasOwn(settings.prices as object,key)&&!number((settings.prices as Record<string,unknown>)[key])))return fail();
  if(settings.elementDefaults!==undefined){const d=settings.elementDefaults;if(!record(d)||!strings(d,['profile','color'])||!['PVC','ALU'].includes(String(d.material))||!['Dvoslojno','Troslojno','Sigurnosno'].includes(String(d.glass))||!['Standardni','Sigurnosni'].includes(String(d.hardware)))return fail();}
  if(settings.documentDefaults!==undefined&&(!record(settings.documentDefaults)||!strings(settings.documentDefaults,['validity','delivery','payment'])))return fail();
@@ -29,8 +30,11 @@ function parseSettings(settings:unknown):Settings{
 
 export function parseStoredPosition(p:unknown):Position{
    if(!record(p)||!strings(p,['id','name','color','notes','access','extraWork'])||![p.width,p.height,p.quantity].every(draftNumber)||!number(p.extraCost)||!(p.manualPrice===null||number(p.manualPrice))||!['PVC','ALU'].includes(String(p.material))||!['Dvoslojno','Troslojno','Sigurnosno'].includes(String(p.glass))||!['Standardni','Sigurnosni'].includes(String(p.hardware))||!['Prozori','Vrata','Sobna vrata','Klizni sistemi','Ulazna vrata','Roletne','Komarnici','Klupice','Usluge'].includes(String(p.category))||!['shutter','mosquito','sill','installation','removal'].every(k=>typeof p[k]==='boolean')||!Array.isArray(p.segments)||p.segments.length<1||p.segments.length>4)return fail();
+   if(p.mosquitoMotor!==undefined&&typeof p.mosquitoMotor!=='boolean')return fail();
+   if(p.drip!==undefined&&typeof p.drip!=='boolean')return fail();
+   if(p.accessoryDimensions!==undefined&&!isAccessoryDimensions(p.accessoryDimensions))return fail();
    if(p.portaRoyal!==undefined||p.category==='Sobna vrata'||p.elementType==='sobna-vrata'){
-    if(!isPortaRoyalConfig(p.portaRoyal)||p.category!=='Sobna vrata'||p.elementType!=='sobna-vrata'||p.modelLayout||p.customGeometry||p.combination||p.fixedPanels||p.shutter||p.shutterConfig||p.mosquito||p.sill||p.segments.length!==1)return fail();
+    if(!isPortaRoyalConfig(p.portaRoyal)||p.category!=='Sobna vrata'||p.elementType!=='sobna-vrata'||p.modelLayout||p.customGeometry||p.combination||p.fixedPanels||p.shutter||p.shutterConfig||p.mosquito||p.sill||p.drip||p.mosquitoMotor||p.segments.length!==1)return fail();
    }
    if(p.shutterConfig!==undefined&&(!isShutterConfig(p.shutterConfig)||!p.shutter&&p.category!=='Roletne'))return fail();
    if(p.modelLayout!==undefined||p.elementType==='model'){

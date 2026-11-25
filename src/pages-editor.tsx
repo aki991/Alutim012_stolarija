@@ -23,7 +23,7 @@ import { PositionEquipment } from './components/PositionEquipment';
 import { ShutterControls } from './components/ShutterControls';
 import { openingBoxHeight, shutterOf } from './shutters';
 import { JobProgress } from './components/JobProgress';
-import { canFinishMeasurement } from './services/job-progress';
+import { canFinishMeasurement, hasCompletionDeadline } from './services/job-progress';
 import { JobStatus } from './components/JobStatus';
 import { JobForm } from './components/JobForm';
 import { ModelLayoutControls } from './components/ModelLayoutControls';
@@ -63,7 +63,7 @@ export function Editor(){
  function move(index:number,by:number){const positions=[...job!.positions];[positions[index],positions[index+by]]=[positions[index+by],positions[index]];updateJob(job!.id,{positions});}
  return <div className="field-page summary-page"><FieldHeader title={`Posao: ${job.customer.name}`} back="/poslovi"/>
  <main className="job-summary">
-  <div className="summary-customer"><button aria-label="Podaci o kupcu" className="summary-customer-info" onClick={()=>setDataOpen(true)}><UserRound/><span><strong>{job.customer.name}</strong><small>{job.customer.address||(editable?'Dodaj podatke o kupcu':'Adresa nije navedena')}</small></span>{editable&&<Pencil size={18}/>}</button><JobStatus value={job.status} name={job.customer.name} locked={statusLocked} measurementReady={canFinishMeasurement(job)} onChange={status=>{updateJob(job.id,{status});useStore.getState().retrySave();}}/></div>
+  <div className="summary-customer"><button aria-label="Podaci o kupcu" className="summary-customer-info" onClick={()=>setDataOpen(true)}><UserRound/><span><strong>{job.customer.name}</strong><small>{job.customer.address||(editable?'Dodaj podatke o kupcu':'Adresa nije navedena')}</small></span>{editable&&<Pencil size={18}/>}</button><JobStatus value={job.status} name={job.customer.name} locked={statusLocked} measurementReady={canFinishMeasurement(job)} offerReady={hasCompletionDeadline(job)} onChange={status=>{updateJob(job.id,{status});useStore.getState().retrySave();}}/></div>
   <div className="summary-toolbar">
    {offline&&job.positions.length>0&&<OfflineJobTransferButton key={job.id} job={job}/>}
    <Saved state={saveState} shared={Boolean(teamMember)}/>
@@ -169,7 +169,7 @@ export function ElementEditor(){
  {(errors.length>0||message)&&<div className="field-error" role="alert">{message||errors[0]}</div>}
  {draftError&&<p className="field-error" role="alert">Nacrt se ne može sačuvati. Dodajte element pre napuštanja ekrana.</p>}
  </section></main>
- <footer className="measurement-footer">{settings.showPrices!==false&&<div className="measurement-amount"><span>Okvirno · {p.quantity} {p.quantity===1?'komad':'komada'}</span><strong>{errors.length?'—':positionPriceLabel(price)}</strong></div>}<button className="field-button field-button-yellow" onClick={save} disabled={errors.length>0}><Check/>{original?'Sačuvaj izmene':'Dodaj u posao'}</button></footer>
+ <footer className="measurement-footer">{settings.showPrices!==false&&<div className="measurement-amount"><span>Okvirno · {p.quantity} {p.quantity===1?'komad':'komada'}</span><strong>{errors.length?'—':positionPriceLabel(price,p)}</strong></div>}<button className="field-button field-button-yellow" onClick={save} disabled={errors.length>0}><Check/>{original?'Sačuvaj izmene':'Dodaj u posao'}</button></footer>
  {layout&&<FixedPanelPicker position={p} isDoor={isDoor} onClose={()=>setLayout(false)} onApply={next=>{persist(next);setChosen(null);setMessage('');setLayout(false);}}/>}
  {options&&<PositionOptions position={p} automaticUnit={price.calculated} onChange={patch} onClose={()=>setOptions(false)}/>}
  {expanded&&<Modal title="Prošireni crtež" wide onClose={()=>setExpanded(false)}><div className="expanded-zoom" role="group" aria-label="Uvećanje crteža"><button className="field-icon-button" aria-label="Umanji crtež" disabled={zoom<=.7} onClick={()=>setZoom(Math.max(.7,zoom-.1))}><Minus/></button><button className="field-text-button" onClick={()=>setZoom(1)}>Resetuj prikaz</button><button className="field-icon-button" aria-label="Uvećaj crtež" disabled={zoom>=1.4} onClick={()=>setZoom(Math.min(1.4,zoom+.1))}><Plus/></button></div><div className="field-expanded-drawing"><Drawing position={p} selected={chosen??-1} onSelect={combination?undefined:setChosen} zoom={zoom}/></div>{!combination&&<div className="expanded-measures">{([['width','Širina (mm)'],['height',heightLabel]] as const).map(([key,label])=><label key={key}>{label}<NumberInput aria-label={label} inputMode="numeric" value={measured[key]} onChange={e=>dimension(key,+e.target.value)}/></label>)}</div>}</Modal>}

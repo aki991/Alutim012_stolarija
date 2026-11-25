@@ -5,7 +5,7 @@ import { getSupabase } from './supabase';
 export type TeamMember={id:string;name:string;role:'manager'|'worker';active:boolean;is_admin?:boolean;document_author?:string};
 export type TeamAccount=Pick<TeamMember,'id'|'name'|'active'>&{role:TeamMember['role']|'admin';email:string|null};
 export type PriceSettings=Pick<Settings,'prices'|'portaRoyalPrices'|'vat'|'vatMode'>;
-export type TeamPricingRow={prices:Partial<Settings['prices']>;porta_royal_prices:Record<string,number>;vat:number;vat_mode:Settings['vatMode'];revision:number};
+export type TeamPricingRow={prices:Partial<Settings['prices']>;porta_royal_prices:Record<string,number>;vat:number;vat_mode:Settings['vatMode'];revision:number;worker_prices_visible?:boolean};
 export type TeamPreferences=Pick<Settings,'showPrices'|'elementDefaults'|'documentDefaults'>;
 export type TeamPreferencesRow={data:TeamPreferences;revision:number};
 export type TeamJob={id:string;data:Job;assigned_to:string|null;assigned_by:string|null;revision:number;assignee_only:boolean};
@@ -41,7 +41,7 @@ export async function fetchTeamAssignees():Promise<TeamMember[]>{
 }
 
 export async function fetchTeamPricing():Promise<TeamPricingRow>{
- return checkedPricing(check(await getSupabase().from('field_team_pricing').select('prices,porta_royal_prices,vat,vat_mode,revision').single<TeamPricingRow>()));
+ return checkedPricing(check(await getSupabase().from('field_team_pricing').select('prices,porta_royal_prices,vat,vat_mode,revision,worker_prices_visible').single<TeamPricingRow>()));
 }
 
 export async function fetchTeamPreferences():Promise<TeamPreferencesRow|null>{
@@ -63,6 +63,10 @@ export async function saveTeamPricing(value:PriceSettings,revision:number):Promi
 function checkedPricing(row:TeamPricingRow|null):TeamPricingRow{
  if(!row)throw new TeamRequestError('Baza nije vratila cenovnik.');
  return row;
+}
+
+export async function setWorkerPriceVisibility(visible:boolean,revision:number):Promise<TeamPricingRow>{
+ return checkedPricing(check(await getSupabase().rpc('field_team_set_worker_prices',{p_visible:visible,p_revision:revision}).single<TeamPricingRow>()));
 }
 
 export async function fetchTeamAccounts():Promise<TeamAccount[]>{

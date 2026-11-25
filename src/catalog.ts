@@ -21,6 +21,6 @@ export const catalog: CatalogEntry[] = [
 ];
 export const uid = () => crypto.randomUUID?.() ?? Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
 export function makePosition(entry = catalog[1]): Position {
- return {id:uid(),name:entry.name,category:entry.category,width:entry.width,height:entry.height,quantity:1,material:'PVC',profile:'PVC 70 mm',color:'Bela',glass:'Dvoslojno',hardware:'Standardni',segments:Array.from({length:entry.wings},(_,i)=>({width:entry.width/entry.wings,opening:entry.fixed?'Fiksno':entry.category==='Klizni sistemi'?'Klizno':i===0?'Levo + kip':'Desno'})),shutter:false,mosquito:false,sill:false,installation:true,removal:false,notes:'',access:'',extraWork:'',extraCost:0,photos:[],manualPrice:null};
+ return {id:uid(),name:entry.name,category:entry.category,width:entry.width,height:entry.height,quantity:1,material:'PVC',profile:'PVC 70 mm',color:'Bela',glass:'Dvoslojno',hardware:'Standardni',segments:Array.from({length:entry.wings},(_,i)=>({width:entry.width/entry.wings,opening:entry.fixed?'Fiksno':entry.category==='Klizni sistemi'?'Klizno':i===0?'Levo + kip':'Desno'})),shutter:false,mosquito:false,sill:false,drip:false,mosquitoMotor:false,installation:true,removal:false,notes:'',access:'',extraWork:'',extraCost:0,photos:[],manualPrice:null};
 }
 export const advancedTypes = ['Balkonska vrata sa prozorom','Vrata sa nadsvetlom'];

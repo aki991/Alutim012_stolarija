@@ -9,7 +9,7 @@ test('Nezavršeno merenje prelazi u današnji raspored i čuva novi datum pri za
  const createRow = (id: string, name: string, date: string, status: Job['status'] = 'Merenje'): TeamJob => ({
   id, assigned_to: member.id, assigned_by: manager, revision: 1, assignee_only: false,
   data: {
-   id, date, status, completionDeadline: '2026-12-18', customer: { name, address: 'Glavna 12', phone: '', email: '', building: '' },
+   id, date, status, customer: { name, address: 'Glavna 12', phone: '', email: '', building: '' },
    technician: member.name, notes: '', positions: [makePosition()], package: 'Standard', discount: 0,
    transport: 0, extraWork: '', extraCost: 0, validity: '', delivery: '', payment: '', updated: '2026-11-17T10:00:00Z',
   },

@@ -5,10 +5,11 @@ import { defaults } from './services/calculation';
 import { parseBackup, type LocalSnapshot } from './services/storage';
 import { LocalConflict, localSaveError, localWorkspaceKey, LocalWorkspaceStorage } from './services/local-workspace';
 import { positionDraft } from './services/position-draft';
-import { jobProgressPatch } from './services/job-progress';
+import { canChangeJobStatus, jobProgressPatch } from './services/job-progress';
+import { teamPriceVisibility } from './services/price-visibility';
 import { todayInBelgrade } from './services/measurement-schedule';
 import { jobsWithPendingChanges, mutationTarget, readTeamMutations, writeTeamMutations, type TeamMutation } from './services/team-mutations';
-import { createTeamJob, deleteTeamJob, fetchTeamJobs, fetchTeamPreferences, fetchTeamPricing, saveTeamPreferences, saveTeamPricing, updateTeamJob, type PriceSettings, type TeamJob, type TeamMember, type TeamPreferences, type TeamPreferencesRow, type TeamPricingRow } from './services/team-api';
+import { createTeamJob, deleteTeamJob, fetchTeamJobs, fetchTeamPreferences, fetchTeamPricing, saveTeamPreferences, saveTeamPricing, setWorkerPriceVisibility, updateTeamJob, type PriceSettings, type TeamJob, type TeamMember, type TeamPreferences, type TeamPreferencesRow, type TeamPricingRow } from './services/team-api';
 export function emptyJob(technician:string): Job {return {id:'AT-'+new Date().getFullYear()+'-'+uid().slice(0,8).toUpperCase(),customer:{name:'',phone:'',email:'',address:'',building:'Porodična kuća'},date:todayInBelgrade(),createdAt:new Date().toISOString(),technician,notes:'',status:'Merenje',positions:[],package:'Standard',discount:0,transport:defaults.prices.transport,extraWork:'',extraCost:0,validity:'15 dana',delivery:'Po dogovoru, nakon tehničke provere',payment:'50% avans, ostatak po montaži',updated:new Date().toISOString()};}
 export function jobFromSettings(settings:Settings):Job {
  return {...emptyJob(settings.technician),transport:settings.prices.transport,...settings.documentDefaults};
@@ -29,7 +30,7 @@ interface AppState {
  jobs:Job[];trash:DeletedJob[];settings:Settings;saveState:SaveState;storageError:string;
  teamMember:TeamMember|null;teamConflict:boolean;teamAssignments:Record<string,string|null>;
  teamAssigneeOnly:Record<string,boolean>;
- teamPricingRevision:number|null;teamPricingError:string;
+ teamWorkerPricesVisible:boolean|null;teamPricingRevision:number|null;teamPricingError:string;
  updateJob:(id:string,patch:Partial<Job>,baseline?:Job)=>void;addJob:(job:Job)=>void;deleteJob:(id:string)=>void;restoreLocalJob:(id:string)=>void;duplicateJob:(id:string)=>string;
  purgeLocalJobs:(ids:ReadonlySet<string>)=>void;
  updatePosition:(job:string,id:string,patch:Partial<Position>)=>void;setSettings:(patch:Partial<Settings>)=>void;
@@ -78,11 +79,12 @@ export function localPricingForImport(){
 }
 export const useStore=create<AppState>((set,get)=>({
  ...initial.data,saveState:initial.error?'error':'saved',storageError:initial.error,
- teamMember:null,teamConflict:false,teamAssignments:{},teamAssigneeOnly:{},teamPricingRevision:null,teamPricingError:'',
+ teamMember:null,teamConflict:false,teamAssignments:{},teamAssigneeOnly:{},teamWorkerPricesVisible:null,teamPricingRevision:null,teamPricingError:'',
  updateJob:(id,patch,baseline)=>{
   const current=get().jobs.find(j=>j.id===id);
   if(!current)return;
   if(baseline)patch=Object.fromEntries((Object.keys(patch) as (keyof Job)[]).filter(key=>JSON.stringify(patch[key])!==JSON.stringify(baseline[key])).map(key=>[key,patch[key]]));
+  if(patch.status&&!canChangeJobStatus(current,patch.status,patch.completionDeadline??current.completionDeadline))return;
   patch=jobProgressPatch(current,patch);
   if(workspace){
    const job=current;
@@ -170,7 +172,7 @@ function publishWorkspace(w:TeamWorkspace){
  const preferences=currentPreferences(w);
  useStore.setState(state=>{
   const {settings}=state;
-  const showPrices=state.teamPricingRevision===null?false:preferences.showPrices;
+  const showPrices=teamPriceVisibility(w.member.role,preferences.showPrices,state.teamPricingRevision!==null,state.teamWorkerPricesVisible);
   const {elementDefaults,documentDefaults}=preferences;
   const settingsChanged=showPrices!==settings.showPrices||elementDefaults!==settings.elementDefaults||documentDefaults!==settings.documentDefaults;
   return {
@@ -251,9 +253,10 @@ function publishTeamPricing(w:TeamWorkspace,row:TeamPricingRow){
  if(workspace!==w)return;
  useStore.setState(state=>{
   if(state.teamPricingRevision!==null&&row.revision<state.teamPricingRevision)return state;
-  const updated=row.revision!==state.teamPricingRevision;
-  return {teamPricingRevision:row.revision,teamPricingError:'',settings:updated?{
-   ...state.settings,showPrices:currentPreferences(w).showPrices,prices:{...defaults.prices,...row.prices},
+  const workerPricesVisible=row.worker_prices_visible??true;
+  const updated=row.revision!==state.teamPricingRevision||workerPricesVisible!==state.teamWorkerPricesVisible;
+  return {teamWorkerPricesVisible:workerPricesVisible,teamPricingRevision:row.revision,teamPricingError:'',settings:updated?{
+   ...state.settings,showPrices:teamPriceVisibility(w.member.role,currentPreferences(w).showPrices,true,workerPricesVisible),prices:{...defaults.prices,...row.prices},
    portaRoyalPrices:row.porta_royal_prices,vat:row.vat,vatMode:row.vat_mode,
   }:state.settings};
  });
@@ -274,18 +277,24 @@ export async function saveWorkspacePricing(value:PriceSettings,revision:number){
  publishTeamPricing(w,await saveTeamPricing(value,revision));
 }
 
+export async function saveWorkerPriceVisibility(visible:boolean,revision:number){
+ const w=workspace;
+ if(w?.member.role!=='manager')throw new Error('Prikaz cena majstorima podešava samo šef.');
+ publishTeamPricing(w,await setWorkerPriceVisibility(visible,revision));
+}
+
 export async function beginTeamWorkspace(member:TeamMember){
  if(workspace?.member.id===member.id)return;
  const w:TeamWorkspace={member,rows:new Map(),pending:readTeamMutations(member.id),epoch:0,preferences:null,preferencesError:'',running:false,refreshing:false,pricingRefreshing:false,conflict:false,mutationError:'',connectionError:'',draftError:''};
  workspace=w;
- useStore.setState({teamMember:member,trash:[],teamPricingRevision:null,teamPricingError:'',settings:{...local.settings,...pickPricing(defaults),showPrices:false}});
+ useStore.setState({teamMember:member,trash:[],teamWorkerPricesVisible:null,teamPricingRevision:null,teamPricingError:'',settings:{...local.settings,...pickPricing(defaults),showPrices:false}});
  publishWorkspace(w);
  await Promise.all([refreshTeamPricing(),refreshTeamWorkspace()]);
 }
 export function endTeamWorkspace(){
  if(!workspace)return;
  workspace=undefined;
- useStore.setState({...local,teamMember:null,teamAssignments:{},teamAssigneeOnly:{},teamConflict:false,teamPricingRevision:null,teamPricingError:'',storageError:localError,saveState:localError?'error':'saved'});
+ useStore.setState({...local,teamMember:null,teamAssignments:{},teamAssigneeOnly:{},teamConflict:false,teamWorkerPricesVisible:null,teamPricingRevision:null,teamPricingError:'',storageError:localError,saveState:localError?'error':'saved'});
 }
 export function findLocalJob(id:string){
  return local.jobs.find(job=>job.id===id);

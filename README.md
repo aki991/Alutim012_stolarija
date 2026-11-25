@@ -267,3 +267,34 @@ Provere: `src/services/corrections.test.ts` i `tests/workflow.spec.ts`, uključu
 U podešavanjima roletne biraju se **Materijal kutije: PVC / ALU** i **Pogon roletne: Bez motora (kanap) / Sa motorom**. Za kanap se bira leva ili desna strana, gledano iznutra. Za motor se bira sa daljinskim ili bez daljinskog upravljača. Isključivanje motora uklanja prethodni izbor daljinskog. Promena tipa roletne zadržava izabranu opremu, a prilagođava tip, položaj i mere kutije kao ranije.
 
 Polja se čuvaju u `shutterConfig` uz postojeći element, rade za samostalne roletne, dodatke prozorima, kombinacije i nacrtane elemente, i prikazuju se u ponudi i kancelarijskoj specifikaciji. Ranije sačuvane roletne ostaju čitljive; neuneseni podaci prikazuju se kao **Nije navedeno**. Za ova polja nije potrebna nova migracija baze. Ove opcije ne uvode dodatne tarifne stavke u obračun.
+
+
+Rok završetka unosi se u statusu **Ponuda**. Bez izabranog važećeg datuma nije moguće promeniti taj status. Za završetak merenja i prenos lokalnog posla u tim rok nije potreban. Pri ažuriranju baze primenite `supabase/migrations/202611250002_offer_deadline.sql` posle migracije evidencije posla.
+
+
+Kod roletne se bira **Vodilica sa dodatkom** ili **Ravna vodilica**. Umesto opšteg izbora Poluobla nude se **Poluobla rondo** i **Poluobla eko**. Ranije sačuvana Poluobla ostaje čitljiva bez pretpostavljanja varijante. Vodilica i oblik ulaze u PDF. Samostalna roletna u ponudi i specifikaciji prikazuje svoje podatke, bez stakla, prozorskog okova i profila prozora. Nova verzija arhive dokumenata omogućava generisanje ispravljenog PDF-a i za postojeći posao.
+
+
+## Prikaz cena majstorima i pogon trakom
+
+Šef u **Podešavanja → Prikaži cene majstorima** određuje da li se cene prikazuju majstorima u timu. Podešavanje se čuva u zajedničkoj bazi i ne menja šefov lični prikaz cena. Ako šef isključi cene, majstor ih ne može uključiti svojim podešavanjem; skrivaju se cene, cenovnik i arhivirani dokumenti sa cenama. Otvoren pregled dokumenta sa cenama se zatvara kada se podešavanje osveži. Pravo izmene cena ostaje kod šefa.
+
+Za ovo podešavanje primenite `supabase/migrations/202611250003_worker_price_visibility.sql`. Postojeći prikaz majstorima je početno dozvoljen. Izmena je dostupna samo šefu i koristi proveru verzije, kao zajednički cenovnik.
+
+Kod roletne bez motora pogon može biti **kanap** ili **traka**, sa levom ili desnom stranom gledano iznutra. Pogon sa motorom i izbor daljinskog ostaju dostupni. Traka se čuva uz roletnu, zadržava pri promeni tipa i prikazuje u dokumentima. Ranije roletne bez motora ostaju sa kanapom.
+
+
+## Okapnica i mere dodataka
+
+U Dodatnoj opremi su Roletna, Komarnik, Klupica i Okapnica. Uključivanje komarnika otvara širinu i visinu: automatski se koristi širina elementa − 50 mm i visina rama − 10 mm. Automatske mere prate promenu elementa; svaka ručno uneta mera ostaje fiksna dok se ne izabere **Vrati automatske mere**. Klupica i okapnica imaju zasebnu dužinu, početno jednaku širini elementa, i opcionu dubinu. Izbori i mere se čuvaju uz poziciju i ulaze u ponudu i specifikaciju.
+
+Obračun komarnika koristi njegovu površinu, a klupice i okapnice njihovu dužinu. Šef unosi **Okapnica (€/m)** u Cenovniku; bez unete stope ili ručne cene pozicija prikazuje **Cena okapnice po upitu**. Nova proizvoljna cena se ne podrazumeva. Dubina se evidentira za izradu. Za ove podatke dodataka nije potrebna migracija baze.
+
+
+## Pretraga cenovnika i više statusa
+
+Cenovnik ima polje **Pretraži cenovnik**. Pretraga obuhvata nazive stavki, grupe, tipove roletni i serije Porta Royal, bez razlike između velikih i malih slova i dijakritike. Izmena jedne pronađene cene ne uklanja ostale cene; šef i dalje potvrđuje ceo nacrt cenovnika. Dodata je posebna stavka **Motor za komarnik (€/kom.)**. Bira se kroz Motor za komarnik kod uključenog dodatka ili samostalnog komarnika. Cena se dodaje jednom po komadu; prazna stopa ostaje po upitu.
+
+Kod motorne roletne bira se **Strana motora: Leva / Desna**, gledano iznutra. Izbor se čuva i ulazi u dokumente, nezavisno od prethodne strane kanapa ili trake.
+
+Na stranici Poslovi dugmad statusa dozvoljavaju više izbora. **U izradi + Ponuda** prikazuje poslove u bilo kom od ta dva statusa. Ponovni klik uklanja pojedinačni status, a **Svi** poništava izbor. Više `status` parametara u adresi čuva izbor pri osvežavanju; raniji link sa jednim statusom ostaje podržan.
