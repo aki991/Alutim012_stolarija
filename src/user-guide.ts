@@ -77,6 +77,7 @@ export const guideChapters: readonly GuideChapter[] = [
     'Materijal i dodatnu opremu (roletnu, komarnik i klupicu) izaberite na glavnom ekranu. U Dodatnim opcijama podesite naziv, količinu, profil, boju, staklo i okov. Tamo se dodaju montaža, demontaža, pristup objektu, dodatni radovi, napomene i do četiri fotografije po elementu.',
    ] },
    { text: 'Na stranici Poslovi možete istovremeno uključiti više statusa, na primer U izradi i Ponuda. Svi poništava izbor. U cenovniku koristite Pretraži cenovnik za traženje stavki i grupa.' },
+   { text: 'Na listi i u poslu vide se tvorac posla, pošiljalac zahteva i osoba zadužena za merenje. Postojeću dodelu može da promeni samo šef koji je poslao zahtev; drugi šef ili majstor ne može da preuzme merenje. Majstor može da unese ukupnu cenu montaže i puta za šefa i kada mu je prikaz cena stolarije isključen.' },
    { text: 'Na listi poslova piše kome je dodeljeno merenje. U Evidenciji posla vide se datumi merenja, završetka i ugradnje. Rok završetka bira se u statusu Ponuda; bez izabranog roka nije moguće promeniti taj status. Kada je posao ugrađen, zaduženi radnik ili šef bira Ugrađeno; datum se beleži automatski. Za stare poslove bez zabeleženog datuma prikazuje se Nije zabeleženo.' },
    { text: 'Gotovo zatvara dodatne opcije. Dodaj u posao potvrđuje novu poziciju, a Sačuvaj izmene potvrđuje postojeću. Nacrt omogućava nastavak rada. Potvrđene pozicije su vidljive u spisku i ulaze u dokument. Mere sa terena i izvodljivost konfiguracije proverava kancelarija.' },
   ],
@@ -85,6 +86,8 @@ export const guideChapters: readonly GuideChapter[] = [
   id: 'posebne-pozicije', title: 'Kombinacije, roletne i sobna vrata',
   blocks: [
    { heading: 'Vrata sa prozorom', text: 'Izaberite Kombinacija. Unesite odvojene mere i otvaranja za vrata i prozor, odredite da li je prozor levo ili desno i izaberite poravnanje. U poslu se vodi kao jedna pozicija, sa posebnim merama i okovom za svaki deo.' },
+   { heading: 'Mere na kotama vrata', text: 'Kliknite ili dodirnite kotu na crtežu vrata. Otvara se prozor sa trenutnom merom i pregledom koji prati unos. Primeni meru potvrđuje promenu, a Otkaži zadržava prethodnu meru. Kote određuju ukupne mere, širine krila i polja, nadsvetlo, bočna fiksna polja i visine stakla i parapeta. Kod modela sa parapetom promena njegove visine menja preostalu visinu stakla u istom polju. Mere polja prate granice polja na terenskoj skici; kancelarija potvrđuje proizvodne mere.' },
+   { heading: 'Donji deo vrata', text: 'Na glavnom ekranu vrata izaberite ALU prag 24 mm ili Ram u krug. Uneta ukupna visina vrata uključuje prag: za visinu 2100 mm prag ostaje unutar tih 2100 mm. Kod kombinacije prag pripada samo delu vrata. Izbor se čuva uz element i vidi na skici, u ponudi i specifikaciji.' },
    { heading: 'Roletna, komarnik i klupica', items: [
     'Roletnu dodajte kao poseban element ili kao dodatak prozoru. Izaberite tip i unesite mere prema mestu ugradnje. Kada je kutija u otvoru, proverite ukupnu visinu otvora i preostalu visinu rama.',
     'Za kutiju roletne izaberite PVC ili ALU, a za vodilicu Ravna vodilica ili Vodilica sa dodatkom. Poluobla kutija ima izbore Poluobla rondo i Poluobla eko. Izaberite pogon bez motora sa kanapom ili trakom i levu ili desnu stranu (gledano iznutra), ili pogon sa motorom pa sa daljinskim ili bez daljinskog upravljača. Kod motorne roletne izaberite i levu ili desnu stranu motora, gledano iznutra. Izbori se čuvaju uz poziciju i navode u dokumentima.',
@@ -118,11 +121,11 @@ export const guideChapters: readonly GuideChapter[] = [
     'Ram, krilo i prečke računaju se po dužnom metru. U Cenovniku se podešavaju stope za PVC i ALU profile. Kod zakrivljenih profila dodatno se obračunava savijanje, prema dužini luka.',
     'Staklo se računa po kvadratnom metru. Kod okruglog ili nepravilnog prozora koristi se širina puta visina pravougaonog komada iz kog se staklo seče. Za prečnik 2.400 mm površina za obračun je 2,40 × 2,40 = 5,76 m².',
     'Okov se obračunava po pokretnom krilu. Standardni i sigurnosni okov imaju zasebne cene za prozore i vrata. Kod kombinacije vrata sa prozorom primenjuje se odgovarajuća cena za svaki deo.',
-    'Na iznos utiču ispuna, boja, dodaci, posebni mehanizmi i radovi. Montaža i demontaža računaju se po obimu. Količina množi jedinični iznos.',
+    'Na iznos utiču ispuna, boja, dodaci, posebni mehanizmi i radovi. Demontaža se računa po obimu. Ukupnu cenu montaže i puta unesite u poslu tokom merenja. Ti troškovi se raspoređuju po komadu i uključuju u jedinične cene elemenata, bez zasebnih stavki u ponudi. Uneta ukupna montaža zamenjuje automatsku montažu po obimu. Količina množi jedinični iznos.',
    ] },
    { heading: 'Od okvirne do ponuđene cene', items: [
     'U Podešavanjima → Cenovnik, šef ili administrator podešava stope, dodatke i maržu. Početne stope su demonstracione. U timskom režimu pritisnite Sačuvaj cenovnik da izmena važi za tim.',
-    'U Korekciji cene ovlašćeni korisnik može da promeni paket, ručnu cenu po komadu, popust, uvećanje, transport, zajedničke radove i konačni iznos. Prazna ručna cena ili dugme Auto vraća obračun prema cenovniku.',
+    'U Korekciji cene ovlašćeni korisnik može da promeni paket, ručnu cenu po komadu, popust, uvećanje, uključene troškove montaže i puta, zajedničke radove i konačni iznos. Prazna ručna cena ili dugme Auto vraća obračun prema cenovniku.',
     'U Podešavanjima → PDV i obračun izaberite da li su cene bez PDV-a, sa uračunatim PDV-om ili se PDV ne obračunava. Na pojedinačnom poslu proverite izabrani režim pre slanja.',
     'Na naslovnoj strani Podešavanja prekidač Prikaži cene uključuje ili skriva iznose u pregledu i pri izradi dokumenata.',
    ] },

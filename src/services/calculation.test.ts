@@ -31,8 +31,8 @@ describe('Demonstraciona kalkulacija',()=>{
   j.positions.push(auto);
   const settings={...defaults,prices:{...defaults.prices,marginPercent:20}};
   const result=calculate(j,settings);
-  expect(result.positions[0].unit).toBe(100);
-  expect(result.positions[1].unit).toBe(520.90);
+  expect(result.positions[0].unit).toBe(106.67);
+  expect(result.positions[1].unit).toBeCloseTo(527.565);
   expect(result.positions[1].lines.find(line=>line.name==='Marža')?.amount).toBe(86.82);
   expect(result.net).toBeCloseTo(1161.8);
   expect(result.total).toBeCloseTo(1394.16);

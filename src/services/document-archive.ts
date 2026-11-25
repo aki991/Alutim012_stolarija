@@ -17,8 +17,8 @@ function archivedFile(blob: Blob, jobId: string, kind: JobDocumentKind) {
 async function versionFileName(job: Job, settings: Settings) {
  const { prices, portaRoyalPrices, vat, vatMode, showPrices } = settings;
  const pricing = showPrices === false ? null : { prices, portaRoyalPrices, vat, vatMode };
- // Generate a corrected PDF instead of reusing a document with window details on shutters.
- const signature = JSON.stringify({ format: pricing ? 4 : 3, job, pricing }, (_key, value: unknown) => {
+ // Regenerate documents with the current drawings and costs included in element prices.
+ const signature = JSON.stringify({ format: pricing ? 5 : 4, job, pricing }, (_key, value: unknown) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
   return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
  });

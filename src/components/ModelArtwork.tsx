@@ -1,4 +1,4 @@
-import { glassPanelFraction, infills, movements, weightTotal, type ModelLayout, type Movement } from '../model-layout';
+import { glassFractionOf, infills, movements, weightTotal, type ModelLayout, type Movement } from '../model-layout';
 
 type Box = {x:number;y:number;width:number;height:number};
 
@@ -33,7 +33,7 @@ function Marks({move,box}:{move:Movement;box:Box}) {
  return paths[move]?<path data-model-movement={move} d={paths[move]} fill="none" stroke="#283a43" strokeWidth={Math.min(1.8,w/12,h/12)} strokeDasharray={dashed?'5 3':undefined}/>:null;
 }
 
-export function ModelArtwork({layout,box,glass,compact}:{layout:ModelLayout;box:Box;glass:string;compact:boolean}) {
+export function ModelArtwork({layout,box,glass,compact,realHeight,thresholdHeight=0,thresholdSpans=[]}:{layout:ModelLayout;box:Box;glass:string;compact:boolean;realHeight?:number;thresholdHeight?:number;thresholdSpans?:{x:number;width:number}[]}) {
  const {x,y,width,height}=box;
  const total=weightTotal(layout.rows);
  const wings=layout.rows[0].cells;
@@ -50,7 +50,9 @@ export function ModelArtwork({layout,box,glass,compact}:{layout:ModelLayout;box:
     left+=cellWidth;
     if(cell.infill==='space')return null;
     const inset=Math.min(6,cellWidth*.14,rowHeight*.14);
-    const pane={x:sx+inset,y:sy+inset,width:cellWidth-2*inset,height:rowHeight-2*inset};
+    const threshold=rowIndex===layout.rows.length-1&&thresholdSpans.some(span=>Math.abs(span.x-sx)<.01&&Math.abs(span.width-cellWidth)<.01)?thresholdHeight:0;
+    const pane={x:sx+inset,y:sy+inset,width:cellWidth-2*inset,height:Math.max(1,rowHeight-inset-(threshold?threshold+2:inset))};
+    const glassFraction=Math.max(.001,Math.min(.999,glassFractionOf(cell,(realHeight??height)*row.weight/total)));
     const louvres=cell.infill==='slats'||cell.movement==='roll';
     const sectional=cell.movement==='sectional';
     const vertical=cell.movement==='sectionalLeft'||cell.movement==='sectionalRight';
@@ -58,7 +60,7 @@ export function ModelArtwork({layout,box,glass,compact}:{layout:ModelLayout;box:
      <title>{`${infills[cell.infill]} · ${movements[cell.movement]}`}</title>
      <rect x={sx} y={sy} width={cellWidth} height={rowHeight} fill="#f5f5f3" stroke="#1f2529" strokeWidth="1.7"/>
      <rect {...pane} fill={cell.infill==='panel'?'#ddd9d1':glass} stroke="#26343a" strokeWidth="1.2"/>
-     {cell.infill==='glassPanel'&&<rect x={pane.x} y={pane.y+pane.height*glassPanelFraction} width={pane.width} height={pane.height*(1-glassPanelFraction)} fill="#ddd9d1" stroke="#26343a" strokeWidth="1.2"/>}
+     {cell.infill==='glassPanel'&&<rect data-model-panel={`${rowIndex}.${index}`} x={pane.x} y={pane.y+pane.height*glassFraction} width={pane.width} height={pane.height*(1-glassFraction)} fill="#ddd9d1" stroke="#26343a" strokeWidth="1.2"/>}
      {(louvres||sectional||vertical)&&Array.from({length:louvres?10:4},(_,i)=>{
       const f=(i+1)/(louvres?11:5);
       return <path key={i} d={vertical?`M${pane.x+pane.width*f} ${pane.y}v${pane.height}`:`M${pane.x} ${pane.y+pane.height*f}h${pane.width}`} fill="none" stroke="#52636c" strokeWidth=".9"/>;

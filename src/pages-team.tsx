@@ -1,3 +1,4 @@
+import { JobAssignmentInfo } from './components/JobAssignmentInfo';
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Check, KeyRound, LogOut, MessageSquare, Send } from 'lucide-react';
@@ -5,7 +6,7 @@ import { FieldHeader } from './components/FieldHeader';
 import { DeviceNotifications } from './components/DeviceNotifications';
 import { ChangePassword } from './components/ChangePassword';
 import { uid } from './catalog';
-import { acceptTeamJob, canEditJob, jobFromSettings, useStore } from './store';
+import { acceptTeamJob, canEditJob, canReassignJob, jobFromSettings, useStore } from './store';
 import type { Job } from './models';
 import { scheduledMeasurementDate, todayInBelgrade, useBelgradeToday } from './services/measurement-schedule';
 import { assignTeamJob, createTeamJob, fetchTeamAssignees, fetchTeamMessages, sendTeamMessage, TeamRequestError, type TeamMember, type TeamMessage } from './services/team-api';
@@ -113,13 +114,14 @@ export function NotificationsPage() {
 
 export function AssignmentPage() {
  const { id } = useParams();
+ const canChange=useStore(state=>id?canReassignJob(state,id):true);
  const member = useStore(state => state.teamMember);
  const job = useStore(state => state.jobs.find(item => item.id === id));
  const assignedTo = useStore(state => id ? state.teamAssignments[id] : null);
  const assigneeOnly = useStore(state => id ? state.teamAssigneeOnly[id] : undefined);
  if (member?.role !== 'manager') return <Navigate to="/poslovi" replace/>;
  return <div className="team-page"><FieldHeader title="Dodeli merenje" back={job ? `/posao/${job.id}` : '/poslovi'}/>
-  <main className="team-content">{id ? (job ? <ExistingAssignment key={id} job={job} member={member} assignedTo={assignedTo} assigneeOnly={assigneeOnly}/> : <p>Posao nije pronađen.</p>) : <NewAssignment member={member}/>}</main>
+  <main className="team-content">{id ? (job ? !canChange?<section className="team-card"><JobAssignmentInfo job={job}/><p role="status">Dodelu merenja može da promeni samo osoba koja je poslala zahtev.</p></section>:<ExistingAssignment key={id} job={job} member={member} assignedTo={assignedTo} assigneeOnly={assigneeOnly}/> : <p>Posao nije pronađen.</p>) : <NewAssignment member={member}/>}</main>
  </div>;
 }
 
@@ -201,13 +203,14 @@ export function TeamJobPanel({ job }: { job: Job }) {
  const assignments = useStore(state => state.teamAssignments);
  const assigneeOnly = useStore(state => state.teamAssigneeOnly[job.id]);
  const editable = useStore(state => canEditJob(state,job));
+ const canChange=useStore(state=>canReassignJob(state,job.id));
  if (!member || !editable || !Object.hasOwn(assignments, job.id)) return null;
  const manager = member.role === 'manager';
  const assignedTo = assignments[job.id];
  return <section className="team-card team-conversation" aria-label="Merenje i dodela">
   {manager && assignedTo && <p className="team-current-worker">Vidljivost posla · {assigneeOnly ? 'Zadužena osoba i šefovi' : 'Ceo tim'}</p>}
   <div className="team-actions">
-   {manager && <Link className="field-button field-button-light" to={`/dodeli-merenje/${job.id}`}>{assignedTo ? 'Dodela i vidljivost' : 'Dodeli merenje'}</Link>}
+   {manager && canChange && <Link className="field-button field-button-light" to={`/dodeli-merenje/${job.id}`}>{assignedTo ? 'Dodela i vidljivost' : 'Dodeli merenje'}</Link>}
    {(!manager || assignedTo) && <Link className="field-button field-button-light" to={`/poruke/${job.id}`}><MessageSquare size={18}/>Poruke o poslu</Link>}
   </div>
  </section>;
@@ -215,7 +218,7 @@ export function TeamJobPanel({ job }: { job: Job }) {
 
 function ExistingAssignment({ job, member, assignedTo, assigneeOnly }: { job: Job; member: TeamMember; assignedTo: string | null; assigneeOnly?: boolean }) {
  const { assignees, error: assigneesError, retry } = useAssignees();
- const candidates = assignees.filter(person => person.id !== member.id || person.id === assignedTo);
+ const candidates = assignees;
  const [selectedAssignee, setAssignee] = useState<string | null>(null);
  const [selectedVisibility, setRestricted] = useState<boolean | null>(null);
  const [instructions, setInstructions] = useState('');
@@ -247,7 +250,7 @@ function ExistingAssignment({ job, member, assignedTo, assigneeOnly }: { job: Jo
    navigate(`/posao/${id}`);
   } catch (error) {
    setError(error instanceof TeamRequestError && error.code === '22007' ? assignmentDateError
-    : 'Dodela merenja trenutno nije potvrđena. Pokušajte ponovo.');
+    : error instanceof TeamRequestError&&error.code==='42501'?error.message:'Dodela merenja trenutno nije potvrđena. Pokušajte ponovo.');
   }
   finally { setBusy(false); }
  }

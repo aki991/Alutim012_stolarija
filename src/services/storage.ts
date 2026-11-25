@@ -1,3 +1,4 @@
+import { isSiteCosts } from './site-costs';
 import { isAccessoryDimensions } from '../accessories';
 import { isGeometry } from '../custom/geometry';
 import { isModelLayout } from '../model-layout';
@@ -30,6 +31,7 @@ function parseSettings(settings:unknown):Settings{
 
 export function parseStoredPosition(p:unknown):Position{
    if(!record(p)||!strings(p,['id','name','color','notes','access','extraWork'])||![p.width,p.height,p.quantity].every(draftNumber)||!number(p.extraCost)||!(p.manualPrice===null||number(p.manualPrice))||!['PVC','ALU'].includes(String(p.material))||!['Dvoslojno','Troslojno','Sigurnosno'].includes(String(p.glass))||!['Standardni','Sigurnosni'].includes(String(p.hardware))||!['Prozori','Vrata','Sobna vrata','Klizni sistemi','Ulazna vrata','Roletne','Komarnici','Klupice','Usluge'].includes(String(p.category))||!['shutter','mosquito','sill','installation','removal'].every(k=>typeof p[k]==='boolean')||!Array.isArray(p.segments)||p.segments.length<1||p.segments.length>4)return fail();
+   if(p.doorBottom!==undefined&&p.doorBottom!=='alu24'&&p.doorBottom!=='frame')return fail();
    if(p.mosquitoMotor!==undefined&&typeof p.mosquitoMotor!=='boolean')return fail();
    if(p.drip!==undefined&&typeof p.drip!=='boolean')return fail();
    if(p.accessoryDimensions!==undefined&&!isAccessoryDimensions(p.accessoryDimensions))return fail();
@@ -60,6 +62,7 @@ export function parseStoredPosition(p:unknown):Position{
 
 function parseJob(j:unknown):Job{
  if(!record(j)||!strings(j,['id','date','technician','notes','extraWork','validity','delivery','payment','updated'])||!record(j.customer)||!strings(j.customer,['name','phone','email','address','building'])||!Array.isArray(j.positions)||!(j.status==='Čeka proveru'||jobStatuses.some(status=>status===j.status))||!['Standard','Optimal','Premium'].includes(String(j.package))||![j.discount,j.transport,j.extraCost].every(number)||(j.discountMode!=='amount'&&Number(j.discount)>100)||(j.date!==''&&!/^\d{4}-\d{2}-\d{2}$/.test(String(j.date))))return fail();
+ if(j.siteCosts!==undefined&&!isSiteCosts(j.siteCosts))return fail();
  if(progressDateFields.some(key=>j[key]!==undefined&&j[key]!==''&&!isJobDate(j[key])))return fail();
  if(j.discountMode!==undefined&&!['percent','amount'].includes(String(j.discountMode)))return fail();
  if(j.surchargeMode!==undefined&&!['percent','amount'].includes(String(j.surchargeMode)))return fail();

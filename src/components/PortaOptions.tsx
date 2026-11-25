@@ -8,7 +8,7 @@ import photoCrops from '../porta-royal-photo-crops.json';
 const photoWidth=1100,photoHeight=792;
 const crops:Record<string,number[]>=photoCrops;
 
-export function PortaPhoto({selection,lazy=false,size,dimensions=false}:{selection:PortaSelection;lazy?:boolean;size?:{width:number;height:number};dimensions?:boolean}) {
+export function PortaPhoto({selection,lazy=false,size,dimensions=false,onDimensionSelect}:{selection:PortaSelection;lazy?:boolean;size?:{width:number;height:number};dimensions?:boolean;onDimensionSelect?:(axis:'width'|'height')=>void}) {
  const {id,series,code,decor,image}=portaVariant(selection)!;
  const src=portaImage(image),[failed,setFailed]=useState('');
  const crop=crops[id];
@@ -32,8 +32,8 @@ export function PortaPhoto({selection,lazy=false,size,dimensions=false}:{selecti
  return <div className={dimensions?'porta-photo porta-photo-dimensioned':'porta-photo'}>
   <div className="porta-photo-frame" style={{width:`min(100%, calc(${scale} * ${displayWidth}), calc(var(--porta-photo-max-height) * ${aspect}))`,aspectRatio:aspect}}>
    {dimensions&&<>
-    <div className="porta-photo-dimension porta-photo-dimension-width" role="group" aria-label="Širina vrata"><span>{widthLabel}</span><i aria-hidden="true"/></div>
-    <div className="porta-photo-dimension porta-photo-dimension-height" role="group" aria-label="Visina vrata"><span>{heightLabel}</span><i aria-hidden="true"/></div>
+    <div className="porta-photo-dimension porta-photo-dimension-width" role="group" aria-label="Širina vrata"><span>{onDimensionSelect?<button type="button" aria-label={`Ukupna širina: ${width} mm`} onClick={()=>onDimensionSelect('width')}>{widthLabel}</button>:widthLabel}</span><i aria-hidden="true"/></div>
+    <div className="porta-photo-dimension porta-photo-dimension-height" role="group" aria-label="Visina vrata"><span>{onDimensionSelect?<button type="button" aria-label={`Ukupna visina: ${height} mm`} onClick={()=>onDimensionSelect('height')}>{heightLabel}</button>:heightLabel}</span><i aria-hidden="true"/></div>
    </>}
    <div className="porta-photo-door" style={{clipPath:polygon?`polygon(${polygon})`:undefined}}>
     {showPhoto?<img key={src} src={src} loading={lazy?'lazy':'eager'} referrerPolicy="no-referrer" onError={()=>setFailed(src)} alt={`${series.name} · ${decor.name} · ${code}`}

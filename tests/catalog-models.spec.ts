@@ -10,18 +10,18 @@ test('Marža i ručna cena rade direktno na ponudi uz povratak na Auto',async({p
  const line=page.locator('.price-line').first();
  const price=line.getByRole('textbox',{name:/Cena po komadu/});
  const originalTotal=await page.getByTestId('quote-total').innerText();
- await expect(price).toHaveValue('763,01');
+ await expect(price).toHaveValue('769,09');
  await price.fill('600,50');
  await expect(line.locator('.quote-line-total')).toContainText('1.201,00');
  await expect(page.getByTestId('quote-total')).not.toHaveText(originalTotal);
  await page.reload();
  await expect(price).toHaveValue('600,50');
  await line.getByRole('button',{name:/Auto/}).click();
- await expect(price).toHaveValue('763,01');
+ await expect(price).toHaveValue('769,09');
  await expect(page.getByTestId('quote-total')).toHaveText(originalTotal);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.reload();
- await expect(price).toHaveValue('763,01');
+ await expect(price).toHaveValue('769,09');
 });
 
 test('Trapez prikazuje uglove na crtežu i čuva ih za izvoz',async({page},testInfo)=>{
@@ -41,6 +41,7 @@ test('Trapez prikazuje uglove na crtežu i čuva ih za izvoz',async({page},testI
 });
 
 test('Pretražuje, podešava i izvozi model iz aktivnog posla',async({page})=>{
+ await page.goto(job);await page.getByLabel('Cena puta za ceo posao (€)',{exact:true}).fill('0');
  await page.setViewportSize({width:390,height:844});
  await page.goto(`${job}/dodaj`);
  await page.getByRole('link',{name:'Pretraži sve modele'}).click();
@@ -67,13 +68,16 @@ test('Pretražuje, podešava i izvozi model iz aktivnog posla',async({page})=>{
  await expect(page.getByRole('searchbox',{name:'Pretraži modele'})).toHaveValue('podizno klizni ugao');
  await model.click();
  await page.getByText('Otvaranje, raspored i mere polja',{exact:true}).click();
- await page.getByLabel('Širina polja 1.1 (mm)',{exact:true}).fill('800');
+ await page.locator('.field-drawing [data-position-dimension="cell:0:0"] [role=button]').click();
+ const measure=page.getByRole('dialog',{name:'Izmeni kotu: Širina polja 1.1',exact:true});
+ await measure.getByLabel('Dimenzija (mm)').fill('800');
+ await measure.getByRole('button',{name:'Primeni meru'}).click();
  await page.getByLabel('Otvaranje polja 1.2',{exact:true}).selectOption('tiltRight');
  await expect(page.locator('[data-model-movement="tiltRight"]')).toBeVisible();
  await expect(page.locator('.measurement-amount strong')).not.toHaveText(catalogPrice);
  await page.reload();
  await page.getByText('Otvaranje, raspored i mere polja',{exact:true}).click();
- await expect(page.getByLabel('Širina polja 1.1 (mm)',{exact:true})).toHaveValue('800');
+ await expect(page.locator('.field-drawing [data-position-dimension="cell:0:0"] [role=button]')).toHaveAttribute('aria-label','Širina polja 1.1: 800 mm');
  await expect(page.getByLabel('Otvaranje polja 1.2',{exact:true})).toHaveValue('tiltRight');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.getByRole('button',{name:'Dodaj u posao',exact:true}).click();
@@ -89,6 +93,7 @@ test('Pretražuje, podešava i izvozi model iz aktivnog posla',async({page})=>{
 });
 
 test('Vrata počinju sa kipom, a ručno nacrtani polukrug odmah dobija cenu',async({page})=>{
+ await page.goto(job);await page.getByLabel('Cena puta za ceo posao (€)',{exact:true}).fill('0');
  await page.goto(`${job}/nov/balkonska`);
  await expect(page.getByRole('button',{name:'Levo + kip',exact:true})).toHaveAttribute('aria-pressed','true');
  const price=page.locator('.measurement-amount strong');

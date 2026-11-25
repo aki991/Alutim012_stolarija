@@ -1,3 +1,4 @@
+import { canChangeAssignment, type JobOrigin } from './services/job-assignment';
 import { create } from 'zustand';
 import type { DeletedJob, Job, Position, Settings } from './models';
 import { catalog, makePosition, uid } from './catalog';
@@ -12,7 +13,7 @@ import { jobsWithPendingChanges, mutationTarget, readTeamMutations, writeTeamMut
 import { createTeamJob, deleteTeamJob, fetchTeamJobs, fetchTeamPreferences, fetchTeamPricing, saveTeamPreferences, saveTeamPricing, setWorkerPriceVisibility, updateTeamJob, type PriceSettings, type TeamJob, type TeamMember, type TeamPreferences, type TeamPreferencesRow, type TeamPricingRow } from './services/team-api';
 export function emptyJob(technician:string): Job {return {id:'AT-'+new Date().getFullYear()+'-'+uid().slice(0,8).toUpperCase(),customer:{name:'',phone:'',email:'',address:'',building:'Porodična kuća'},date:todayInBelgrade(),createdAt:new Date().toISOString(),technician,notes:'',status:'Merenje',positions:[],package:'Standard',discount:0,transport:defaults.prices.transport,extraWork:'',extraCost:0,validity:'15 dana',delivery:'Po dogovoru, nakon tehničke provere',payment:'50% avans, ostatak po montaži',updated:new Date().toISOString()};}
 export function jobFromSettings(settings:Settings):Job {
- return {...emptyJob(settings.technician),transport:settings.prices.transport,...settings.documentDefaults};
+ return {...emptyJob(settings.technician),siteCosts:{installation:0,travel:0},transport:settings.prices.transport,...settings.documentDefaults};
 }
 function demoJobs():Job[] {
  const p={...makePosition(),name:'Dnevna soba · dvokrilni prozor',quantity:2,shutter:true,mosquito:true,removal:true,notes:'Proveriti završnu meru nakon skidanja stare obloge.',photos:['/assets/house.jpg'],access:'Prizemlje, pristup iz dvorišta.'};
@@ -29,7 +30,7 @@ type SaveState='saved'|'dirty'|'error';
 interface AppState {
  jobs:Job[];trash:DeletedJob[];settings:Settings;saveState:SaveState;storageError:string;
  teamMember:TeamMember|null;teamConflict:boolean;teamAssignments:Record<string,string|null>;
- teamAssigneeOnly:Record<string,boolean>;
+ teamAssigneeOnly:Record<string,boolean>;teamJobOrigins:Record<string,JobOrigin>;
  teamWorkerPricesVisible:boolean|null;teamPricingRevision:number|null;teamPricingError:string;
  updateJob:(id:string,patch:Partial<Job>,baseline?:Job)=>void;addJob:(job:Job)=>void;deleteJob:(id:string)=>void;restoreLocalJob:(id:string)=>void;duplicateJob:(id:string)=>string;
  purgeLocalJobs:(ids:ReadonlySet<string>)=>void;
@@ -42,6 +43,7 @@ export const canEditJob=(state:JobAccess,job:Pick<Job,'id'>)=>state.teamMember?.
  ||!Object.hasOwn(state.teamAssignments,job.id)||state.teamAssignments[job.id]===state.teamMember.id;
 export const awaitingMeasurements=(state:JobAccess,job:Job)=>assignedMeasurement(state,job)
  &&state.teamAssignments[job.id]!==state.teamMember?.id;
+export const canReassignJob=(state:Pick<AppState,'teamMember'|'teamJobOrigins'>,id:string)=>canChangeAssignment(state.teamMember,state.teamJobOrigins[id]);
 export const canEditPrices=(state:Pick<AppState,'teamMember'>)=>state.teamMember?.role!=='worker';
 export const hasPositionPriceCorrection=(p:Position)=>p.manualPrice!=null||Boolean(p.extraCost);
 export const withPositionPrice=(p:Position,source?:Position)=>({...p,manualPrice:source?.manualPrice??null,extraCost:source?.extraCost??0});
@@ -79,7 +81,7 @@ export function localPricingForImport(){
 }
 export const useStore=create<AppState>((set,get)=>({
  ...initial.data,saveState:initial.error?'error':'saved',storageError:initial.error,
- teamMember:null,teamConflict:false,teamAssignments:{},teamAssigneeOnly:{},teamWorkerPricesVisible:null,teamPricingRevision:null,teamPricingError:'',
+ teamMember:null,teamConflict:false,teamAssignments:{},teamAssigneeOnly:{},teamJobOrigins:{},teamWorkerPricesVisible:null,teamPricingRevision:null,teamPricingError:'',
  updateJob:(id,patch,baseline)=>{
   const current=get().jobs.find(j=>j.id===id);
   if(!current)return;
@@ -179,6 +181,7 @@ function publishWorkspace(w:TeamWorkspace){
    jobs,
    teamAssignments:Object.fromEntries([...w.rows].map(([id,row])=>[id,row.assigned_to])),
    teamAssigneeOnly:Object.fromEntries([...w.rows].map(([id,row])=>[id,row.assignee_only])),
+   teamJobOrigins:Object.fromEntries([...w.rows].map(([id,row])=>[id,{created_by:row.created_by,assigned_by:row.assigned_by,created_by_name:row.created_by_name,assigned_by_name:row.assigned_by_name,assigned_to_name:row.assigned_to_name,can_reassign:row.can_reassign}])),
    settings:settingsChanged?{...settings,showPrices,elementDefaults,documentDefaults}:settings,
    saveState:error?'error':w.pending.length?'dirty':'saved',storageError:error,teamConflict:w.conflict,
   };
@@ -193,7 +196,12 @@ function enqueue(change:TeamMutation){
  void flushWorkspace(w);
 }
 function rememberJob(w:TeamWorkspace,row:TeamJob){
- if((w.rows.get(row.id)?.revision??0)<=row.revision)w.rows.set(row.id,row);
+ const previous=w.rows.get(row.id);
+ if((previous?.revision??0)<=row.revision)w.rows.set(row.id,{...row,
+  created_by_name:row.created_by_name??previous?.created_by_name,
+  assigned_by_name:row.assigned_by_name??previous?.assigned_by_name,
+  assigned_to_name:row.assigned_to_name??(previous?.assigned_to===row.assigned_to?previous?.assigned_to_name:undefined),
+ });
  w.epoch++;
 }
 async function flushWorkspace(w:TeamWorkspace){
@@ -253,7 +261,7 @@ function publishTeamPricing(w:TeamWorkspace,row:TeamPricingRow){
  if(workspace!==w)return;
  useStore.setState(state=>{
   if(state.teamPricingRevision!==null&&row.revision<state.teamPricingRevision)return state;
-  const workerPricesVisible=row.worker_prices_visible??true;
+  const workerPricesVisible=typeof row.worker_prices_visible==='boolean'?row.worker_prices_visible:null;
   const updated=row.revision!==state.teamPricingRevision||workerPricesVisible!==state.teamWorkerPricesVisible;
   return {teamWorkerPricesVisible:workerPricesVisible,teamPricingRevision:row.revision,teamPricingError:'',settings:updated?{
    ...state.settings,showPrices:teamPriceVisibility(w.member.role,currentPreferences(w).showPrices,true,workerPricesVisible),prices:{...defaults.prices,...row.prices},
@@ -294,7 +302,7 @@ export async function beginTeamWorkspace(member:TeamMember){
 export function endTeamWorkspace(){
  if(!workspace)return;
  workspace=undefined;
- useStore.setState({...local,teamMember:null,teamAssignments:{},teamAssigneeOnly:{},teamConflict:false,teamWorkerPricesVisible:null,teamPricingRevision:null,teamPricingError:'',storageError:localError,saveState:localError?'error':'saved'});
+ useStore.setState({...local,teamMember:null,teamAssignments:{},teamAssigneeOnly:{},teamJobOrigins:{},teamConflict:false,teamWorkerPricesVisible:null,teamPricingRevision:null,teamPricingError:'',storageError:localError,saveState:localError?'error':'saved'});
 }
 export function findLocalJob(id:string){
  return local.jobs.find(job=>job.id===id);

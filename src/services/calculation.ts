@@ -1,12 +1,13 @@
 import { bounds, validateGeometry } from '../custom/geometry';
 import { centralWidth } from '../fixed-panels';
-import { isModelLayout, maxModelDimension, type Movement } from '../model-layout';
+import { isModelLayout, maxModelDimension, panelHeightOf, weightTotal, type Movement } from '../model-layout';
 import type { Job, Package, Position, Settings } from '../models';
 import { accessorySize, hasMosquitoMotor, validateAccessories } from '../accessories';
 import { openingBoxHeight, shutterMeasures, shutterTypes } from '../shutters';
 import { isPortaDimension, isPortaRoyalConfig, portaSeriesById } from '../porta-royal';
 import { positionMeasures } from './position-measures';
 import { profileRateKeys, ratesForModel, supplementLabels, supplementRates, type SupplementRate } from './pricing-rates';
+import { hasInstallationTotal, siteTravel, spreadSiteCosts } from './site-costs';
 export const packages: Record<Package,{factor:number;description:string}> = {
  Standard:{factor:1,description:'Osnovni profil • odabrano staklo i okov'},
  Optimal:{factor:1.12,description:'Pretpostavljeni unapređeni profil • +12% na profil'},
@@ -14,6 +15,7 @@ export const packages: Record<Package,{factor:number;description:string}> = {
 };
 export const defaults: Settings = {technician:'Aleksandar Marković',vat:20,vatMode:'exclusive',prices:{PVC:110,ALU:175,Dvoslojno:32,Troslojno:52,Sigurnosno:68,hardware:24,secureHardware:42,shutter:48,mosquito:26,sill:16,installation:9,removal:6,transport:35,marginPercent:0,...supplementRates}};
 export const euro = (n:number) => new Intl.NumberFormat('sr-Latn-RS',{style:'currency',currency:'EUR',maximumFractionDigits:2}).format(n);
+export const unitEuro = (n:number) => new Intl.NumberFormat('sr-Latn-RS',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:6}).format(n);
 const measure=new Intl.NumberFormat('sr-Latn-RS',{maximumFractionDigits:3});
 const movementRates:Partial<Record<Movement,SupplementRate>>={
  tilt:'tiltHardware',tiltLeft:'tiltHardware',tiltRight:'tiltHardware',
@@ -22,7 +24,7 @@ const movementRates:Partial<Record<Movement,SupplementRate>>={
  awning:'specialHardware',outBottom:'specialHardware',projected:'specialHardware',parallel:'specialHardware',doubleLeft:'specialHardware',doubleRight:'specialHardware',louvre:'specialHardware',
 };
 
-export function positionCost(p:Position,s:Settings,tier:Package='Standard') {
+export function positionCost(p:Position,s:Settings,tier:Package='Standard',fixedInstallation=false) {
  const lines: {name:string;basis:string;amount:number}[]=[];
  const measures=positionMeasures(p);
  const portaRate=p.portaRoyal?s.portaRoyalPrices?.[p.portaRoyal.series]:undefined;
@@ -83,7 +85,7 @@ export function positionCost(p:Position,s:Settings,tier:Package='Standard') {
  if(hasMosquitoMotor(p)&&pr.mosquitoMotor!==undefined)lines.push({name:'Motor za komarnik',basis:`1 kom. × ${pr.mosquitoMotor} €`,amount:pr.mosquitoMotor});
  if(p.sill){const length=accessorySize(p,'sill').width/1000;lines.push({name:'Klupica',basis:`${length.toFixed(2)} m × ${pr.sill} €`,amount:length*pr.sill});}
  if(p.drip&&pr.drip!==undefined){const length=accessorySize(p,'drip').width/1000;lines.push({name:'Okapnica',basis:`${length.toFixed(2)} m × ${pr.drip} €`,amount:length*pr.drip});}
- if(p.installation)lines.push({name:'Montaža',basis:`${perimeter.toFixed(2)} m × ${pr.installation} €`,amount:perimeter*pr.installation});
+ if(p.installation&&!fixedInstallation)lines.push({name:'Montaža',basis:`${perimeter.toFixed(2)} m × ${pr.installation} €`,amount:perimeter*pr.installation});
  if(p.removal)lines.push({name:'Demontaža',basis:`${perimeter.toFixed(2)} m × ${pr.removal} €`,amount:perimeter*pr.removal});
  if(p.extraCost)lines.push({name:p.extraWork||'Dodatni radovi',basis:'paušal',amount:p.extraCost});
  const baseCents=Math.round(lines.reduce((total,line)=>total+line.amount,0)*100);
@@ -97,9 +99,17 @@ export function positionCost(p:Position,s:Settings,tier:Package='Standard') {
 }
 export function jobTax(job:Job,s:Settings){return {vat:job.vat??s.vat,vatMode:job.vatMode??s.vatMode};}
 export function calculate(job:Job,s:Settings) {
- const positions=job.positions.map(p=>positionCost(p,s,job.package));
- const elements=positions.reduce((sum,p)=>sum+p.total,0),services=job.transport+job.extraCost;
- const subtotal=elements+services,manual=job.manualTotal!=null;
+ const siteCents=Math.round(siteTravel(job)*100)+Math.round((job.siteCosts?.installation??0)*100);
+ const distribution=spreadSiteCosts(siteCents,job.positions.map(p=>p.quantity));
+ const positions=job.positions.map((p,index)=>{
+  const base=positionCost(p,s,job.package,hasInstallationTotal(job)),share=distribution.shares[index]/100;
+  const allocationUnit=p.quantity>0?share/p.quantity:0;
+  return {...base,unit:base.unit+allocationUnit,calculated:base.calculated+allocationUnit,
+   total:(Math.round(base.total*100)+distribution.shares[index])/100,allocationUnit,
+   lines:share?[...base.lines,{name:'Uključeni troškovi posla',basis:`${p.quantity} ${p.quantity===1?'komad':'komada'}`,amount:allocationUnit}]:base.lines};
+ });
+ const elements=positions.reduce((sum,p)=>sum+Math.round(p.total*100),0)/100,services=(Math.round(job.extraCost*100)+distribution.unallocated)/100;
+ const subtotal=(Math.round(elements*100)+Math.round(services*100))/100,manual=job.manualTotal!=null;
  // Discounts apply to the original subtotal; increases apply after the discount.
  // A manual total is the final payable amount, including tax when applicable.
  const discount=manual?0:Math.min(subtotal,job.discountMode==='amount'?job.discount:subtotal*job.discount/100);
@@ -110,8 +120,14 @@ export function calculate(job:Job,s:Settings) {
  const tax=vatMode==='none'?0:manual?job.manualTotal!-net:vatMode==='inclusive'?after-net:net*vat/100;
  return {positions,elements,services,subtotal,discount,surcharge,net,tax,total:manual?job.manualTotal!:net+tax,manual,vat,vatMode,hasUnpriced:!manual&&positions.some(p=>p.requiresReview)};
 }
+export function positionCostInJob(job:Job,p:Position,s:Settings){
+ const index=job.positions.findIndex(position=>position.id===p.id),positions=[...job.positions];
+ if(index<0)positions.push(p);else positions[index]=p;
+ return calculate({...job,positions},s).positions[index<0?positions.length-1:index];
+}
 export function validatePosition(p:Position):string[] {
  const errors:string[]=validateAccessories(p);
+ if(p.doorBottom!==undefined&&!['alu24','frame'].includes(p.doorBottom))errors.push('Izaberite ALU prag 24 mm ili ram u krug.');
  if(p.portaRoyal){
   if(!isPortaRoyalConfig(p.portaRoyal))errors.push('Proverite seriju, dekor, tip i opremu sobnih vrata.');
   if(!p.name.trim())errors.push('Unesite naziv pozicije.');
@@ -129,6 +145,7 @@ export function validatePosition(p:Position):string[] {
  if(p.modelLayout){
   if(![p.width,p.height].every(n=>Number.isFinite(n)&&n>=200&&n<=maxModelDimension))errors.push(`Širina i visina moraju biti između 200 i ${maxModelDimension} mm.`);
   if(!isModelLayout(p.modelLayout)||p.modelLayout.rows.every(row=>row.cells.every(cell=>cell.infill==='space')))errors.push('Proverite raspored polja.');
+  else for(const row of p.modelLayout.rows){const height=p.height*row.weight/weightTotal(p.modelLayout.rows);if(row.cells.some(cell=>cell.infill==='glassPanel'&&(panelHeightOf(cell,height)<1||panelHeightOf(cell,height)>height-1)))errors.push('Visina parapeta mora biti manja od visine polja; za staklo mora ostati najmanje 1 mm.');}
   if(!Number.isInteger(p.quantity)||p.quantity<1||p.quantity>100)errors.push('Količina mora biti ceo broj od 1 do 100.');
   return errors;
  }

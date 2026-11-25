@@ -8,7 +8,7 @@ export function WorkerPriceVisibility(){
  const [selection,setSelection]=useState<boolean|null>(null);
  if(teamMember?.role!=='manager')return null;
  async function change(next:boolean){
-  if(busy||revision===null)return;
+  if(busy||revision===null||visible===null)return;
   setBusy(true);setSelection(next);setFeedback(null);
   try{
    await saveWorkerPriceVisibility(next,revision);
@@ -19,7 +19,7 @@ export function WorkerPriceVisibility(){
   }finally{setBusy(false);setSelection(null);}
  }
  return <div>
-  <label className="settings-price-toggle"><input type="checkbox" checked={selection??(visible===true)} disabled={busy||revision===null} onChange={e=>void change(e.target.checked)}/><span><strong>Prikaži cene majstorima</strong><small>{busy?'Čuvanje podešavanja…':'Važi za majstore u timu. Cene i dalje menja samo šef.'}</small></span></label>
+  <label className="settings-price-toggle"><input type="checkbox" checked={selection??(visible===true)} disabled={busy||revision===null||visible===null} onChange={e=>void change(e.target.checked)}/><span><strong>Prikaži cene majstorima</strong><small>{busy?'Čuvanje podešavanja…':revision!==null&&visible===null?'Za podešavanje prikaza cena majstorima potrebno je ažuriranje baze.':'Važi za majstore u timu. Cene i dalje menja samo šef.'}</small></span></label>
   {feedback&&<p className="settings-note" role={feedback.error?'alert':'status'}>{feedback.text}</p>}
  </div>;
 }

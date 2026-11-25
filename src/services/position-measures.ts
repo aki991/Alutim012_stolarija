@@ -1,7 +1,7 @@
 import { bounds, distance, edgeLength, ends, isClosed, signedArea, type Geometry } from '../custom/geometry';
 import { openingRegions } from '../custom/openings';
 import { noPanels } from '../fixed-panels';
-import { glassPanelFraction, weightTotal, type Movement } from '../model-layout';
+import { glassFractionOf, panelHeightOf, weightTotal, type Movement } from '../model-layout';
 import { customInfillOf, type Opening, type Position } from '../models';
 
 const segmentMovements:Record<Opening,Movement>={Fiksno:'fixed',Levo:'left',Desno:'right',Kip:'tilt','Levo + kip':'tiltLeft','Desno + kip':'tiltRight',Klizno:'slideLeft'};
@@ -56,6 +56,7 @@ export function positionMeasures(p:Position){
 
  if(modelLayout){
   const rowsHeight=weightTotal(modelLayout.rows);
+  if(modelLayout.rows.some(row=>row.cells.some(cell=>cell.infill==='glassPanel'&&(panelHeightOf(cell,height*row.weight/rowsHeight)<=0||panelHeightOf(cell,height*row.weight/rowsHeight)>=height*row.weight/rowsHeight))))return null;
   let area=0,glass=0,panel=0,louvres=0,perimeter=0,divider=0;
   let previous:{left:number;right:number}[]=[];
   for(const row of modelLayout.rows){
@@ -69,8 +70,8 @@ export function positionMeasures(p:Position){
     if(cell.infill!=='space'){
      const field=cellWidth*rowHeight/mm2ToM2;
      area+=field;
-     if(cell.infill==='glass'||cell.infill==='glassPanel')glass+=field*(cell.infill==='glassPanel'?glassPanelFraction:1);
-     if(cell.infill==='panel'||cell.infill==='glassPanel')panel+=field*(cell.infill==='glassPanel'?1-glassPanelFraction:1);
+     if(cell.infill==='glass'||cell.infill==='glassPanel')glass+=field*(cell.infill==='glassPanel'?glassFractionOf(cell,rowHeight):1);
+     if(cell.infill==='panel'||cell.infill==='glassPanel')panel+=field*(cell.infill==='glassPanel'?1-glassFractionOf(cell,rowHeight):1);
      if(cell.infill==='slats')louvres+=field;
      if(cell.infill==='glassPanel')divider+=cellWidth;
      const cellPerimeter=2*(cellWidth+rowHeight);

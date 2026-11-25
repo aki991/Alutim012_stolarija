@@ -45,7 +45,13 @@ for(const mode of ['prozor','vrata']){
   await page.getByRole('button',{name:'Raspored fiksnih polja'}).click();
   const dialog=page.getByRole('dialog',{name:'Raspored fiksnih polja'});
   for(const label of ['Fiksno gore','Fiksno levo','Fiksno desno'])await dialog.getByRole('checkbox',{name:label,exact:true}).check();
-  await dialog.getByRole('spinbutton',{name:'Fiksno gore (mm)'}).fill('250');
+  if(mode==='prozor')await dialog.getByRole('spinbutton',{name:'Fiksno gore (mm)'}).fill('250');
+  else{
+   await dialog.locator('[data-position-dimension="fixed:top"] [role=button]').click();
+   const measure=page.getByRole('dialog',{name:'Izmeni kotu: Fiksno gore',exact:true});
+   await measure.getByLabel('Dimenzija (mm)').fill('250');
+   await measure.getByRole('button',{name:'Primeni meru'}).click();
+  }
   if(mode==='prozor'){
    await dialog.getByRole('checkbox',{name:'Fiksno dole',exact:true}).check();
    await dialog.getByRole('checkbox',{name:/fiksnim poljem u sredini/}).check();
@@ -57,7 +63,8 @@ for(const mode of ['prozor','vrata']){
   await expect(page.locator('.field-drawing [data-fixed-panel]')).toHaveCount(mode==='prozor'?4:3);
   if(mode==='prozor')await expect(page.getByRole('button',{name:'Krilo 2, Fiksno'})).toBeVisible();
   await page.getByRole('button',{name:'Raspored fiksnih polja'}).click();
-  await expect(dialog.getByRole('spinbutton',{name:'Fiksno gore (mm)'})).toHaveValue('250');
+  if(mode==='prozor')await expect(dialog.getByRole('spinbutton',{name:'Fiksno gore (mm)'})).toHaveValue('250');
+  else await expect(dialog.locator('[data-position-dimension="fixed:top"] [role=button]')).toHaveAttribute('aria-label','Fiksno gore: 250 mm');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   if(mode==='prozor'){
    await dialog.getByRole('button',{name:'Zatvori',exact:true}).click();

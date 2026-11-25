@@ -1,3 +1,4 @@
+import { ElementPriceInput } from './ElementPriceInput';
 import { NumberInput } from './NumberInput';
 import { centralWidth } from '../fixed-panels';
 import { customInfillOf } from '../models';
@@ -19,7 +20,7 @@ async function photoData(file:File):Promise<string>{
 function OptionsSection({title,icon,summary,children}:{title:string;icon:ReactNode;summary?:string;children:ReactNode}){
  return <details className="options-section"><summary>{icon}<span>{title}</span>{summary&&<small>{summary}</small>}<ChevronRight aria-hidden="true"/></summary><div className="options-section-content">{children}</div></details>;
 }
-export function PositionOptions({position:p,onChange,onClose,automaticUnit}:{position:Position;automaticUnit?:number;onChange:(patch:Partial<Position>)=>void;onClose:()=>void}){
+export function PositionOptions({position:p,onChange,onClose,automaticUnit,allocationUnit=0}:{position:Position;automaticUnit?:number;allocationUnit?:number;onChange:(patch:Partial<Position>)=>void;onClose:()=>void}){
  const showPrices=useStore(s=>s.settings.showPrices!==false&&canEditPrices(s));
  const [error,setError]=useState(''),[preview,setPreview]=useState<string|null>(null),[loading,setLoading]=useState(false);
  const profiles=p.material==='PVC'?['PVC 70 mm','PVC 76 mm','PVC 82 mm']:['ALU termo profil','ALU hladni profil'];
@@ -38,7 +39,7 @@ export function PositionOptions({position:p,onChange,onClose,automaticUnit}:{pos
    {(!p.customGeometry||Boolean(p.customGeometry.openings?.length))&&<div className="option-setting"><Settings aria-hidden="true"/><Field label="Okov"><select value={p.hardware} onChange={e=>onChange({hardware:e.target.value as Position['hardware']})}><option>Standardni</option><option>Sigurnosni</option></select></Field></div>}
   </div>
   <div className="options-sections">
-   {p.modelLayout&&showPrices&&<Field label="Ručna okvirna cena po komadu (€)"><input type="number" inputMode="decimal" min="0" step="0.01" placeholder={automaticUnit?.toFixed(2)} value={p.manualPrice??''} onChange={e=>onChange({manualPrice:e.target.value===''?null:Math.max(0,+e.target.value)})}/></Field>}
+   {p.modelLayout&&showPrices&&<Field label="Ručna okvirna cena po komadu (€)"><ElementPriceInput manualPrice={p.manualPrice} allocationUnit={allocationUnit} automaticUnit={automaticUnit} onChange={manualPrice=>onChange({manualPrice})}/></Field>}
    <OptionsSection title="Montaža" icon={<Wrench aria-hidden="true"/>} summary={[p.installation?'Uključena':'',p.removal?'Demontaža':''].filter(Boolean).join(', ')}><div className="field-checks">{([['installation','Montaža'],['removal','Demontaža']] as const).map(([key,label])=><label key={key}><input type="checkbox" checked={p[key]} onChange={e=>onChange({[key]:e.target.checked})}/><span>{label}</span></label>)}</div><div className="field-options-grid"><Field label="Pristup i uslovi montaže"><textarea rows={2} maxLength={1000} value={p.access} onChange={e=>onChange({access:e.target.value})}/></Field><Field label="Dodatni radovi"><input maxLength={200} value={p.extraWork} onChange={e=>onChange({extraWork:e.target.value})}/></Field>{showPrices&&<Field label="Dodatni radovi po komadu (€)"><NumberInput clearToZero min={0} inputMode="decimal" value={p.extraCost} onChange={e=>onChange({extraCost:Math.max(0,+e.target.value)})}/></Field>}</div></OptionsSection>
    <OptionsSection title="Napomena" icon={<MessageSquare aria-hidden="true"/>} summary={p.notes?'Uneta':''}><Field label="Napomena"><textarea rows={3} maxLength={2000} value={p.notes} onChange={e=>onChange({notes:e.target.value})}/></Field></OptionsSection>
    <OptionsSection title="Fotografije" icon={<Camera aria-hidden="true"/>} summary={`${p.photos.length}/4`}><div className="field-photos">{p.photos.map((photo,i)=><div key={i}><button onClick={()=>setPreview(photo)} aria-label={`Prikaži fotografiju ${i+1}`}><img src={photo} alt={`Fotografija objekta ${i+1}`}/></button><button className="field-photo-remove" onClick={()=>onChange({photos:p.photos.filter((_,k)=>k!==i)})} aria-label={`Ukloni fotografiju ${i+1}`}><X/></button>{photo.startsWith('/assets')&&<small>Ilustracija objekta</small>}</div>)}</div>

@@ -1,3 +1,5 @@
+import type { DoorBottom } from '../models';
+import { aluThresholdMm, doorBottomLabels } from '../door-bottom';
 import { useId } from 'react';
 import { ShutterArtwork, shutterBox, shutterExtent } from '../components/ShutterArtwork';
 import type { ShutterConfig } from '../shutters';
@@ -29,15 +31,22 @@ function OpeningMarks({g, regions, active, unit, frame}: {
   </g>;
  })}</g>;
 }
-export function GeometryArtwork({geometry:g,selected,unit=4,editable=false,dimensions=true,viewport,onDimensionSelect,frameMm=70,frameColor='Bela',infill='glass',regions,activeOpeningRegion,measureEnds,shutter}:{geometry:Geometry;regions?:OpeningRegion[];activeOpeningRegion?:string;selected?:string|null;unit?:number;editable?:boolean;dimensions?:boolean;viewport?:LabelBox;frameMm?:number;frameColor?:string;infill?:'glass'|'panel';onDimensionSelect?:(id:string)=>void;measureEnds?:{moving:string;fixed:string};shutter?:ShutterConfig}){
+export function GeometryArtwork({geometry:g,selected,unit=4,editable=false,dimensions=true,viewport,onDimensionSelect,frameMm=70,frameColor='Bela',infill='glass',regions,activeOpeningRegion,measureEnds,shutter,doorBottom}:{geometry:Geometry;regions?:OpeningRegion[];activeOpeningRegion?:string;selected?:string|null;unit?:number;editable?:boolean;dimensions?:boolean;viewport?:LabelBox;frameMm?:number;frameColor?:string;infill?:'glass'|'panel';onDimensionSelect?:(id:string)=>void;measureEnds?:{moving:string;fixed:string};shutter?:ShutterConfig;doorBottom?:DoorBottom}){
  const clipId='frame-'+useId().replace(/[^a-zA-Z0-9]/g,'');const frame=Math.max(20,Math.min(150,Number.isFinite(frameMm)?frameMm:70)),tone=frameColor==='Antracit'?'#42484d':frameColor==='Bela'?'#f1f2ee':'#9b7049';
  let path='';try{path=contourPath(g);}catch{path=g.edges.map(e=>{const[a,b]=ends(g,e);return `M${a.x} ${a.y}L${b.x} ${b.y}`;}).join(' ');}
  const shutterFrame=shutter&&isClosed(g)?bounds(g):undefined;
  const shutterBounds=shutter&&shutterFrame?shutterBox(shutterFrame,shutter):undefined;
  const labels=dimensions?dimensionLabels(g,unit,viewport,shutterBounds?[shutterBounds]:[]):[];
  const angles=dimensions?angleLabels(g,unit,labels,viewport):[];
+ const contourBounds=bounds(g);
+ const thresholdProfiles=doorBottom==='alu24'?g.edges.map(edge=>{
+  const [a,b]=ends(g,edge);
+  const threshold=edge.kind==='line'&&Math.abs(a.y-(contourBounds.y+contourBounds.height))<.01&&Math.abs(a.y-b.y)<.01;
+  const size=threshold?aluThresholdMm:frame,color=threshold?'#bbc8d0':tone,d=edgePath(g,edge);
+  return <g key={edge.id} data-door-bottom={threshold?'alu24':undefined} data-threshold-mm={threshold?aluThresholdMm:undefined}><path d={d} fill="none" stroke="#52595e" strokeWidth={2*size}/><path d={d} fill="none" stroke={color} strokeWidth={2*Math.max(1,size-5)}/><path d={d} fill="none" stroke="#c5c9c9" strokeWidth={Math.max(1,size*.85)}/><path d={d} fill="none" stroke={color} strokeWidth={Math.max(1,size*.72)}/></g>;
+ }):null;
  return <>
-  {isClosed(g)?<g className="custom-profile-frame" pointerEvents="none"><defs><clipPath id={clipId}><path d={path}/></clipPath></defs><path d={path} fill={infill==='glass'?'#dcf2fc':frameColor==='Antracit'?'#596168':frameColor==='Bela'?'#e2e4df':'#b18a63'}/><g clipPath={`url(#${clipId})`}><path d={path} fill="none" stroke="#52595e" strokeWidth={2*frame} strokeLinejoin="miter"/><path d={path} fill="none" stroke={tone} strokeWidth={2*Math.max(1,frame-5)} strokeLinejoin="miter"/><path d={path} fill="none" stroke={frameColor==='Antracit'?'#687078':'#c5c9c9'} strokeWidth={Math.max(1,frame*.85)} strokeLinejoin="miter"/><path d={path} fill="none" stroke={tone} strokeWidth={Math.max(1,frame*.72)} strokeLinejoin="miter"/></g><path d={path} fill="none" stroke="#3e474d" strokeWidth="1.5" vectorEffect="non-scaling-stroke"/></g>:<path d={path} fill="none" stroke="#42484d" strokeWidth="3" vectorEffect="non-scaling-stroke"/>}
+  {isClosed(g)?<g className="custom-profile-frame" pointerEvents="none"><defs><clipPath id={clipId}><path d={path}/></clipPath></defs><path d={path} fill={infill==='glass'?'#dcf2fc':frameColor==='Antracit'?'#596168':frameColor==='Bela'?'#e2e4df':'#b18a63'}/><g clipPath={`url(#${clipId})`}>{thresholdProfiles??<><path d={path} fill="none" stroke="#52595e" strokeWidth={2*frame} strokeLinejoin="miter"/><path d={path} fill="none" stroke={tone} strokeWidth={2*Math.max(1,frame-5)} strokeLinejoin="miter"/><path d={path} fill="none" stroke={frameColor==='Antracit'?'#687078':'#c5c9c9'} strokeWidth={Math.max(1,frame*.85)} strokeLinejoin="miter"/><path d={path} fill="none" stroke={tone} strokeWidth={Math.max(1,frame*.72)} strokeLinejoin="miter"/></>}</g><path d={path} fill="none" stroke="#3e474d" strokeWidth="1.5" vectorEffect="non-scaling-stroke"/></g>:<path d={path} fill="none" stroke="#42484d" strokeWidth="3" vectorEffect="non-scaling-stroke"/>}
   {g.edges.map(e=>{let d='';try{d=edgePath(g,e);}catch{return null;}return <g key={e.id}>
    {e.locked&&<path d={d} className="custom-locked-edge" stroke="#23658c" fill="none" strokeWidth="2.5" strokeDasharray="7 4" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
    {editable&&<path data-edge={e.id} d={d} fill="none" stroke="transparent" strokeWidth="30" vectorEffect="non-scaling-stroke" className="custom-edge-hit"/>}
@@ -83,12 +92,13 @@ export function GeometryArtwork({geometry:g,selected,unit=4,editable=false,dimen
   {editable&&g.edges.filter(e=>e.kind==='arc'&&!e.locked).map(e=>{try{const control=pointAt(g,e,.5),[a,b]=ends(g,e),mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};return <g key={e.id+'control'}>{selected===e.id&&<path d={`M${mid.x} ${mid.y}L${control.x} ${control.y}`} stroke="#b08a32" strokeDasharray="4 4" strokeWidth="1" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}<circle data-control={e.id} cx={control.x} cy={control.y} r={20*unit} fill="transparent" role="button" aria-label="Kontrolna tačka luka"><title>Povucite ka tetivi ili od nje da promenite radijus.</title></circle><circle cx={control.x} cy={control.y} r={7*unit} fill="#ffd46b" stroke="#9e6500" strokeWidth="2" vectorEffect="non-scaling-stroke" pointerEvents="none"/></g>;}catch{return null;}})}
  </>;
 }
-export function CustomDrawing({geometry,compact=false,frameMm=70,frameColor='Bela',infill='glass',shutter}:{geometry:Geometry;compact?:boolean;frameMm?:number;frameColor?:string;infill?:'glass'|'panel';shutter?:ShutterConfig}){
+export function CustomDrawing({geometry,compact=false,frameMm=70,frameColor='Bela',infill='glass',shutter,doorBottom}:{geometry:Geometry;compact?:boolean;frameMm?:number;frameColor?:string;infill?:'glass'|'panel';shutter?:ShutterConfig;doorBottom?:DoorBottom}){
  const b=bounds(geometry),extent=shutterExtent(b,shutter);
  const unit=Math.max(extent.width,extent.height,200)/400,margin=compact?8*unit:120*unit;
  const inside=shutter?.mount==='inside',openingHeight=b.height+(inside?shutter.boxHeight:0);
  return <svg xmlns="http://www.w3.org/2000/svg" viewBox={`${extent.x-margin} ${extent.y-margin} ${Math.max(1,extent.width)+2*margin} ${Math.max(1,extent.height)+2*margin}`} role="img" aria-label={`Nacrtan element, ${fmt(b.width)} puta ${fmt(openingHeight)} milimetara`} className="custom-sketch">
-  <GeometryArtwork geometry={geometry} frameMm={frameMm} frameColor={frameColor} infill={infill} unit={unit} dimensions={!compact} shutter={shutter}/>
+  <GeometryArtwork geometry={geometry} frameMm={frameMm} frameColor={frameColor} infill={infill} unit={unit} dimensions={!compact} shutter={shutter} doorBottom={doorBottom}/>
   {!compact&&<text x={b.x+b.width/2} y={b.y+b.height+95*unit} textAnchor="middle" fontSize={14*unit} fontFamily="Arial,sans-serif" fill="#424b56">Širina {fmt(b.width)} mm · {inside?'Visina otvora':'Visina'} {fmt(openingHeight)} mm</text>}
+  {!compact&&doorBottom&&<text x={b.x+b.width/2} y={b.y+b.height+115*unit} textAnchor="middle" fontSize={12*unit} fontFamily="Arial,sans-serif" fill="#354952">{doorBottomLabels[doorBottom]}</text>}
  </svg>;
 }

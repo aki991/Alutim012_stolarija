@@ -39,7 +39,7 @@ export type Movement = keyof typeof movements;
 export type Infill = keyof typeof infills;
 export const glassPanelFraction=.62;
 export const hasGlass=(infill:Infill)=>infill==='glass'||infill==='glassPanel';
-export interface ModelCell { movement: Movement; infill: Infill; weight: number }
+export interface ModelCell { movement: Movement; infill: Infill; weight: number; panelHeight?:number }
 export interface ModelRow { weight: number; cells: ModelCell[] }
 export interface ModelLayout { system: string; rows: ModelRow[]; cornerAfter?: number; systemRates?: readonly SystemRate[] }
 
@@ -47,6 +47,8 @@ export const maxModelRows = 8;
 export const maxModelCells = 24;
 export const maxModelDimension = 20000;
 export const weightTotal = (items: {weight:number}[]) => items.reduce((total,item)=>total+item.weight,0);
+export const panelHeightOf=(cell:ModelCell,height:number)=>cell.panelHeight??height*(1-glassPanelFraction);
+export const glassFractionOf=(cell:ModelCell,height:number)=>1-panelHeightOf(cell,height)/height;
 
 export function resizeBand<T extends {weight:number}>(items:T[], index:number, size:number, total:number):T[] {
  if(items.length<2 || !Number.isFinite(size) || size<=0 || size>=total) return items;
@@ -60,7 +62,7 @@ export function isModelLayout(value:unknown):value is ModelLayout {
  if(!layout||typeof layout.system!=='string'||!layout.system.trim()||layout.system.length>150||!Array.isArray(layout.rows)||layout.rows.length<1||layout.rows.length>maxModelRows)return false;
  const rates=layout.systemRates;
  if(rates!==undefined&&!isSystemRateList(rates))return false;
- if(!layout.rows.every(row=>row&&validWeight(row.weight)&&Array.isArray(row.cells)&&row.cells.length>=1&&row.cells.length<=maxModelCells&&row.cells.every(cell=>cell&&validWeight(cell.weight)&&typeof cell.movement==='string'&&Object.hasOwn(movements,cell.movement)&&typeof cell.infill==='string'&&Object.hasOwn(infills,cell.infill)&&(cell.infill!=='space'||cell.movement==='fixed'))))return false;
+ if(!layout.rows.every(row=>row&&validWeight(row.weight)&&Array.isArray(row.cells)&&row.cells.length>=1&&row.cells.length<=maxModelCells&&row.cells.every(cell=>cell&&validWeight(cell.weight)&&typeof cell.movement==='string'&&Object.hasOwn(movements,cell.movement)&&typeof cell.infill==='string'&&Object.hasOwn(infills,cell.infill)&&(cell.infill!=='space'||cell.movement==='fixed')&&(cell.panelHeight===undefined||cell.infill==='glassPanel'&&Number.isFinite(cell.panelHeight)&&cell.panelHeight>0&&cell.panelHeight<=maxModelDimension))))return false;
  const corner=layout.cornerAfter;
  return corner===undefined||(Number.isInteger(corner)&&corner>=1&&layout.rows.length===1&&corner<layout.rows[0].cells.length);
 }

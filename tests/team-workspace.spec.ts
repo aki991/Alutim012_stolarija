@@ -103,8 +103,13 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
    const body = request.postDataJSON() ?? {};
    const participates = (row:TeamJob) => member.role==='manager'||row.assigned_to===member.id;
    const visible = [...jobs.values()].filter(row => !deletedJobs.has(row.id) && (participates(row)||!row.assignee_only));
-   const view = (row:TeamJob) => row.assigned_to && row.data.status==='Merenje' &&
-    row.assigned_to!==member.id?{...row,data:{...row.data,positions:[]}}:row;
+   const view = (row:TeamJob) => ({...row,
+    data:row.assigned_to&&row.data.status==='Merenje'&&row.assigned_to!==member.id?{...row.data,positions:[]}:row.data,
+    created_by_name:accounts.find(account=>account.id===row.created_by)?.name??null,
+    assigned_by_name:accounts.find(account=>account.id===row.assigned_by)?.name??null,
+    assigned_to_name:accounts.find(account=>account.id===row.assigned_to)?.name??null,
+    can_reassign:member.role==='manager'&&(!row.assigned_by||row.assigned_by===member.id),
+   });
    switch (endpoint) {
     case 'field_team_my_profile': return reply(request.headers().accept?.includes('vnd.pgrst.object') ? member : [member]);
     case 'field_team_members': return reply(accounts.filter(account => account.active && (member.is_admin || account.role !== 'admin'))
@@ -127,7 +132,7 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
     case 'field_team_save_pricing': {
      expect(member.role).toBe('manager');
      expect(body.p_revision).toBe(pricing.revision);
-     pricing={prices:body.p_prices,porta_royal_prices:body.p_porta_royal_prices,vat:body.p_vat,vat_mode:body.p_vat_mode,revision:pricing.revision+1};
+     pricing={...pricing,prices:body.p_prices,porta_royal_prices:body.p_porta_royal_prices,vat:body.p_vat,vat_mode:body.p_vat_mode,revision:pricing.revision+1};
      return reply(pricing);
     }
     case 'field_team_list_accounts': {
@@ -193,7 +198,7 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
      expect(member.role).toBe('manager');
      expect(data.status).toBe('Merenje');
      expect(data.technician).toBe(recipient.name);
-     const row:TeamJob = { id: data.id, data, assigned_to: body.p_assignee, assigned_by: member.id, revision: 1, assignee_only: body.p_assignee_only };
+     const row:TeamJob = { id: data.id, data, created_by:member.id, assigned_to: body.p_assignee, assigned_by: member.id, revision: 1, assignee_only: body.p_assignee_only };
      jobs.set(row.id, row);
      const createdAt = now();
      messages.push({ id: crypto.randomUUID(), job_id: row.id, sender_id: member.id, sender_name: member.name, body: body.p_message, created_at: createdAt });
@@ -202,7 +207,7 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
     }
     case 'field_team_assign': {
      const row=jobs.get(body.p_id)!;
-     expect(member.id).toBe(boss.id);
+     if(member.role!=='manager'||row.assigned_by&&row.assigned_by!==member.id)return route.fulfill({headers,status:403,json:{code:'42501',message:'Dodelu merenja može da promeni samo osoba koja je poslala zahtev.'}});
      if (body.p_assignee !== row.assigned_to) {
       row.assigned_to = body.p_assignee;
       row.assigned_by = member.id;
@@ -502,6 +507,9 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
   await mobile.getByRole('button', { name: 'Dodaj u posao' }).click();
   await expect(mobile.getByRole('region', { name: 'Elementi posla' })).toBeVisible();
   await expect.poll(() => [...jobs.values()][0].data.positions.length).toBe(1);
+  await mobile.getByLabel('Cena montaže za ceo posao (€)',{exact:true}).fill('100');
+  await mobile.getByLabel('Cena puta za ceo posao (€)',{exact:true}).fill('100');
+  await expect.poll(()=>[...jobs.values()][0].data.siteCosts).toEqual({installation:100,travel:100});
   const readonlyPage=await observerContext.newPage();
   await login(readonlyPage,observer);
   await expect(readonlyPage.getByText('Nema obaveštenja.')).toBeVisible();
@@ -515,6 +523,8 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
   await expect(readonlyPage.getByRole('link',{name:'Poruke o poslu'})).toHaveCount(0);
   await page.goto(`${jobUrl}/ponuda`);
   await expect(page).toHaveURL(jobUrl);
+  await expect(page.getByLabel('Cena montaže za ceo posao (€)',{exact:true})).toHaveValue('100');
+  await expect(page.getByLabel('Cena puta za ceo posao (€)',{exact:true})).toHaveValue('100');
   await expect(page.getByRole('heading', { name: 'Merenje je u toku' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Elementi posla' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Dodaj element' })).toHaveCount(0);
@@ -614,6 +624,18 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
   await expect(mobile.getByText('Šef je isključio prikaz cena majstorima.')).toBeVisible();
   await expect(mobile.getByRole('checkbox',{name:/Prikaži cene/})).toHaveCount(0);
   await expect(page.locator('.settings-price-toggle').filter({hasText:'Isključite za merenje'}).getByRole('checkbox')).toBeChecked();
+  await mobile.goto(jobUrl);
+  await expect(mobile.locator('.line-price')).toHaveCount(0);
+  await expect(mobile.getByText('Montažu i put možete uneti za šefa i kada su cene stolarije sakrivene.',{exact:true})).toBeVisible();
+  await mobile.getByLabel('Cena montaže za ceo posao (€)',{exact:true}).fill('125');
+  await mobile.getByLabel('Cena puta za ceo posao (€)',{exact:true}).fill('80');
+  await expect.poll(()=>[...jobs.values()].find(row=>jobUrl.endsWith(row.id))!.data.siteCosts).toEqual({installation:125,travel:80});
+  await page.goto(jobUrl);
+  await expect(page.getByLabel('Cena montaže za ceo posao (€)',{exact:true})).toHaveValue('125');
+  await expect(page.getByLabel('Cena puta za ceo posao (€)',{exact:true})).toHaveValue('80');
+  await page.goto('/podesavanja');
+  await mobile.goto('/podesavanja');
+
   await page.reload();
   await expect(workerPriceToggle).not.toBeChecked();
   await workerPriceToggle.check();
@@ -710,6 +732,20 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
    const chiefPage = await chiefContext.newPage();
    await login(chiefPage, { ...newChief, role: 'manager' });
    await chiefPage.getByRole('link', { name: /Dodeljeno merenje.*Merenje za šefa/ }).click();
+
+   const originInfo=chiefPage.getByRole('region',{name:'Kreiranje i dodela posla',exact:true});
+   await expect(originInfo).toContainText(accounts.find(account=>account.id===boss.id)!.name);
+   await expect(originInfo).toContainText(newChief.name);
+   await expect(chiefPage.getByRole('link',{name:'Dodela i vidljivost',exact:true})).toHaveCount(0);
+   await chiefPage.goto(`/dodeli-merenje/${chiefJob.id}`);
+   await expect(chiefPage.getByRole('status')).toContainText('Dodelu merenja može da promeni samo osoba koja je poslala zahtev.');
+   await expect(chiefPage.getByRole('combobox',{name:'Zadužena osoba',exact:true})).toHaveCount(0);
+   const rejected=await chiefPage.evaluate(async({jobId,assignee,date})=>{
+    const {assignTeamJob}=await import('/src/services/team-api.ts');
+    try{await assignTeamJob(jobId,assignee,'Preuzimanje',false,date);return null;}catch(error){return (error as {code?:string}).code;}
+   },{jobId:chiefJob.id,assignee:newChief.id,date:today});
+   expect(rejected).toBe('42501');expect(chiefJob.assigned_by).toBe(boss.id);
+   await chiefPage.goto(chiefJobUrl);
    await chiefPage.getByRole('link', { name: 'Poruke o poslu' }).click();
    await expect(chiefPage.getByText('Izmeri prozor na spratu.', { exact: true })).toBeVisible();
    await chiefPage.getByLabel('Poruka', { exact: true }).fill('Preuzimam merenje.');

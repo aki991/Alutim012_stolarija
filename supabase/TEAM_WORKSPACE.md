@@ -30,7 +30,14 @@
 4. Ako ste ranije unosili svoje cene, na istom uređaju i u istom pregledaču otvorite **Cenovnik**, izaberite **Učitaj ranije cene sa ovog uređaja** i proverite iznose. Kliknite **Sačuvaj cenovnik** da bi ih dobio ceo tim. Uvoz je dostupan dok zajednički cenovnik nema sačuvanu izmenu.
 5. Proverite oba naloga. Administrator menja cenovnik, PDV i korekcije ponude. Majstor vidi iste cene i može da menja mere i opremu, što automatski preračunava ponudu. Baza proverava dozvole i za direktne zahteve.
 
+Za opciju **Prikaži cene majstorima** primenite i [migraciju vidljivosti cena](migrations/202611250003_worker_price_visibility.sql). Ona dodaje kolonu `worker_prices_visible` i funkciju za čuvanje tog izbora. Ako nedostaje, nova verzija aplikacije i dalje učitava i čuva cenovnik za šefa, ali ovo podešavanje ostaje onemogućeno, a cene se majstorima ne prikazuju dok podešavanje nije dostupno.
+
+[Migracija vlasnika dodele](migrations/202611250004_job_assignment_owner.sql) izlaže tvorca posla, pošiljaoca i primaoca zahteva kroz postojeći zaštićeni pregled poslova. Postojeći pošiljalac jedini može da promeni dodelu; pravilo važi i za druge šefove i za direktne zahteve ka bazi. Posao bez ranijeg zahteva šef može prvi put dodeliti. Privatni administratorski identiteti zadržavaju postojeća ograničenja prikaza.
+
+Ukupne troškove montaže i puta zaduženi majstor unosi u poslu i kada mu je prikaz cena stolarije isključen. Iznosi se čuvaju u podacima posla i vidljivi su šefovima; unos ne otključava cenovnik ni ručne korekcije cena elemenata.
+
 ## Zajednička prijava sa Ogradama i arhiva Stolarije
+
 
 1. U postojećem Supabase projektu primenite redom [migraciju arhive](migrations/202611150002_job_document_archive.sql), [migraciju povezivanja naloga](migrations/202611150003_link_shared_accounts.sql) i [migraciju podešavanja naloga](migrations/202611150004_team_preferences.sql).
 2. Ponovo objavite Edge Function `field-team-accounts` prema prethodnom odeljku. Zatim objavite verziju Stolarije na Vercelu.

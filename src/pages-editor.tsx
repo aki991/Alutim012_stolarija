@@ -1,3 +1,7 @@
+import { JobAssignmentInfo } from './components/JobAssignmentInfo';
+import { JobSiteCosts } from './components/JobSiteCosts';
+import { DimensionDialog } from './components/DimensionDialog';
+import { hasDoorDimensions, type PositionDimension } from './position-dimensions';
 import { NumberInput } from './components/NumberInput';
 import { fmt } from './custom/geometry';
 import { useEffect, useRef, useState } from 'react';
@@ -7,7 +11,7 @@ import { canEditJob, canEditPrices, hasPositionPriceCorrection, assignedMeasurem
 import { useOfflineWork } from './team-session';
 import type { Opening, Position } from './models';
 import { uid } from './catalog';
-import { calculate, euro, positionCost, validatePosition, positionPriceLabel, jobReviewLabel } from './services/calculation';
+import { calculate, euro, positionCostInJob, validatePosition, positionPriceLabel, jobReviewLabel } from './services/calculation';
 import { formatMeasurementDate, scheduledMeasurementDate, useBelgradeToday } from './services/measurement-schedule';
 import { fieldTypes, makeFieldPosition, selectableFieldTypes, typeOfPosition } from './field-types';
 import { Empty, Modal, Saved } from './components/UI';
@@ -19,6 +23,8 @@ import { DimensionControls } from './components/DimensionControls';
 import { ElementGlyph } from './components/ElementGlyph';
 import { FieldHeader } from './components/FieldHeader';
 import { PositionOptions } from './components/PositionOptions';
+import { DoorBottomControls } from './components/DoorBottomControls';
+import { doorBottomLabel } from './door-bottom';
 import { PositionEquipment } from './components/PositionEquipment';
 import { ShutterControls } from './components/ShutterControls';
 import { openingBoxHeight, shutterOf } from './shutters';
@@ -70,7 +76,9 @@ export function Editor(){
   </div>
   {teamMember&&locationState?.offlineJobTransferred===true&&<p className="field-message" role="status">Posao je prebačen u tim.</p>}
   {assigned&&measurementDate&&<p className="field-message">Merenje treba uraditi <time dateTime={measurementDate}>{formatMeasurementDate(measurementDate)}</time></p>}
+  <JobAssignmentInfo job={job}/>
   <JobProgress job={job}/>
+  {(editable||teamMember?.role==='manager')&&<JobSiteCosts job={job} readOnly={!editable} onChange={patch=>updateJob(job.id,patch)}/>}
   {waiting?<section className="team-card team-measurement-wait"><h2>Merenje je u toku</h2><p>Elementi, mere i ponuda biće dostupni kad zadužena osoba potvrdi završetak merenja.</p></section>:
   !job.positions.length?<Empty title={editable?"Dodajte prvi element":"Nema sačuvanih elemenata"} action={editable&&<Link className="field-button field-button-red" to={`/posao/${job.id}/dodaj`}><Plus/>Dodaj element</Link>}/>:
   <div className={settings.showPrices===false?"summary-grid without-prices":"summary-grid"}><section className="job-lines" aria-label="Elementi posla"><div className="job-line-head"><span>#</span><span>Element</span><span>Dimenzije (mm)</span><span>Kom.</span>{settings.showPrices!==false&&<span>Cena</span>}<span/></div>
@@ -79,7 +87,7 @@ export function Editor(){
     return <article className="job-line" key={p.id}>
     <span className="line-number">{i+1}.</span>
     {editable?<Link className="line-element" to={`/posao/${job.id}/element/${p.id}`}>{element}</Link>:<div className="line-element">{element}</div>}
-    <span className="line-dimensions">{fmt(p.width)} × {fmt(p.height+openingBoxHeight(p))}<span className="line-quantity-inline">{p.quantity} kom.</span><small>{p.portaRoyal?`Tip ${portaRoyalTypes[p.portaRoyal.type]}`:p.modelLayout?`${p.modelLayout.rows.reduce((n,row)=>n+row.cells.filter(cell=>cell.infill!=='space').length,0)} polja`:`${p.segments.length} ${p.segments.length===1?'krilo':'krila'}`}</small></span>
+    <span className="line-dimensions">{fmt(p.width)} × {fmt(p.height+openingBoxHeight(p))}<span className="line-quantity-inline">{p.quantity} kom.</span><small>{p.portaRoyal?`Tip ${portaRoyalTypes[p.portaRoyal.type]}`:p.modelLayout?`${p.modelLayout.rows.reduce((n,row)=>n+row.cells.filter(cell=>cell.infill!=='space').length,0)} polja`:`${p.segments.length} ${p.segments.length===1?'krilo':'krila'}`}</small>{doorBottomLabel(p)&&<small>{doorBottomLabel(p)}</small>}</span>
     <span className="line-quantity">{p.quantity}<small> kom.</small></span>
     {settings.showPrices!==false&&<strong className="line-price">{positionPriceLabel(total.positions[i],p)}</strong>}
     {editable&&<div className="line-tools"><Link to={`/posao/${job.id}/element/${p.id}`} className="field-icon-button" aria-label={`Izmeni element ${i+1}`}><Pencil/></Link><details className="line-menu"><summary className="field-icon-button" aria-label={`Meni elementa ${i+1}`}><MoreVertical/></summary><div>
@@ -89,7 +97,7 @@ export function Editor(){
       {(editPrices||!hasPositionPriceCorrection(p))&&<button onClick={e=>{setDeleting(p);e.currentTarget.closest('details')?.removeAttribute('open');}}><Trash2/>Obriši</button>}
     </div></details></div>}
    </article>;})}
-  </section>{settings.showPrices!==false&&<aside className="summary-price"><div><span>{(total.manual||total.vatMode==='inclusive')?'Osnovica bez PDV-a':'Elementi, radovi i transport'}</span><strong>{euro(total.manual||total.vatMode==='inclusive'?total.net:total.subtotal)}</strong></div>{total.discount>0&&<div><span>Popust {job.discountMode==='amount'?'':`${job.discount}%`}</span><strong>−{euro(total.discount)}</strong></div>}<>{total.surcharge>0&&<div><span>Uvećanje</span><strong>{euro(total.surcharge)}</strong></div>}{total.manual&&<p>Ručna ukupna cena</p>}</><div><span>{total.vatMode==='none'?'Bez obračuna PDV-a':`PDV ${total.vat}%${total.vatMode==='inclusive'?' (uključen)':''}`}</span><strong>{euro(total.tax)}</strong></div><section><h2>{total.hasUnpriced?'Zbir poznatih stavki':'Okvirna cena'}</h2><strong data-testid="job-total">{euro(total.total)}</strong></section><p>{total.hasUnpriced?jobReviewLabel(job,total)+'. Zbir obuhvata stavke sa izračunatom cenom.':'Demonstracione cene. Konačnu ponudu potvrđuje kancelarija.'}</p></aside>}</div>}
+  </section>{settings.showPrices!==false&&<aside className="summary-price"><div><span>{(total.manual||total.vatMode==='inclusive')?'Osnovica bez PDV-a':'Elementi i odabrani radovi'}</span><strong>{euro(total.manual||total.vatMode==='inclusive'?total.net:total.subtotal)}</strong></div>{total.discount>0&&<div><span>Popust {job.discountMode==='amount'?'':`${job.discount}%`}</span><strong>−{euro(total.discount)}</strong></div>}<>{total.surcharge>0&&<div><span>Uvećanje</span><strong>{euro(total.surcharge)}</strong></div>}{total.manual&&<p>Ručna ukupna cena</p>}</><div><span>{total.vatMode==='none'?'Bez obračuna PDV-a':`PDV ${total.vat}%${total.vatMode==='inclusive'?' (uključen)':''}`}</span><strong>{euro(total.tax)}</strong></div><section><h2>{total.hasUnpriced?'Zbir poznatih stavki':'Okvirna cena'}</h2><strong data-testid="job-total">{euro(total.total)}</strong></section><p>{total.hasUnpriced?jobReviewLabel(job,total)+'. Zbir obuhvata stavke sa izračunatom cenom.':'Demonstracione cene. Konačnu ponudu potvrđuje kancelarija.'}</p></aside>}</div>}
   <TeamJobPanel job={job}/>
  </main>
  {!waiting&&<footer className="field-bottom-actions job-quick-actions">{editable&&<Link className="field-button field-button-red" to={`/posao/${job.id}/dodaj`}><Plus/>Dodaj element</Link>}{settings.showPrices!==false&&editPrices&&<Link className="field-button field-button-light" to={`/posao/${job.id}/korekcija`}><Settings2/>Korekcija cene</Link>}<Link className="field-button field-button-yellow summary-more-offer" to={`/posao/${job.id}/ponuda`}>{!editable?"Pogledaj ponudu":settings.showPrices===false?"Pregledaj i podeli dokument":"Pogledaj cenu i podeli dokument"} <ArrowRight size={18}/></Link></footer>}
@@ -112,6 +120,7 @@ export function ElementEditor(){
  });
  const [chosen,setChosen]=useState<number|null>(null),[options,setOptions]=useState(false),[expanded,setExpanded]=useState(false),[zoom,setZoom]=useState(1),[message,setMessage]=useState(''),[draftError,setDraftError]=useState(false);
  const [layout,setLayout]=useState(false);
+ const [editingDimension,setEditingDimension]=useState<PositionDimension|null>(null);
  const positionRef=useRef(p);
  if(!job||positionId&&!original)return <MissingJob/>;
  const combination=p.combination,modelLayout=p.modelLayout;
@@ -121,7 +130,7 @@ export function ElementEditor(){
  const heightLabel=boxInHeight?'Visina otvora (mm)':'Visina (mm)';
  const standaloneShutter=p.category==='Roletne'?shutterOf(p):undefined;
  const mode=combination?'kombinacija':type||typeOfPosition(p),special=['roletna','komarnik','ostalo'].includes(mode),isFixed=mode==='fiksni',isSliding=mode==='klizni',isDoor=['vrata','balkonska'].includes(mode);
- const errors=validatePosition(p),price=positionCost(editPrices?p:withPositionPrice(p,original),settings,job.package);
+ const errors=validatePosition(p),price=positionCostInJob(job,editPrices?p:withPositionPrice(p,original),settings);
  const persist=(next:Position)=>{positionRef.current=next;try{draft.write(next);setDraftError(false);}catch{setDraftError(true);}setPosition(next);};
  const patch=(value:Partial<Position>)=>persist({...positionRef.current,...value});
  const dimension=(key:'width'|'height',value:number)=>{
@@ -153,17 +162,18 @@ export function ElementEditor(){
   }
   navigate(`/posao/${job.id}`);
  };
- const drawing=<><div className="field-canvas-toolbar"><span>{modelLayout?.cornerAfter?'Razvijeni pogled':chosen===null?'Pogled iznutra':`Izabrano krilo ${chosen+1}`}</span><div><button className="field-icon-button" aria-label="Resetuj prikaz" onClick={()=>setZoom(1)}><RotateCcw/></button><button className="field-icon-button" aria-label="Proširi prikaz" onClick={()=>setExpanded(true)}><Expand/></button></div></div><div className="field-drawing"><Drawing position={p} selected={chosen??-1} onSelect={combination||modelLayout?undefined:setChosen} zoom={zoom}/></div></>;
+ const drawing=<><div className="field-canvas-toolbar"><span>{modelLayout?.cornerAfter?'Razvijeni pogled':chosen===null?'Pogled iznutra':`Izabrano krilo ${chosen+1}`}</span><div><button className="field-icon-button" aria-label="Resetuj prikaz" onClick={()=>setZoom(1)}><RotateCcw/></button><button className="field-icon-button" aria-label="Proširi prikaz" onClick={()=>setExpanded(true)}><Expand/></button></div></div><div className="field-drawing"><Drawing position={p} selected={chosen??-1} onSelect={combination||modelLayout?undefined:setChosen} onDimensionSelect={setEditingDimension} zoom={zoom}/></div></>;
  return <div className="field-page measuring-page"><FieldHeader title={`${original?'Izmeni element':modelLayout?p.name:fieldTypes.find(t=>t.id===mode)?.label||'Element'} — ${job.customer.name}`} back={original?`/posao/${job.id}`:location.state?.catalogReturn??`/posao/${job.id}/${model?'modeli':'dodaj'}`}/>
- <main className="measurement-workspace"><section className="measurement-canvas">{drawing}<p className="field-sketch-note">Terenska skica · potrebna tehnička provera</p></section>
+ <main className="measurement-workspace"><section className="measurement-canvas">{drawing}<p className="field-sketch-note">{hasDoorDimensions(p)?'Kliknite kotu za izmenu mere · Terenska skica':'Terenska skica · potrebna tehnička provera'}</p></section>
  <section className="measurement-controls" aria-label="Podešavanja elementa">{combination?<CombinationControls position={p} combination={combination} onChange={patch}/>:<>
  <DimensionControls size={measured} min={{width:200,height:200+boxInHeight}} max={{width:dimensionLimit('width'),height:dimensionLimit('height')}} heightLabel={heightLabel} onChange={dimension}/>
  {standaloneShutter&&<ShutterControls position={p} config={standaloneShutter} onChange={shutterConfig=>patch({shutterConfig})}/>}
- {modelLayout?<ModelLayoutControls layout={modelLayout} width={p.width} height={p.height} onChange={modelLayout=>patch({modelLayout})}/>:<>
+ {modelLayout?<ModelLayoutControls dimensionsOnDrawing={hasDoorDimensions(p)} layout={modelLayout} width={p.width} height={p.height} onChange={modelLayout=>patch({modelLayout})}/>:<>
  {(mode==='prozor'||isDoor)&&<button className="field-options-button fixed-panel-trigger" onClick={()=>setLayout(true)}><Settings2/>Raspored fiksnih polja<ChevronRight/></button>}
  {!special&&<section className="visual-control"><h2>Broj krila</h2><div className="wing-count-options" role="group" aria-label="Broj krila">{(isDoor?[1,2]:p.segments.length===4?[1,2,3,4]:[1,2,3]).map(n=><button key={n} className={p.segments.length===n?'selected':''} aria-pressed={p.segments.length===n} aria-label={n===1?'Jedno krilo':n===2?'Dva krila':n===3?'Tri krila':'Četiri krila'} onClick={()=>count(n)}><ElementGlyph type="prozor" wings={n}/><span>{n===1?'Jedno':n===2?'Dva':n===3?'Tri':'Četiri'}</span></button>)}</div></section>}
  {!special&&<section className="visual-control"><div className="opening-heading"><h2>Otvaranje</h2>{chosen!==null&&<button className="field-text-button" onClick={()=>setChosen(null)}>Sva krila</button>}</div><div className="opening-options" role="group" aria-label="Otvaranje">{openingChoices.map(([value,label])=><button key={value} className={activeOpening===value?'selected':''} aria-pressed={activeOpening===value} onClick={()=>opening(value)}><ElementGlyph type={value==='Fiksno'?'fiksni':isSliding?'klizni':'prozor'} wings={value==='pair'?2:1} opening={value==='pair'?undefined:value}/><span>{label}</span></button>)}</div></section>}</>}</>}
  <section className="visual-control material-control"><h2>Materijal</h2><div role="group" aria-label="Materijal">{(['PVC','ALU'] as const).map(material=><button key={material} aria-pressed={p.material===material} className={p.material===material?'selected':''} onClick={()=>patch({material,profile:material==='PVC'?'PVC 70 mm':'ALU termo profil'})}>{material}</button>)}</div></section>
+ <DoorBottomControls position={p} onChange={patch}/>
  <PositionEquipment position={p} onChange={patch}/>
  <button className="field-options-button" onClick={()=>setOptions(true)}><Settings2/>Dodatne opcije<ChevronRight/></button>
  {(errors.length>0||message)&&<div className="field-error" role="alert">{message||errors[0]}</div>}
@@ -171,7 +181,8 @@ export function ElementEditor(){
  </section></main>
  <footer className="measurement-footer">{settings.showPrices!==false&&<div className="measurement-amount"><span>Okvirno · {p.quantity} {p.quantity===1?'komad':'komada'}</span><strong>{errors.length?'—':positionPriceLabel(price,p)}</strong></div>}<button className="field-button field-button-yellow" onClick={save} disabled={errors.length>0}><Check/>{original?'Sačuvaj izmene':'Dodaj u posao'}</button></footer>
  {layout&&<FixedPanelPicker position={p} isDoor={isDoor} onClose={()=>setLayout(false)} onApply={next=>{persist(next);setChosen(null);setMessage('');setLayout(false);}}/>}
- {options&&<PositionOptions position={p} automaticUnit={price.calculated} onChange={patch} onClose={()=>setOptions(false)}/>}
- {expanded&&<Modal title="Prošireni crtež" wide onClose={()=>setExpanded(false)}><div className="expanded-zoom" role="group" aria-label="Uvećanje crteža"><button className="field-icon-button" aria-label="Umanji crtež" disabled={zoom<=.7} onClick={()=>setZoom(Math.max(.7,zoom-.1))}><Minus/></button><button className="field-text-button" onClick={()=>setZoom(1)}>Resetuj prikaz</button><button className="field-icon-button" aria-label="Uvećaj crtež" disabled={zoom>=1.4} onClick={()=>setZoom(Math.min(1.4,zoom+.1))}><Plus/></button></div><div className="field-expanded-drawing"><Drawing position={p} selected={chosen??-1} onSelect={combination?undefined:setChosen} zoom={zoom}/></div>{!combination&&<div className="expanded-measures">{([['width','Širina (mm)'],['height',heightLabel]] as const).map(([key,label])=><label key={key}>{label}<NumberInput aria-label={label} inputMode="numeric" value={measured[key]} onChange={e=>dimension(key,+e.target.value)}/></label>)}</div>}</Modal>}
+ {options&&<PositionOptions position={p} allocationUnit={price.allocationUnit} automaticUnit={price.calculated} onChange={patch} onClose={()=>setOptions(false)}/>}
+ {expanded&&<Modal title="Prošireni crtež" wide onClose={()=>setExpanded(false)}><div className="expanded-zoom" role="group" aria-label="Uvećanje crteža"><button className="field-icon-button" aria-label="Umanji crtež" disabled={zoom<=.7} onClick={()=>setZoom(Math.max(.7,zoom-.1))}><Minus/></button><button className="field-text-button" onClick={()=>setZoom(1)}>Resetuj prikaz</button><button className="field-icon-button" aria-label="Uvećaj crtež" disabled={zoom>=1.4} onClick={()=>setZoom(Math.min(1.4,zoom+.1))}><Plus/></button></div><div className="field-expanded-drawing"><Drawing position={p} selected={chosen??-1} onSelect={combination?undefined:setChosen} onDimensionSelect={setEditingDimension} zoom={zoom}/></div>{!combination&&!hasDoorDimensions(p)&&<div className="expanded-measures">{([['width','Širina (mm)'],['height',heightLabel]] as const).map(([key,label])=><label key={key}>{label}<NumberInput aria-label={label} inputMode="numeric" value={measured[key]} onChange={e=>dimension(key,+e.target.value)}/></label>)}</div>}</Modal>}
+ {editingDimension&&<DimensionDialog position={p} dimension={editingDimension} onClose={()=>setEditingDimension(null)} onApply={next=>{persist(next);setEditingDimension(null);}}/>}
  </div>;
 }

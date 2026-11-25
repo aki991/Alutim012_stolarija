@@ -1,3 +1,5 @@
+import { JobSiteCosts } from './components/JobSiteCosts';
+import { ElementPriceInput } from './components/ElementPriceInput';
 import { NumberInput } from './components/NumberInput';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -22,8 +24,8 @@ function PriceCorrection({job}:{job:Job}){
  const taxHint=c.vatMode==='exclusive'?'Cene elemenata i korekcije su bez PDV-a. PDV se dodaje jednom.':c.vatMode==='inclusive'?'Cene elemenata i korekcije već sadrže PDV.':'Bez obračuna PDV-a.';
  function save(){
   const current=useStore.getState().jobs.find(j=>j.id===job.id);if(!current)return;
-  const {package:tier,discount,discountMode,surcharge,surchargeMode,manualTotal,transport,extraWork,extraCost,vat,vatMode,validity,payment,delivery}=draft;
-  updateJob(job.id,{package:tier,discount,discountMode,surcharge,surchargeMode,manualTotal,transport,extraWork,extraCost,vat,vatMode,validity,payment,delivery,
+  const {package:tier,discount,discountMode,surcharge,surchargeMode,manualTotal,transport,siteCosts,extraWork,extraCost,vat,vatMode,validity,payment,delivery}=draft;
+  updateJob(job.id,{package:tier,discount,discountMode,surcharge,surchargeMode,manualTotal,transport,siteCosts,extraWork,extraCost,vat,vatMode,validity,payment,delivery,
    positions:current.positions.map(p=>{const edited=draft.positions.find(d=>d.id===p.id);return edited?{...p,manualPrice:edited.manualPrice}:p;})});
   useStore.getState().retrySave();setMessage('Cena je sačuvana. PDF koristi ove cene.');
  }
@@ -31,7 +33,7 @@ function PriceCorrection({job}:{job:Job}){
  <form className="correction-form" onSubmit={e=>{e.preventDefault();save();}}><main className="correction-workspace">
  <section className="correction-elements"><h2>Cene elemenata</h2><p className="price-mode-note">Ručna cena je po komadu. Prazno polje vraća automatski obračun.</p>
  {draft.positions.map((p,i)=><article className="correction-element" key={p.id}><span className="price-sketch"><Drawing position={p} compact/></span><div><strong>{p.name}</strong><small>{Math.round(p.width)} × {Math.round(p.height)} mm · {p.quantity} kom.</small><span>Stavka ukupno: {positionPriceLabel(c.positions[i],p)}</span></div>
- <Field label={`Cena po komadu ${i+1} (€)`}><input aria-label={`Ručna cena ${i+1}`} type="number" inputMode="decimal" min={0} max={1e8} step="0.01" value={p.manualPrice??''} placeholder={c.positions[i].calculated.toFixed(2)} onChange={e=>patch({positions:draft.positions.map(d=>d.id===p.id?{...d,manualPrice:e.target.value===''?null:+e.target.value}:d)})}/></Field></article>)}
+ <Field label={`Cena po komadu ${i+1} (€)`}><ElementPriceInput aria-label={`Ručna cena ${i+1}`} manualPrice={p.manualPrice} allocationUnit={c.positions[i].allocationUnit} automaticUnit={c.positions[i].calculated} onChange={manualPrice=>patch({positions:draft.positions.map(d=>d.id===p.id?{...d,manualPrice}:d)})}/></Field></article>)}
  </section>
  <div className="correction-settings"><section className="correction-card"><h2>Brza korekcija</h2><p className="price-mode-note">{taxHint}</p>
  <fieldset disabled={manual} className="quick-adjustments"><div className="adjustment-row"><Field label="Popust"><NumberInput clearToZero aria-label="Popust" inputMode="decimal" step="0.01" min={0} max={draft.discountMode==='amount'?1e8:100} value={draft.discount} onChange={e=>patch({discount:+e.target.value})}/></Field><Field label="Vrsta popusta"><select value={draft.discountMode??'percent'} onChange={e=>patch({discountMode:e.target.value as 'percent'|'amount',discount:0})}><option value="percent">%</option><option value="amount">€</option></select></Field></div>
@@ -43,7 +45,7 @@ function PriceCorrection({job}:{job:Job}){
  <section className="correction-total"><div><span>Osnovica</span><strong>{euro(c.net)}</strong></div><div><span>{c.vatMode==='none'?'Bez PDV-a':`PDV ${c.vat}%`}</span><strong>{euro(c.tax)}</strong></div><div><h2>{c.hasUnpriced?'Zbir poznatih stavki':'Okvirna cena'}</h2><strong data-testid="correction-total">{euro(c.total)}</strong></div>{c.hasUnpriced&&<p>Proverite mere elemenata za koje cena nije izračunata.</p>}</section>
  </div>
  <details className="correction-card correction-advanced"><summary>Napredne opcije</summary><div className="advanced-content"><h2>Nivo ponude</h2><div className="field-packages">{(Object.keys(packages) as Job['package'][]).map(tier=><button type="button" key={tier} className={draft.package===tier?'selected':''} aria-pressed={draft.package===tier} onClick={()=>patch({package:tier})}><strong>{tier}</strong><small>{packages[tier].description}</small></button>)}</div>
- <div className="form-grid"><Field label="Transport (€)"><NumberInput clearToZero min={0} max={1e8} step="0.01" value={draft.transport} onChange={e=>patch({transport:+e.target.value})}/></Field><Field label="Dodatni radovi za ceo posao (€)"><NumberInput clearToZero min={0} max={1e8} step="0.01" value={draft.extraCost} onChange={e=>patch({extraCost:+e.target.value})}/></Field><Field label="Opis dodatnih radova"><input maxLength={300} value={draft.extraWork} onChange={e=>patch({extraWork:e.target.value})}/></Field>
+ <JobSiteCosts job={draft} onChange={patch}/><div className="form-grid"><Field label="Dodatni radovi za ceo posao (€)"><NumberInput clearToZero min={0} max={1e8} step="0.01" value={draft.extraCost} onChange={e=>patch({extraCost:+e.target.value})}/></Field><Field label="Opis dodatnih radova"><input maxLength={300} value={draft.extraWork} onChange={e=>patch({extraWork:e.target.value})}/></Field>
  <Field label="PDV (%)"><NumberInput clearToZero min={0} max={100} step="0.01" value={c.vat} onChange={e=>patch({vat:+e.target.value})}/></Field><Field label="Poreski režim"><select value={c.vatMode} onChange={e=>patch({vatMode:e.target.value as Job['vatMode']})}><option value="exclusive">PDV se dodaje</option><option value="inclusive">PDV je uključen</option><option value="none">Bez PDV-a</option></select></Field>
  <Field label="Važenje ponude"><input maxLength={200} value={draft.validity} onChange={e=>patch({validity:e.target.value})}/></Field><Field label="Način plaćanja"><input maxLength={200} value={draft.payment} onChange={e=>patch({payment:e.target.value})}/></Field><Field label="Rok isporuke"><input maxLength={300} value={draft.delivery} onChange={e=>patch({delivery:e.target.value})}/></Field></div>
  <h2>Detaljan način obračuna</h2>{draft.positions.map((p,i)=><details className="element-breakdown" key={p.id}><summary>{p.name}</summary>{c.positions[i].lines.map((line,k)=><div key={k}><span>{line.name}<small>{line.basis}</small></span><strong>{euro(line.amount)}</strong></div>)}{p.manualPrice!==null&&<p>Ručna cena: {euro(p.manualPrice)} / kom.</p>}</details>)}</div></details>

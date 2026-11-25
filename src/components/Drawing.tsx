@@ -7,14 +7,21 @@ import type { Position } from '../models';
 import { openingBoxHeight, shutterOf, shutterPart } from '../shutters';
 import { ShutterArtwork, shutterExtent, type DrawingBox } from './ShutterArtwork';
 import { PortaDrawing } from './PortaDrawing';
+import { aluThresholdMm, doorBottomSpans } from '../door-bottom';
+import { DoorBottomArtwork } from './DoorBottomArtwork';
+import { PositionDimensions } from './PositionDimensions';
+import { hasDoorDimensions, type PositionDimension } from '../position-dimensions';
+import { layoutDimensions } from '../dimension-layout';
 
 /** Proportional field sketch. Geometry and opening marks are shared by UI and PDFs. */
-export function Drawing({position:p,selected=-1,onSelect,zoom=1,compact=false}:{position:Position;selected?:number;onSelect?:(i:number)=>void;zoom?:number;compact?:boolean}) {
+export function Drawing({position:p,selected=-1,onSelect,onDimensionSelect,zoom=1,compact=false}:{position:Position;selected?:number;onSelect?:(i:number)=>void;onDimensionSelect?:(dimension:PositionDimension)=>void;zoom?:number;compact?:boolean}) {
  const drawingId=useId();
  const shutter=shutterOf(p);
- if(p.portaRoyal)return <PortaDrawing position={p} config={p.portaRoyal} compact={compact}/>;
- if(p.customGeometry)return <CustomDrawing geometry={p.customGeometry} frameMm={p.customFrameMm??70} frameColor={p.color} infill={customInfillOf(p)} compact={compact} shutter={shutter}/>;
+ const bottomSpans=doorBottomSpans(p),bottomMode=bottomSpans.length?p.doorBottom:undefined;
+ if(p.portaRoyal)return <PortaDrawing position={p} config={p.portaRoyal} compact={compact} onDimensionSelect={onDimensionSelect}/>;
+ if(p.customGeometry)return <CustomDrawing geometry={p.customGeometry} frameMm={p.customFrameMm??70} frameColor={p.color} infill={customInfillOf(p)} compact={compact} shutter={shutter} doorBottom={bottomMode}/>;
  const W=560,H=450;
+ const doorDimensions=hasDoorDimensions(p);
  const combination=p.combination,standalone=p.category==='Roletne';
  const doorBoxHeight=openingBoxHeight(p);
  const openingHeight=p.height+doorBoxHeight;
@@ -50,19 +57,31 @@ export function Drawing({position:p,selected=-1,onSelect,zoom=1,compact=false}:{
   {side:'right',x:x+width-rightPanel,y:y+top,w:rightPanel,h:middleHeight},
  ] as const;
  let offset=leftPanel;
- const view=compact?`${outerX-5} ${outerY-5} ${Math.max(1,fullWidth*scale)+10} ${Math.max(1,fullHeight*scale)+10}`:`0 0 ${W} ${H}`;
+ const actualDimensions=!compact&&doorDimensions?layoutDimensions(p,{x,y},scale):undefined;
+ const bottomCaptionY=Math.max(y+height,...(actualDimensions?.placements.filter(mark=>mark.dimension.axis==='width'&&!mark.outer).map(mark=>mark.y)??[]))+25;
+ let viewBounds=[0,0,W,H];
+ if(!compact&&doorDimensions){
+  // Fit the outside dimension chains at the default zoom; zoom controls still magnify the sketch.
+  const baseScale=scale/zoom,baseX=(W-fullWidth*baseScale)/2+(hasShutterDimensions?-7:12),baseY=(H-fullHeight*baseScale)/2+12;
+  const baseOrigin={x:baseX-minX*baseScale,y:baseY-minY*baseScale+doorBoxHeight*baseScale};
+  const base=layoutDimensions(p,baseOrigin,baseScale),b=base.bounds;
+  const captionBottom=bottomMode?Math.max(baseOrigin.y+p.height*baseScale,...base.placements.filter(mark=>mark.dimension.axis==='width'&&!mark.outer).map(mark=>mark.y))+33:b.bottom;
+  const vx=Math.min(b.left,baseX)-18,vy=Math.min(b.top,baseY)-20;
+  viewBounds=[vx,vy,Math.max(b.right,baseX+fullWidth*baseScale)+(shutter?65:18)-vx,Math.max(b.bottom,baseY+fullHeight*baseScale,captionBottom)+18-vy];
+ }
+ const view=compact?`${outerX-5} ${outerY-5} ${Math.max(1,fullWidth*scale)+10} ${Math.max(1,fullHeight*scale)+10}`:viewBounds.join(' ');
  const openingBottom=openingY+openingHeight*scale;
  return <svg viewBox={view} role="img" aria-label={`${p.name}, ${p.width} puta ${openingHeight} milimetara`} style={{width:'100%',height:'100%',maxHeight:compact?90:undefined}} xmlns="http://www.w3.org/2000/svg">
   <defs>
    <linearGradient id={`glass-${safeId}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#d8f0fc"/><stop offset="100%" stopColor="#f2fbff"/></linearGradient>
    <marker id={`arrow-${safeId}`} markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto-start-reverse"><path d="M7 4L1 1v6z" fill="#20262a"/></marker>
   </defs>
-  {!compact&&<g stroke="#20262a" strokeWidth="1.8" fill="none">
+  {!compact&&!doorDimensions&&<g stroke="#20262a" strokeWidth="1.8" fill="none">
    <path d={`M${x} ${outerY-35}H${x+width}`} markerStart={`url(#arrow-${safeId})`} markerEnd={`url(#arrow-${safeId})`}/>
    <path d={`M${outerX-36} ${openingY}V${openingBottom}`} markerStart={`url(#arrow-${safeId})`} markerEnd={`url(#arrow-${safeId})`}/>
   </g>}
-  {!compact&&<g fontFamily="Arial,sans-serif" fill="#15191b" fontSize="24" fontWeight="700"><text x={x+width/2} y={outerY-47} textAnchor="middle">{p.width} mm</text><text x={outerX-50} y={(openingY+openingBottom)/2} textAnchor="middle" transform={`rotate(-90 ${outerX-50} ${(openingY+openingBottom)/2})`}>{openingHeight} mm</text></g>}
-  {p.modelLayout&&<ModelArtwork layout={p.modelLayout} box={{x,y,width,height}} glass={`url(#glass-${safeId})`} compact={compact}/>}
+  {!compact&&!doorDimensions&&<g fontFamily="Arial,sans-serif" fill="#15191b" fontSize="24" fontWeight="700"><text x={x+width/2} y={outerY-47} textAnchor="middle">{p.width} mm</text><text x={outerX-50} y={(openingY+openingBottom)/2} textAnchor="middle" transform={`rotate(-90 ${outerX-50} ${(openingY+openingBottom)/2})`}>{openingHeight} mm</text></g>}
+  {p.modelLayout&&<ModelArtwork layout={p.modelLayout} box={{x,y,width,height}} realHeight={p.height} glass={`url(#glass-${safeId})`} compact={compact} thresholdHeight={bottomMode==='alu24'?aluThresholdMm*scale:0} thresholdSpans={bottomSpans.map(span=>({x:x+span.x*scale,width:span.width*scale}))}/>}
   {!combination&&!p.modelLayout&&!standalone&&<rect x={x} y={y} width={width} height={height} fill="#f5f5f3" stroke="#1f2529" strokeWidth="2.4"/>}
   {fixedPanes.filter(pane=>pane.w>0&&pane.h>0).map(pane=>{
    const inset=Math.min(5,pane.w/5,pane.h/5);
@@ -76,11 +95,12 @@ export function Drawing({position:p,selected=-1,onSelect,zoom=1,compact=false}:{
    const isWindow=!!combination&&i===1;
    const sh=combinedFrame?.height??middleHeight;
    const sy=combinedFrame?.y??y+top;
-   const inset=Math.min(9,sw/5,sh/5),l=sx+inset,r=Math.max(l+1,sx+sw-inset),t=sy+inset,b=Math.max(t+1,sy+sh-inset),mid=(t+b)/2;
+   const threshold=bottomMode==='alu24'&&!isWindow?aluThresholdMm*scale:0;
+   const inset=Math.min(9,sw/5,sh/5),l=sx+inset,r=Math.max(l+1,sx+sw-inset),t=sy+inset,b=Math.max(t+1,sy+sh-(threshold?threshold+6:inset)),mid=(t+b)/2;
    const left=segment.opening.includes('Levo'),right=segment.opening.includes('Desno');
    return <g key={i} onClick={()=>onSelect?.(i)} role={onSelect?'button':undefined} tabIndex={onSelect?0:undefined} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();onSelect?.(i);}}} aria-label={`Krilo ${i+1}, ${segment.opening}`} style={{cursor:onSelect?'pointer':undefined}}>
     {combination&&<rect data-combination-part={isWindow?'window':'door'} x={sx} y={sy} width={sw} height={sh} fill="#f5f5f3" stroke="#1f2529" strokeWidth="2.4"/>}
-    <rect x={sx+3} y={sy+3} width={Math.max(1,sw-6)} height={Math.max(1,sh-6)} fill="#f5f5f3" stroke={selected===i?'#b00919':'#555e63'} strokeWidth={selected===i?3:1.2}/>
+    <rect x={sx+3} y={sy+3} width={Math.max(1,sw-6)} height={Math.max(1,sh-6-threshold)} fill="#f5f5f3" stroke={selected===i?'#b00919':'#555e63'} strokeWidth={selected===i?3:1.2}/>
     <rect x={l} y={t} width={r-l} height={b-t} fill={`url(#glass-${safeId})`} stroke="#222a2e" strokeWidth="1.5"/>
     {!specialized&&<g stroke="#283a43" strokeWidth="1.7" strokeDasharray="7 5" fill="none">
      {left&&<path d={`M${l} ${t}L${r} ${mid}L${l} ${b}`}/>}
@@ -91,6 +111,9 @@ export function Drawing({position:p,selected=-1,onSelect,zoom=1,compact=false}:{
     {p.category==='Komarnici'&&Array.from({length:12},(_,k)=><path key={k} d={`M${l} ${t+(b-t)*k/12}H${r}M${l+(r-l)*k/12} ${t}V${b}`} stroke="#8298a3" strokeWidth=".7"/>)}
    </g>;
   })}
+  {bottomMode&&bottomSpans.map((span,index)=><DoorBottomArtwork key={index} mode={bottomMode} box={{x:x+span.x*scale,y,width:span.width*scale,height}} scale={scale} compact={compact} label={index===0} labelY={doorDimensions?bottomCaptionY:undefined}/>)}
   {shutter&&shutterFrame&&<ShutterArtwork frame={drawingFrame(shutterFrame)} config={shutter} scale={scale} standalone={standalone} dimensions={!compact}/>}
+  {!compact&&doorDimensions&&<PositionDimensions position={p} origin={{x,y}} scale={scale} onSelect={onDimensionSelect}/>}
+  {!compact&&doorDimensions&&<text x={viewBounds[0]+viewBounds[2]-14} y={viewBounds[1]+12} textAnchor="end" fontFamily="Arial,sans-serif" fontSize="9" fill="#89949b">Mere u mm</text>}
  </svg>;
 }

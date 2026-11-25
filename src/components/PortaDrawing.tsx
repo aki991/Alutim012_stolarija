@@ -1,5 +1,7 @@
 import type { Position } from '../models';
 import { portaDirection, portaLeafCount, portaRoyalTypes, portaSliding, type PortaRoyalConfig } from '../porta-royal';
+import { PositionDimensions } from './PositionDimensions';
+import type { PositionDimension } from '../position-dimensions';
 
 export function PortaDoorArt({config,x,y,width,height}:{config:PortaRoyalConfig;x:number;y:number;width:number;height:number}) {
  const {type,direction}=config;
@@ -33,15 +35,13 @@ export function PortaDoorArt({config,x,y,width,height}:{config:PortaRoyalConfig;
  </g>;
 }
 
-export function PortaDrawing({position,config,compact=false}:{position:Position;config:PortaRoyalConfig;compact?:boolean}) {
+export function PortaDrawing({position,config,compact=false,onDimensionSelect}:{position:Position;config:PortaRoyalConfig;compact?:boolean;onDimensionSelect?:(dimension:PositionDimension)=>void}) {
  const w=position.width>0?position.width:900,h=position.height>0?position.height:2100;
  const scale=Math.min(356/w,334/h),width=w*scale,height=h*scale,x=(560-width)/2,y=(450-height)/2+9;
  return <svg xmlns="http://www.w3.org/2000/svg" viewBox={compact?`${x-8} ${y-13} ${width+16} ${height+21}`:'0 0 560 450'} role="img" aria-label={`${position.name}, ${portaDirection(config)}`} style={{width:'100%',height:'100%'}}>
   <PortaDoorArt config={config} x={x} y={y} width={width} height={height}/>
   {!compact&&<g fontFamily="Arial,sans-serif" fontSize="18" textAnchor="middle" fill="#1c2529">
-   <path d={`M${x} ${y-32}h${width}m${-width} -5v10m${width} -10v10 M${x-27} ${y}v${height}m-5 0h10m-10 ${-height}h10`} stroke="#313c41" fill="none"/>
-   <text x={x+width/2} y={y-40}>{position.width>0?`${position.width} mm`:'—'}</text>
-   <text transform={`translate(${x-38} ${y+height/2}) rotate(-90)`}>{position.height>0?`${position.height} mm`:'—'}</text>
+   <PositionDimensions position={position} origin={{x,y}} scale={scale} onSelect={onDimensionSelect}/>
    <text x="280" y="428">{portaRoyalTypes[config.type]} · {portaDirection(config)}</text>
   </g>}
  </svg>;

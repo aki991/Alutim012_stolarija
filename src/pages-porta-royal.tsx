@@ -1,3 +1,6 @@
+import { ElementPriceInput } from './components/ElementPriceInput';
+import { DimensionDialog } from './components/DimensionDialog';
+import { positionDimensions, type PositionDimension } from './position-dimensions';
 import { useRef, useState, type ReactNode } from 'react';
 import { Check, DoorOpen, Search } from 'lucide-react';
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -13,7 +16,7 @@ import { isActiveJob, type Job, type Opening, type Position } from './models';
 import { MissingJob } from './pages-editor';
 import { catalogChoicePath } from './pages-lists';
 import { isPortaDimension, portaCatalogPath, portaConfiguration, portaDefaultSelection, portaFills, portaGlazing, portaHandles, portaHinges, portaLocks, portaMaxDimension, portaOptions, portaPositionName, portaRoyalCatalog, portaRoyalGroups, portaRoyalSeries, portaRoyalTypes, portaSeriesById, portaSliding, portaStartingSize, portaTechnical, portaVariant, portaVariantCount, type PortaRoyalConfig, type PortaSelection } from './porta-royal';
-import { positionCost, positionPriceLabel, validatePosition } from './services/calculation';
+import { positionCost, positionCostInJob, positionPriceLabel, validatePosition } from './services/calculation';
 import { useNavigation } from './navigation';
 import { canEditPrices, jobFromSettings, useStore, workspaceDraft, withPositionPrice } from './store';
 import { useOfflineWork } from './team-session';
@@ -94,13 +97,13 @@ export function PortaCatalog() {
  </div>;
 }
 
-function PortaWorkspace({selection,size,onDimension,ral,children}:{
- selection:PortaSelection;size:ElementDimensions;onDimension:(key:keyof ElementDimensions,value:number)=>void;ral?:string;children:ReactNode;
+function PortaWorkspace({selection,size,onDimension,onDimensionSelect,ral,children}:{
+ selection:PortaSelection;size:ElementDimensions;onDimension:(key:keyof ElementDimensions,value:number)=>void;onDimensionSelect?:(key:keyof ElementDimensions)=>void;ral?:string;children:ReactNode;
 }){
  return <main className="measurement-workspace porta-editor-workspace">
   <DimensionControls size={size} min={{width:1,height:1}} max={{width:portaMaxDimension,height:portaMaxDimension}} clearToZero onChange={onDimension}/>
   <section className="measurement-canvas porta-editor-preview">
-   <PortaPhoto selection={selection} size={size} dimensions/>
+   <PortaPhoto selection={selection} size={size} dimensions onDimensionSelect={onDimensionSelect}/>
    {ral?.trim()&&<p className="field-sketch-note">Fotografija prikazuje kataloški dekor. Naručena nijansa se navodi prema RAL oznaci.</p>}
    <PortaTechnicalDetails selection={selection}/>
   </section>
@@ -141,10 +144,13 @@ function PortaMeasurements({initial,jobId,customer,back,editing,showPrices,draft
   return draft?.portaRoyal?draft:initial;
  });
  const [newJobOpen,setNewJobOpen]=useState(false);
+ const [editingDimension,setEditingDimension]=useState<PositionDimension|null>(null);
  const [draftError,setDraftError]=useState(false);
  const newJob=useRef<Job|null>(null);
  const config=p.portaRoyal!,{series}=portaVariant(config)!,spec=portaTechnical(series),sliding=portaSliding(config.type);
- const errors=validatePosition(p),price=positionCost(editPrices?p:withPositionPrice(p,savedPosition),settings);
+ const parentJob=useStore(s=>s.jobs.find(job=>job.id===jobId));
+ const priced=editPrices?p:withPositionPrice(p,savedPosition);
+ const errors=validatePosition(p),price=parentJob?positionCostInJob(parentJob,priced,settings):{...positionCost(priced,settings,'Standard',true),allocationUnit:0};
  function patch(next:Position){
   setP(next);
   try{draftStorage.write(next);setDraftError(false);}catch{setDraftError(true);}
@@ -186,7 +192,7 @@ function PortaMeasurements({initial,jobId,customer,back,editing,showPrices,draft
  const title=customer?`${editing?'Izmeni sobna vrata':'Sobna vrata'} — ${customer}`:series.name;
  return <div className="field-page measuring-page porta-page">
   <FieldHeader title={title} back={back}/>
-  <PortaWorkspace selection={config} size={p} ral={config.ral} onDimension={(key,value)=>patch(withDoor({...p,[key]:value},config))}>
+  <PortaWorkspace onDimensionSelect={axis=>setEditingDimension(positionDimensions(p).find(d=>d.id===axis)!)} selection={config} size={p} ral={config.ral} onDimension={(key,value)=>patch(withDoor({...p,[key]:value},config))}>
     {!editing&&<p className="porta-size-hint">Početne mere otvora su približne.</p>}
     <div className="porta-card">
      <div className="field-options-grid">
@@ -221,13 +227,14 @@ function PortaMeasurements({initial,jobId,customer,back,editing,showPrices,draft
       <label><input type="checkbox" checked={p.removal} onChange={event=>patch({...p,removal:event.target.checked})}/>Demontaža</label>
      </div>
      <Field label="Napomena"><textarea rows={2} maxLength={2000} value={p.notes} onChange={event=>patch({...p,notes:event.target.value})}/></Field>
-     {showPrices&&editPrices&&<Field label="Ručna cena po komadu (€)"><input type="number" inputMode="decimal" min={0} max={1e8} step="0.01" value={p.manualPrice??''} onChange={event=>{if(!event.target.validity.badInput)patch({...p,manualPrice:event.target.value?Math.max(0,Math.min(1e8,+event.target.value)):null});}}/></Field>}
+     {showPrices&&editPrices&&<Field label="Ručna cena po komadu (€)"><ElementPriceInput manualPrice={p.manualPrice} allocationUnit={price.allocationUnit} automaticUnit={price.calculated} onChange={manualPrice=>patch({...p,manualPrice})}/></Field>}
     </details>
     {errors.length>0&&<p className="field-error" role="status">{errors[0]}</p>}
     {draftError&&<p className="field-error" role="alert">Nacrt nije sačuvan na uređaju. Sačuvajte vrata u poslu.</p>}
   </PortaWorkspace>
   <footer className="measurement-footer">{showPrices&&<div className="measurement-amount"><span>{p.quantity} kom.</span><strong>{positionPriceLabel(price,p)}</strong></div>}<button className="field-button field-button-yellow" onClick={save} disabled={errors.length>0}><Check/>{editing?'Sačuvaj izmene':'Dodaj u posao'}</button></footer>
   {newJobOpen&&<NewJobDialog onCreate={createJob} onClose={()=>setNewJobOpen(false)} submitLabel="Sačuvaj posao"/>}
+ {editingDimension&&<DimensionDialog position={p} dimension={editingDimension} onClose={()=>setEditingDimension(null)} onApply={next=>{patch(next);setEditingDimension(null);}}/>}
  </div>;
 }
 

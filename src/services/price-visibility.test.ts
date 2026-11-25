@@ -15,6 +15,7 @@ describe('Prikaz cena u timu',()=>{
  it('ne prikazuje cene dok se ne učitaju podešavanja tima',()=>{
   expect(teamPriceVisibility('worker',true,false,true)).toBe(false);
   expect(teamPriceVisibility('worker',true,true,null)).toBe(false);
+  expect(teamPriceVisibility('manager',true,true,null)).toBe(true);
   expect(teamPriceVisibility('manager',true,false,null)).toBe(false);
  });
 });

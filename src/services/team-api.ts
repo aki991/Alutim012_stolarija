@@ -1,3 +1,4 @@
+import type { JobOrigin } from './job-assignment';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import type { Job, Settings } from '../models';
 import { getSupabase } from './supabase';
@@ -8,7 +9,7 @@ export type PriceSettings=Pick<Settings,'prices'|'portaRoyalPrices'|'vat'|'vatMo
 export type TeamPricingRow={prices:Partial<Settings['prices']>;porta_royal_prices:Record<string,number>;vat:number;vat_mode:Settings['vatMode'];revision:number;worker_prices_visible?:boolean};
 export type TeamPreferences=Pick<Settings,'showPrices'|'elementDefaults'|'documentDefaults'>;
 export type TeamPreferencesRow={data:TeamPreferences;revision:number};
-export type TeamJob={id:string;data:Job;assigned_to:string|null;assigned_by:string|null;revision:number;assignee_only:boolean};
+export type TeamJob=JobOrigin&{id:string;data:Job;assigned_to:string|null;assigned_by:string|null;revision:number;assignee_only:boolean};
 export type TrashedTeamJob={id:string;name:string;address:string;deleted_at:string;purge_started:boolean};
 export type TeamMessage={id:string;job_id:string;sender_id:string|null;sender_name:string;body:string;created_at:string};
 export type TeamConversation=TeamMessage&{job_name:string;unread:boolean};
@@ -41,7 +42,8 @@ export async function fetchTeamAssignees():Promise<TeamMember[]>{
 }
 
 export async function fetchTeamPricing():Promise<TeamPricingRow>{
- return checkedPricing(check(await getSupabase().from('field_team_pricing').select('prices,porta_royal_prices,vat,vat_mode,revision,worker_prices_visible').single<TeamPricingRow>()));
+ // Read the existing row even when an optional setting has not been migrated yet.
+ return checkedPricing(check(await getSupabase().from('field_team_pricing').select('*').single<TeamPricingRow>()));
 }
 
 export async function fetchTeamPreferences():Promise<TeamPreferencesRow|null>{
@@ -94,10 +96,10 @@ export async function fetchTeamJobs(known:ReadonlyMap<string,TeamJob>):Promise<T
  const pageSize=100;
  for(let offset=0;;offset+=pageSize){
   const versions=check(await api.from('field_team_visible_jobs').select('id,revision').order('id').range(offset,offset+pageSize-1))??[];
-  const changed=versions.filter(row=>known.get(row.id)?.revision!==row.revision).map(row=>row.id);
-  const fetched:TeamJob[]=changed.length?check(await api.from('field_team_visible_jobs').select('id,data,assigned_to,assigned_by,revision,assignee_only').in('id',changed))??[]:[];
+  const changed=versions.filter(row=>known.get(row.id)?.revision!==row.revision||known.get(row.id)?.can_reassign===undefined).map(row=>row.id);
+  const fetched:TeamJob[]=changed.length?check(await api.from('field_team_visible_jobs').select('*').in('id',changed))??[]:[];
   for(const row of versions){
-   const result=known.get(row.id)?.revision===row.revision?known.get(row.id):fetched.find(job=>job.id===row.id);
+   const result=fetched.find(job=>job.id===row.id)??known.get(row.id);
    if(result)rows.push(result);
   }
   if(versions.length<pageSize)return rows;
