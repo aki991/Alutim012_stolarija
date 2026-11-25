@@ -16,4 +16,10 @@ describe('Lokalne rezervne kopije',()=>{
  it('migrira stari posao bez izmene ID-ja, mera, cena, fotografija i popusta',()=>{const b=backup();delete b.jobs[0].positions[0].profile;b.jobs[0].discount=7;b.jobs[0].positions[0].photos=['/assets/house.jpg'];const original=structuredClone(b);const migrated=parseBackup(b);expect(migrated.jobs[0].id).toBe(original.jobs[0].id);expect(migrated.jobs[0].positions[0].profile).toBe('PVC 70 mm');expect(migrated.jobs[0].createdAt).toBe('2026-11-01T12:00:00');expect(migrated.jobs[0].positions[0].photos).toEqual(original.jobs[0].positions[0].photos);expect(migrated.jobs[0].positions[0].width).toBe(original.jobs[0].positions[0].width);expect(migrated.jobs[0].discount).toBe(7);expect(migrated.settings).toEqual(original.settings);expect(b).toEqual(original);});
  it('čuva nove podrazumevane opcije, bez promene postojećih pozicija',()=>{const b=backup();const settings={...b.settings,elementDefaults:{material:'ALU' as const,profile:'ALU termo profil',color:'Antracit',glass:'Troslojno' as const,hardware:'Sigurnosni' as const},documentDefaults:{validity:'30 dana',delivery:'Po dogovoru',payment:'Avans'}};const result=parseBackup({...b,settings});expect(result.settings).toEqual(settings);expect(result.jobs[0].positions[0].material).toBe('PVC');expect(result.jobs[0].validity).toBe('15 dana');});
  it('odbija oštećene nove opcije iz rezervne kopije',()=>{const b=backup();expect(()=>parseBackup({...b,settings:{...b.settings,elementDefaults:{material:'nepoznat'}}})).toThrow();expect(()=>parseBackup({...b,settings:{...b.settings,documentDefaults:{validity:12}}})).toThrow();});
+ it('čuva datume evidencije i odbija nemoguće datume',()=>{
+  const b=backup();const job={...b.jobs[0],status:'Ugrađeno',completionDeadline:'2026-12-20',measuredOn:'2026-11-25',completedOn:'2026-12-01',installedOn:'2026-12-02'};
+  expect(parseBackup({...b,jobs:[job]}).jobs[0]).toMatchObject(job);
+  for(const key of ['completionDeadline','measuredOn','completedOn','installedOn'])expect(()=>parseBackup({...b,jobs:[{...job,[key]:'2026-02-30'}]})).toThrow();
+ });
+
 });

@@ -55,7 +55,7 @@ export const guideChapters: readonly GuideChapter[] = [
    { heading: 'Od dodele do predaje mera', items: [
     'Otvorite dodelu iz Obaveštenja ili pronađite posao kroz Poslovi → Merenje. U pregledu posla piše kog dana treba uraditi merenje.',
     'Ako merenje ostane nezavršeno, pojavljuje se u rasporedu za naredni dan, po vremenu u Srbiji. Na primer, nezavršeno merenje od 17.11. se 18.11. računa u merenja danas. Prenos se ponavlja dok se merenje ne završi ili se ručno upiše drugi termin.',
-    'Sačuvajte izmerene elemente pa izaberite Merenje završeno. Posao prelazi u Poslati ponudu. Kod prenetog merenja upisuje se datum dana završetka.',
+    'Sačuvajte izmerene elemente, u Evidenciji posla unesite Rok završetka pa izaberite Merenje završeno. Upisuje se stvarni datum merenja. Posao prelazi u Poslati ponudu. Kod prenetog merenja upisuje se datum dana završetka.',
     'Dok traje merenje, zadužena osoba radi na merama. Ostali sa pravom pregleda vide podatke prema podešenoj vidljivosti i dobijaju pristup izmerenim elementima nakon predaje.',
    ] },
    { heading: 'Poruke i obaveštenja', text: 'Otvorite Poruke o poslu kada tražite uputstvo ili šaljete dopunu. Za obaveštenja dok je aplikacija zatvorena otvorite Nalog → Obaveštenja na uređaju → Uključi na ovom uređaju i dozvolite obaveštenja. Podešavanje važi za svaki uređaj posebno. Na iPhone-u ili iPad-u pokrenite instaliranu aplikaciju preko ikonice. Odjava isključuje obaveštenja na tom uređaju.' },
@@ -75,6 +75,7 @@ export const guideChapters: readonly GuideChapter[] = [
     'Kod modela sa više redova ili polja podesite njihove visine, širine, ispune i otvaranja. Kod osnovnih elemenata koristite fiksna polja za nadsvetlo i bočne delove.',
     'Materijal i dodatnu opremu (roletnu, komarnik i klupicu) izaberite na glavnom ekranu. U Dodatnim opcijama podesite naziv, količinu, profil, boju, staklo i okov. Tamo se dodaju montaža, demontaža, pristup objektu, dodatni radovi, napomene i do četiri fotografije po elementu.',
    ] },
+   { text: 'Na listi poslova piše kome je dodeljeno merenje. U Evidenciji posla vide se rok završetka i datumi merenja, završetka i ugradnje. Kada je posao ugrađen, zaduženi radnik ili šef bira Ugrađeno; datum se beleži automatski. Za stare poslove bez zabeleženog datuma prikazuje se Nije zabeleženo.' },
    { text: 'Gotovo zatvara dodatne opcije. Dodaj u posao potvrđuje novu poziciju, a Sačuvaj izmene potvrđuje postojeću. Nacrt omogućava nastavak rada. Potvrđene pozicije su vidljive u spisku i ulaze u dokument. Mere sa terena i izvodljivost konfiguracije proverava kancelarija.' },
   ],
  },

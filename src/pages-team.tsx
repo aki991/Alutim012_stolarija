@@ -206,13 +206,6 @@ export function TeamJobPanel({ job }: { job: Job }) {
  const assignedTo = assignments[job.id];
  return <section className="team-card team-conversation" aria-label="Merenje i dodela">
   {manager && assignedTo && <p className="team-current-worker">Vidljivost posla · {assigneeOnly ? 'Zadužena osoba i šefovi' : 'Ceo tim'}</p>}
-  {job.status === 'Merenje' && (!assignedTo || assignedTo === member.id) && <div className="team-measure-action">
-   <button type="button" className="field-button field-button-yellow" disabled={!job.positions.length} onClick={() => {
-    const date = scheduledMeasurementDate(job, Boolean(assignedTo), todayInBelgrade());
-    useStore.getState().updateJob(job.id, { status: 'Poslati ponudu', date }, job);
-   }}><Check size={19}/>Merenje završeno</button>
-   {!job.positions.length && <small>Dodajte izmerene elemente pre završetka merenja.</small>}
-  </div>}
   <div className="team-actions">
    {manager && <Link className="field-button field-button-light" to={`/dodeli-merenje/${job.id}`}>{assignedTo ? 'Dodela i vidljivost' : 'Dodeli merenje'}</Link>}
    {(!manager || assignedTo) && <Link className="field-button field-button-light" to={`/poruke/${job.id}`}><MessageSquare size={18}/>Poruke o poslu</Link>}

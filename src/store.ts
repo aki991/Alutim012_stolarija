@@ -5,6 +5,7 @@ import { defaults } from './services/calculation';
 import { parseBackup, type LocalSnapshot } from './services/storage';
 import { LocalConflict, localSaveError, localWorkspaceKey, LocalWorkspaceStorage } from './services/local-workspace';
 import { positionDraft } from './services/position-draft';
+import { jobProgressPatch } from './services/job-progress';
 import { todayInBelgrade } from './services/measurement-schedule';
 import { jobsWithPendingChanges, mutationTarget, readTeamMutations, writeTeamMutations, type TeamMutation } from './services/team-mutations';
 import { createTeamJob, deleteTeamJob, fetchTeamJobs, fetchTeamPreferences, fetchTeamPricing, saveTeamPreferences, saveTeamPricing, updateTeamJob, type PriceSettings, type TeamJob, type TeamMember, type TeamPreferences, type TeamPreferencesRow, type TeamPricingRow } from './services/team-api';
@@ -79,8 +80,12 @@ export const useStore=create<AppState>((set,get)=>({
  ...initial.data,saveState:initial.error?'error':'saved',storageError:initial.error,
  teamMember:null,teamConflict:false,teamAssignments:{},teamAssigneeOnly:{},teamPricingRevision:null,teamPricingError:'',
  updateJob:(id,patch,baseline)=>{
+  const current=get().jobs.find(j=>j.id===id);
+  if(!current)return;
+  if(baseline)patch=Object.fromEntries((Object.keys(patch) as (keyof Job)[]).filter(key=>JSON.stringify(patch[key])!==JSON.stringify(baseline[key])).map(key=>[key,patch[key]]));
+  patch=jobProgressPatch(current,patch);
   if(workspace){
-   const job=get().jobs.find(j=>j.id===id);
+   const job=current;
    if(!job||!canEditJob(get(),job))return;
    const previous=baseline??job;
    if(workspace.member.role==='worker'&&patch.positions){
@@ -93,7 +98,6 @@ export const useStore=create<AppState>((set,get)=>({
     expected:Object.fromEntries(fields.map(key=>[key,previous[key]])),updated:new Date().toISOString()});
    return;
   }
-  if(baseline)patch=Object.fromEntries((Object.keys(patch) as (keyof Job)[]).filter(key=>JSON.stringify(patch[key])!==JSON.stringify(baseline[key])).map(key=>[key,patch[key]]));
   set(s=>({jobs:s.jobs.map(j=>j.id===id?{...j,...patch,updated:new Date().toISOString()}:j),saveState:'dirty'}));
  },
  addJob:job=>{
@@ -134,7 +138,7 @@ export const useStore=create<AppState>((set,get)=>({
   const worker=state.teamMember?.role==='worker';
   const pricing=worker?workerJobPricing(fresh.transport):{};
   const copy={...job,...pricing,id:fresh.id,customer:{...job.customer,name:job.customer.name+' (kopija)'},
-   status:'U izradi' as const,createdAt:fresh.createdAt,updated:fresh.updated,
+   status:'U izradi' as const,completionDeadline:'',measuredOn:'',completedOn:'',installedOn:'',createdAt:fresh.createdAt,updated:fresh.updated,
    positions:job.positions.map(p=>({...p,id:uid()}))};
   state.addJob(copy);
   return copy.id;

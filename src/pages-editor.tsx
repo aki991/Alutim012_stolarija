@@ -22,6 +22,8 @@ import { PositionOptions } from './components/PositionOptions';
 import { PositionEquipment } from './components/PositionEquipment';
 import { ShutterControls } from './components/ShutterControls';
 import { openingBoxHeight, shutterOf } from './shutters';
+import { JobProgress } from './components/JobProgress';
+import { canFinishMeasurement } from './services/job-progress';
 import { JobStatus } from './components/JobStatus';
 import { JobForm } from './components/JobForm';
 import { ModelLayoutControls } from './components/ModelLayoutControls';
@@ -61,13 +63,14 @@ export function Editor(){
  function move(index:number,by:number){const positions=[...job!.positions];[positions[index],positions[index+by]]=[positions[index+by],positions[index]];updateJob(job!.id,{positions});}
  return <div className="field-page summary-page"><FieldHeader title={`Posao: ${job.customer.name}`} back="/poslovi"/>
  <main className="job-summary">
-  <div className="summary-customer"><button aria-label="Podaci o kupcu" className="summary-customer-info" onClick={()=>setDataOpen(true)}><UserRound/><span><strong>{job.customer.name}</strong><small>{job.customer.address||(editable?'Dodaj podatke o kupcu':'Adresa nije navedena')}</small></span>{editable&&<Pencil size={18}/>}</button><JobStatus value={job.status} name={job.customer.name} locked={statusLocked} onChange={status=>{updateJob(job.id,{status});useStore.getState().retrySave();}}/></div>
+  <div className="summary-customer"><button aria-label="Podaci o kupcu" className="summary-customer-info" onClick={()=>setDataOpen(true)}><UserRound/><span><strong>{job.customer.name}</strong><small>{job.customer.address||(editable?'Dodaj podatke o kupcu':'Adresa nije navedena')}</small></span>{editable&&<Pencil size={18}/>}</button><JobStatus value={job.status} name={job.customer.name} locked={statusLocked} measurementReady={canFinishMeasurement(job)} onChange={status=>{updateJob(job.id,{status});useStore.getState().retrySave();}}/></div>
   <div className="summary-toolbar">
    {offline&&job.positions.length>0&&<OfflineJobTransferButton key={job.id} job={job}/>}
    <Saved state={saveState} shared={Boolean(teamMember)}/>
   </div>
   {teamMember&&locationState?.offlineJobTransferred===true&&<p className="field-message" role="status">Posao je prebačen u tim.</p>}
   {assigned&&measurementDate&&<p className="field-message">Merenje treba uraditi <time dateTime={measurementDate}>{formatMeasurementDate(measurementDate)}</time></p>}
+  <JobProgress job={job}/>
   {waiting?<section className="team-card team-measurement-wait"><h2>Merenje je u toku</h2><p>Elementi, mere i ponuda biće dostupni kad zadužena osoba potvrdi završetak merenja.</p></section>:
   !job.positions.length?<Empty title={editable?"Dodajte prvi element":"Nema sačuvanih elemenata"} action={editable&&<Link className="field-button field-button-red" to={`/posao/${job.id}/dodaj`}><Plus/>Dodaj element</Link>}/>:
   <div className={settings.showPrices===false?"summary-grid without-prices":"summary-grid"}><section className="job-lines" aria-label="Elementi posla"><div className="job-line-head"><span>#</span><span>Element</span><span>Dimenzije (mm)</span><span>Kom.</span>{settings.showPrices!==false&&<span>Cena</span>}<span/></div>

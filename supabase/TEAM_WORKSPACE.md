@@ -89,3 +89,10 @@ Poslovi i arhivirani dokumenti prikazuju se u Stolariji prema postojećim pravim
 4. Kao šef otvorite **Pogledaj cenu i podeli dokument → Ponuda za kupca**, pa preuzmite probni PDF. Nakon provere dokumenta vratite se na posao i postavite status **Ponuda**.
 5. Kao Miloš postavite **Prihvaćeno** da simulirate odgovor kupca. Kod šefa proverite obaveštenje da je posao spreman za izradu.
 6. Kao šef postavite **U izradi**, pa **Završeno**. Kod Miloša proverite oba statusa i obaveštenja. Završen posao možete naći u **Poslovi → Završeno**.
+
+
+## Rok završetka i evidencija ugradnje
+
+Primenite [migraciju evidencije posla](migrations/202611250001_job_progress.sql) posle prethodnih migracija i objavite novu verziju aplikacije. Ona dodaje status **Ugrađeno**, proveru datuma i automatsko beleženje datuma merenja, završetka i ugradnje u podacima posla. Pri promeni zaduženja osvežava se prikaz imena; osvežavaju se i imena na ranije dodeljenim poslovima.
+
+Na listi poslova prikazuju se zadužena osoba i rok ili datum završetka/ugradnje. U poslu je odeljak **Evidencija posla**. Unesite **Rok završetka** pre potvrde **Merenje završeno**, i kod lokalnog rada pre prebacivanja u tim. Rok mora biti na dan merenja ili kasnije. Stvarni datum merenja se čuva zasebno od zakazanog termina. Zaduženi radnik ili šef može iz prihvaćenog, proizvedenog ili završenog posla da izabere **Ugrađeno**. Datum završetka i ugradnje beleži se automatski po vremenu u Beogradu. Već zabeleženi datumi se čuvaju pri kasnijim promenama statusa. Kopija posla počinje bez ovih datuma i roka. Za stare poslove se ne pretpostavljaju datumi koji nisu zabeleženi.

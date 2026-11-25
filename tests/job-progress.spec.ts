@@ -1,0 +1,37 @@
+import { expect, test } from '@playwright/test';
+
+for(const width of [390,1024])test(`Rok, merenje i ugradnja ostaju sačuvani: ${width}`,async({page})=>{
+ await page.clock.install({time:new Date('2026-11-24T23:30:00Z')});
+ await page.setViewportSize({width,height:900});
+ await page.goto('/posao/AT-2026-012');
+ await page.getByRole('combobox',{name:/Status posla/}).selectOption('Merenje');
+ const progress=page.getByRole('region',{name:'Evidencija posla'});
+ await expect(progress.getByRole('button',{name:'Merenje završeno'})).toBeDisabled();
+ await expect(page.getByRole('combobox',{name:/Status posla/}).locator('option').filter({hasText:'Poslati ponudu'})).toHaveAttribute('disabled','');
+ await progress.getByLabel('Rok završetka').fill('2026-11-24');
+ await expect(progress.getByRole('button',{name:'Merenje završeno'})).toBeDisabled();
+ await progress.getByLabel('Rok završetka').fill('2026-12-15');
+ await progress.getByRole('button',{name:'Merenje završeno'}).click();
+ await expect(progress.locator('time')).toHaveAttribute('datetime','2026-11-25');
+ await page.reload();
+ await expect(progress.getByLabel('Rok završetka')).toHaveValue('2026-12-15');
+ await page.getByRole('combobox',{name:/Status posla/}).selectOption('U izradi');
+ await page.clock.setFixedTime(new Date('2026-12-05T11:00:00Z'));
+ await progress.getByRole('button',{name:'Ugrađeno',exact:true}).click();
+ await expect(page.getByRole('combobox',{name:/Status posla/})).toHaveValue('Ugrađeno');
+ await expect(progress.locator('time')).toHaveCount(3);
+ await expect(progress.locator('time').nth(1)).toHaveAttribute('datetime','2026-12-05');
+ await expect(progress.locator('time').nth(2)).toHaveAttribute('datetime','2026-12-05');
+ await page.reload();
+ await expect(progress.locator('time').nth(0)).toHaveAttribute('datetime','2026-11-25');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:test.info().outputPath('evidencija-posla.png'),fullPage:true});
+ await page.goto('/poslovi');
+ await page.getByRole('button',{name:'Ugrađeno',exact:true}).click();
+ const card=page.locator('.job-card').filter({hasText:'Porodica Petrović'});
+ await expect(card).toContainText('Ugrađeno: 5. 12. 2026.');
+ await card.getByLabel('Meni posla Porodica Petrović').click();
+ await card.getByRole('button',{name:'Dupliraj Porodica Petrović'}).click();
+ await expect(page.getByRole('region',{name:'Evidencija posla'}).locator('time')).toHaveCount(0);
+ await expect(page.getByLabel('Rok završetka')).toHaveValue('');
+});

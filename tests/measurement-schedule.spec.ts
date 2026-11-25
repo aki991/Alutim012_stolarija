@@ -9,7 +9,7 @@ test('Nezavršeno merenje prelazi u današnji raspored i čuva novi datum pri za
  const createRow = (id: string, name: string, date: string, status: Job['status'] = 'Merenje'): TeamJob => ({
   id, assigned_to: member.id, assigned_by: manager, revision: 1, assignee_only: false,
   data: {
-   id, date, status, customer: { name, address: 'Glavna 12', phone: '', email: '', building: '' },
+   id, date, status, completionDeadline: '2026-12-18', customer: { name, address: 'Glavna 12', phone: '', email: '', building: '' },
    technician: member.name, notes: '', positions: [makePosition()], package: 'Standard', discount: 0,
    transport: 0, extraWork: '', extraCost: 0, validity: '', delivery: '', payment: '', updated: '2026-11-17T10:00:00Z',
   },
@@ -38,8 +38,12 @@ test('Nezavršeno merenje prelazi u današnji raspored i čuva novi datum pri za
    case 'field_team_update_job': {
     const { p_id, p_patch, p_expected } = request.postDataJSON();
     expect(p_id).toBe(late.id);
-    expect(p_expected).toEqual({ date: '2026-11-17', status: 'Merenje' });
-    expect(p_patch).toEqual({ date: '2026-11-18', status: 'Poslati ponudu' });
+    if(p_patch.status==='Poslati ponudu'){
+     expect(p_expected).toEqual({ date: '2026-11-17', status: 'Merenje' });
+     expect(p_patch).toEqual({ date: '2026-11-18', status: 'Poslati ponudu', measuredOn: '2026-11-18' });
+    }else if(p_patch.status==='Ugrađeno'){
+     expect(p_patch).toEqual({status:'Ugrađeno',completedOn:'2026-11-18',installedOn:'2026-11-18'});
+    }else expect(p_patch).toEqual({status:'U izradi'});
     late.data = { ...late.data, ...p_patch };
     late.revision++;
     return reply(late);
@@ -55,6 +59,7 @@ test('Nezavršeno merenje prelazi u današnji raspored i čuva novi datum pri za
  await expect(page.getByRole('heading', { name: 'Obaveštenja', exact: true })).toBeVisible();
  await page.goto('/poslovi');
  const jobCard = (row: TeamJob) => page.locator('article').filter({ has: page.getByRole('heading', { name: row.data.customer.name, exact: true }) });
+ await expect(jobCard(late)).toContainText('Merenje: Miloš');
  await expect(jobCard(late).locator('time')).toHaveAttribute('datetime', '2026-11-17');
  await page.clock.fastForward(75_000);
  await expect(jobCard(late).locator('time')).toHaveAttribute('datetime', '2026-11-18');
@@ -74,4 +79,11 @@ test('Nezavršeno merenje prelazi u današnji raspored i čuva novi datum pri za
 
  await page.goto('/');
  await expect(page.getByRole('region', { name: 'Pregled rada' })).toContainText('Danas nema merenja.');
+ await page.goto('/posao/'+late.id);
+ await page.getByRole('combobox',{name:/Status posla/}).selectOption('U izradi');
+ await page.getByRole('button',{name:'Ugrađeno',exact:true}).click();
+ await expect.poll(()=>late.data).toMatchObject({status:'Ugrađeno',measuredOn:'2026-11-18',completedOn:'2026-11-18',installedOn:'2026-11-18'});
+ await page.reload();
+ await expect(page.getByRole('combobox',{name:/Status posla/})).toHaveValue('Ugrađeno');
+ await expect(page.getByRole('region',{name:'Evidencija posla'}).locator('time')).toHaveCount(3);
 });

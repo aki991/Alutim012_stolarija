@@ -513,6 +513,7 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
   await expect(page.getByRole('link', { name: 'Dodaj element' })).toHaveCount(0);
   await expect(bossStatus).toBeDisabled();
   await expect(mobile.getByRole('combobox', { name: statusName })).toBeDisabled();
+  await mobile.getByLabel('Rok završetka', {exact:true}).fill('2099-12-20');
   await mobile.getByRole('button', { name: 'Merenje završeno' }).click();
   await expect(mobile.getByRole('combobox', { name: statusName })).toHaveValue('Poslati ponudu');
   await expect(bossStatus).toHaveValue('Poslati ponudu', { timeout: 10000 });
@@ -531,6 +532,7 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
   await mobile.getByRole('button', { name: 'Sačuvaj izmene' }).click();
   await expect(mobile.getByText(/1700 ×/)).toBeVisible();
   await expect(page.getByText(/1700 ×/)).toHaveCount(0);
+  await mobile.getByLabel('Rok završetka', {exact:true}).fill('2099-12-20');
   await mobile.getByRole('button', { name: 'Merenje završeno' }).click();
   await expect(page.getByText(/1700 ×/)).toBeVisible({ timeout: 10000 });
 
@@ -700,6 +702,7 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
    await chiefPage.getByRole('button', { name: 'Dodaj u posao' }).click();
    await expect(chiefPage.getByRole('region', { name: 'Elementi posla' })).toBeVisible();
    await expect(page.getByRole('heading', { name: 'Merenje je u toku' })).toBeVisible();
+   await chiefPage.getByLabel('Rok završetka', {exact:true}).fill('2099-12-20');
    await chiefPage.getByRole('button', { name: 'Merenje završeno' }).click();
    await expect(page.getByRole('region', { name: 'Elementi posla' })).toBeVisible({ timeout: 10000 });
    expect(chiefJob.data.status).toBe('Poslati ponudu');

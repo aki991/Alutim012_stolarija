@@ -1,6 +1,7 @@
 import { isGeometry } from '../custom/geometry';
 import { isModelLayout } from '../model-layout';
 import { supplementRates } from './pricing-rates';
+import { isJobDate, progressDateFields } from './job-progress';
 import { jobStatuses, type DeletedJob, type Job, type Position, type Settings } from '../models';
 import { isShutterConfig, shutterTypes } from '../shutters';
 import { isPortaRoyalConfig, portaSeriesById } from '../porta-royal';
@@ -55,6 +56,7 @@ export function parseStoredPosition(p:unknown):Position{
 
 function parseJob(j:unknown):Job{
  if(!record(j)||!strings(j,['id','date','technician','notes','extraWork','validity','delivery','payment','updated'])||!record(j.customer)||!strings(j.customer,['name','phone','email','address','building'])||!Array.isArray(j.positions)||!(j.status==='Čeka proveru'||jobStatuses.some(status=>status===j.status))||!['Standard','Optimal','Premium'].includes(String(j.package))||![j.discount,j.transport,j.extraCost].every(number)||(j.discountMode!=='amount'&&Number(j.discount)>100)||(j.date!==''&&!/^\d{4}-\d{2}-\d{2}$/.test(String(j.date))))return fail();
+ if(progressDateFields.some(key=>j[key]!==undefined&&j[key]!==''&&!isJobDate(j[key])))return fail();
  if(j.discountMode!==undefined&&!['percent','amount'].includes(String(j.discountMode)))return fail();
  if(j.surchargeMode!==undefined&&!['percent','amount'].includes(String(j.surchargeMode)))return fail();
  if(j.surcharge!==undefined&&!number(j.surcharge))return fail();

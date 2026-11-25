@@ -118,3 +118,20 @@
 .job-document-archive ul{display:grid;gap:8px;list-style:none;margin:0;padding:0}
 .job-document-archive li{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .job-document-archive time{color:#555e68;font-size:16px}
+
+.job-progress{margin:0 0 18px;padding:16px;border:1px solid #dce1e6;border-radius:12px;background:#fff}
+.job-progress-heading{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.job-progress h2{font:700 23px AluNarrow,Arial,sans-serif;margin:0}
+.job-progress-heading p{font-size:18px;color:#45565f;margin:0;overflow-wrap:anywhere}
+.job-progress-dates{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.job-progress-dates>.field{margin:0;min-width:170px;flex:1}
+.job-progress-dates input{width:100%;min-height:48px;min-width:0;font-size:20px}
+.job-progress-dates dl{display:flex;flex:3;gap:16px;flex-wrap:wrap;margin:0}
+.job-progress-dates dl>div{flex:1;min-width:100px}
+.job-progress-dates dt{font-size:16px;color:#5b646d;margin-bottom:4px}
+.job-progress-dates dd{font-size:19px;margin:0}
+.job-progress-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:14px}
+.job-progress-actions small{font-size:16px;color:#58636b}
+.job-card-info .job-card-assignee{color:#284b57;font-weight:700;overflow-wrap:anywhere}
+.job-card-info .job-card-progress{color:#62676c;font-size:16px}
+@media(max-width:600px){.job-progress{padding:12px}.job-progress-dates{gap:14px}.job-progress-dates>.field,.job-progress-dates dl{flex-basis:100%}.job-progress-dates dl{gap:8px}.job-progress-dates dl>div{min-width:74px}.job-progress-dates dd{font-size:17px}.job-progress-actions>.field-button{width:100%}}

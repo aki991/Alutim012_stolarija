@@ -1,3 +1,5 @@
+import { canFinishMeasurement } from './job-progress';
+import { todayInBelgrade } from './measurement-schedule';
 import type { Job } from '../models';
 import { acceptTeamJob, useStore, withPositionPrice, workerJobPricing } from '../store';
 import { createTeamJob, TeamRequestError, updateTeamJob, type TeamMember } from './team-api';
@@ -27,6 +29,7 @@ export function isUnfinishedLocalTransfer(job: TransferredJob, localJobs: Job[])
 
 async function transfer(job: Job, member: TeamMember): Promise<string> {
  if (!job.positions.length) throw new Error('Dodajte izmerene elemente pre prebacivanja u tim.');
+ if (!canFinishMeasurement(job)) throw new TeamRequestError('Unesite rok završetka u lokalnom poslu pre prebacivanja u tim.', '22023');
  if (!navigator.onLine) throw new Error('Povežite se na internet da biste prebacili posao.');
 
  const offlineSource = sourceOf(job);
@@ -41,6 +44,7 @@ async function transfer(job: Job, member: TeamMember): Promise<string> {
   ...(worker ? workerJobPricing(useStore.getState().settings.prices.transport) : {}),
   id,
   offlineSource,
+  measuredOn: job.measuredOn || todayInBelgrade(),
   technician: member.name,
   status: 'Poslati ponudu',
   positions: worker ? job.positions.map(position => withPositionPrice(position)) : job.positions,

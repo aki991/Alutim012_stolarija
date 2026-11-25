@@ -6,9 +6,9 @@ import type { ShutterConfig, ShutterRate } from './shutters';
 import type { PortaRoyalConfig } from './porta-royal';
 export type Opening = 'Fiksno' | 'Levo' | 'Desno' | 'Kip' | 'Levo + kip' | 'Desno + kip' | 'Klizno';
 export type Category = 'Prozori' | 'Vrata' | 'Sobna vrata' | 'Klizni sistemi' | 'Ulazna vrata' | 'Roletne' | 'Komarnici' | 'Klupice' | 'Usluge';
-export const jobStatuses = ['Merenje', 'Poslati ponudu', 'Ponuda', 'Prihvaćeno', 'Odbijeno', 'U izradi', 'Završeno'] as const;
+export const jobStatuses = ['Merenje', 'Poslati ponudu', 'Ponuda', 'Prihvaćeno', 'Odbijeno', 'U izradi', 'Završeno', 'Ugrađeno'] as const;
 export type Status = typeof jobStatuses[number];
-export const isActiveJob = (job: Pick<Job, 'status'>) => job.status !== 'Završeno' && job.status !== 'Odbijeno';
+export const isActiveJob = (job: Pick<Job, 'status'>) => job.status !== 'Ugrađeno' && job.status !== 'Završeno' && job.status !== 'Odbijeno';
 export type Package = 'Standard' | 'Optimal' | 'Premium';
 export interface Segment { width: number; opening: Opening }
 export type CustomKind = 'window' | 'door' | 'other';
@@ -16,7 +16,7 @@ export const customKindLabel = (kind?:CustomKind) => kind==='door'?'Vrata sa ram
 export interface Position { portaRoyal?: PortaRoyalConfig; shutterConfig?: ShutterConfig; modelLayout?: ModelLayout; combination?: {windowHeight:number;windowSide:'left'|'right';alignment:'top'|'bottom'}; fixedPanels?: FixedPanels; customInfill?: 'glass'|'panel'; customKind?: CustomKind; customFrameMm?: number; customGeometry?: Geometry; id: string; name: string; category: Category; elementType?: string; width: number; height: number; quantity: number; material: 'PVC' | 'ALU'; profile?: string; color: string; glass: 'Dvoslojno' | 'Troslojno' | 'Sigurnosno'; hardware: 'Standardni' | 'Sigurnosni'; segments: Segment[]; shutter: boolean; mosquito: boolean; sill: boolean; installation: boolean; removal: boolean; notes: string; access: string; extraWork: string; extraCost: number; photos: string[]; manualPrice: number | null }
 export interface Customer { name: string; phone: string; email: string; address: string; building: string }
 export interface DeletedJob { job: Job; deletedAt: string }
-export interface Job { discountMode?: 'percent'|'amount'; surcharge?: number; surchargeMode?: 'percent'|'amount'; manualTotal?: number|null; vat?: number; vatMode?: Settings['vatMode']; id: string; customer: Customer; date: string; createdAt?: string; technician: string; notes: string; status: Status; positions: Position[]; package: Package; discount: number; transport: number; extraWork: string; extraCost: number; validity: string; delivery: string; payment: string; updated: string }
+export interface Job { completionDeadline?: string; measuredOn?: string; completedOn?: string; installedOn?: string; discountMode?: 'percent'|'amount'; surcharge?: number; surchargeMode?: 'percent'|'amount'; manualTotal?: number|null; vat?: number; vatMode?: Settings['vatMode']; id: string; customer: Customer; date: string; createdAt?: string; technician: string; notes: string; status: Status; positions: Position[]; package: Package; discount: number; transport: number; extraWork: string; extraCost: number; validity: string; delivery: string; payment: string; updated: string }
 export interface Prices extends Partial<Record<SupplementRate|ShutterRate,number>> { marginPercent?: number; PVC: number; ALU: number; Dvoslojno: number; Troslojno: number; Sigurnosno: number; hardware: number; secureHardware: number; shutter: number; mosquito: number; sill: number; installation: number; removal: number; transport: number }
 export interface Settings { showPrices?: boolean; technician: string; vat: number; vatMode: 'exclusive' | 'inclusive' | 'none'; prices: Prices; portaRoyalPrices?: Record<string,number>; elementDefaults?: Pick<Position,'material'|'profile'|'color'|'glass'|'hardware'>; documentDefaults?: Pick<Job,'validity'|'delivery'|'payment'> }
 export interface CatalogEntry { name: string; category: Category; wings: number; width: number; height: number; fixed?: boolean }

@@ -1,3 +1,4 @@
+import { formatMeasurementDate } from './measurement-schedule';
 import { panelLabels, type PanelSide } from '../fixed-panels';
 import { customOpeningLabel, openingRegions } from '../custom/openings';
 import { customKindLabel, customInfillOf } from '../models';
@@ -29,7 +30,9 @@ export async function makeDocument(job:Job,settings:Settings,kind:'kupac'|'kance
  const ensure=(height:number)=>{if(y+height>276){doc.addPage();header();}};
  function text(value:string,size=9,bold=false,indent=16,width=178){doc.setFont('Arial',bold?'bold':'normal');doc.setFontSize(size);const lines=doc.splitTextToSize(String(value||'-'),width) as string[];for(const line of lines){ensure(size*.5+2);doc.text(line,indent,y);y+=size*.44+1.8;}}
  function rule(){ensure(5);doc.setDrawColor('#e0e4e6');doc.line(16,y,194,y);y+=6;}
- header();text(title,21,true);text(`${job.id}  |  Datum merenja: ${job.date?new Date(job.date+'T12:00:00').toLocaleDateString('sr-Latn-RS'):'Nije naveden'}`,9);y+=3;
+ header();text(title,21,true);text(`${job.id}  |  Datum merenja: ${(job.measuredOn||job.date)?formatMeasurementDate(job.measuredOn||job.date):'Nije naveden'}`,9);y+=3;
+ if(job.completionDeadline)text(`Rok završetka: ${formatMeasurementDate(job.completionDeadline)}`,9,true);
+ if(kind==='kancelarija'){if(job.measuredOn)text(`Izmereno: ${formatMeasurementDate(job.measuredOn)}`,9);if(job.completedOn)text(`Završeno: ${formatMeasurementDate(job.completedOn)}`,9);if(job.installedOn)text(`Ugrađeno: ${formatMeasurementDate(job.installedOn)}`,9);}
  text(job.customer.name,12,true);text(job.customer.address);text(`Telefon: ${job.customer.phone||'-'}  |  Email: ${job.customer.email||'-'}`);text(`Objekat: ${job.customer.building}  |  Majstor: ${job.technician}`);
  if(showPrices)text(`Demo paket: ${job.package}. Cene su ${taxSettings.vatMode==='inclusive'?'sa uključenim PDV-om':taxSettings.vatMode==='exclusive'?'bez PDV-a; porez se dodaje u pregledu':'bez obračuna PDV-a'}.`,8);rule();
  const c=calculate(job,settings);
