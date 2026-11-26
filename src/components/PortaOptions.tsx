@@ -10,7 +10,7 @@ const crops:Record<string,number[]>=photoCrops;
 
 export function PortaPhoto({selection,lazy=false,size,dimensions=false,onDimensionSelect}:{selection:PortaSelection;lazy?:boolean;size?:{width:number;height:number};dimensions?:boolean;onDimensionSelect?:(axis:'width'|'height')=>void}) {
  const {id,series,code,decor,image}=portaVariant(selection)!;
- const src=portaImage(image),[failed,setFailed]=useState('');
+ const src=portaImage(image),[failed,setFailed]=useState(''),[loaded,setLoaded]=useState('');
  const crop=crops[id];
  const [left,top,right,bottom,...outline]=crop??[0,0,photoWidth,photoHeight];
  const cropWidth=right-left,cropHeight=bottom-top;
@@ -36,9 +36,9 @@ export function PortaPhoto({selection,lazy=false,size,dimensions=false,onDimensi
     <div className="porta-photo-dimension porta-photo-dimension-height" role="group" aria-label="Visina vrata"><span>{onDimensionSelect?<button type="button" aria-label={`Ukupna visina: ${height} mm`} onClick={()=>onDimensionSelect('height')}>{heightLabel}</button>:heightLabel}</span><i aria-hidden="true"/></div>
    </>}
    <div className="porta-photo-door" style={{clipPath:polygon?`polygon(${polygon})`:undefined}}>
-    {showPhoto?<img key={src} src={src} loading={lazy?'lazy':'eager'} referrerPolicy="no-referrer" onError={()=>setFailed(src)} alt={`${series.name} · ${decor.name} · ${code}`}
-     style={{left:`${-left/cropWidth*100}%`,top:`${-top/cropHeight*100}%`,width:`${photoWidth/cropWidth*100}%`,height:`${photoHeight/cropHeight*100}%`}}/>:
-     <svg viewBox="0 0 106 182" preserveAspectRatio="none" aria-label={`Skica tipa ${code}`} role="img"><PortaDoorArt config={portaConfiguration(selection)} x={9} y={9} width={88} height={172}/></svg>}
+    {(!showPhoto||loaded!==src)&&<svg viewBox="0 0 106 182" preserveAspectRatio="none" aria-label={`Skica tipa ${code}`} role="img"><PortaDoorArt config={portaConfiguration(selection)} x={9} y={9} width={88} height={172}/></svg>}
+    {showPhoto&&<img key={src} src={src} loading={lazy?'lazy':'eager'} referrerPolicy="no-referrer" onLoad={()=>setLoaded(src)} onError={()=>setFailed(src)} alt={`${series.name} · ${decor.name} · ${code}`}
+     style={{opacity:loaded===src?1:0,left:`${-left/cropWidth*100}%`,top:`${-top/cropHeight*100}%`,width:`${photoWidth/cropWidth*100}%`,height:`${photoHeight/cropHeight*100}%`}}/>}
    </div>
   </div>
  </div>;

@@ -15,10 +15,12 @@ export function AppShell({children,onNew,onSearch,onNotifications,onNavigation}:
  const [width,setWidth]=useState(window.innerWidth),[more,setMore]=useState(false);
  const mainRef=useRef<HTMLDivElement>(null);
  const previousPath=useRef('');
- const visibleLinks=links.filter(link=>settings.showPrices!==false||link.to!=='/cenovnik');
+ const salon=teamMember?.role==='salon';
+ const primaryLinks=salon?[links[0],{...links[1],label:'Moji zahtevi'},{...links[2],label:'Sobna vrata'}]:links;
+ const visibleLinks=primaryLinks.filter(link=>settings.showPrices!==false||link.to!=='/cenovnik');
  if(teamMember?.role==='manager')visibleLinks.splice(3,0,{to:'/dodeli-merenje',label:'Dodeli merenje',Icon:ClipboardList});
  const moreLinks=[accountLink,...visibleLinks.slice(3)];
- if(teamMember?.role!=='worker'){
+ if(!teamMember||teamMember.role==='manager'){
   visibleLinks.push(trashLink);
   moreLinks.splice(1,0,trashLink);
  }
@@ -54,12 +56,12 @@ export function AppShell({children,onNew,onSearch,onNotifications,onNavigation}:
    <button className="sidebar-toggle" onClick={()=>navigation.toggleSidebar(compact)} aria-label={compact?'Proširi navigaciju':'Skupi navigaciju'} title={compact?'Proširi navigaciju':'Skupi navigaciju'}>{compact?<PanelLeftOpen/>:<PanelLeftClose/>}</button>
   </aside>
   <div className="main-shell" ref={mainRef}>
-   {home&&<ReferenceHeader onSearch={onSearch} onNotifications={onNotifications} technician={teamMember?.name??settings.technician} team={Boolean(teamMember)}/>}
+   {home&&!salon&&<ReferenceHeader onSearch={onSearch} onNotifications={onNotifications} technician={teamMember?.name??settings.technician} team={Boolean(teamMember)}/>}
    {!home&&!field&&resume&&<div className="resume-strip"><Link to={resume}><Play size={18}/>Nastavi merenje <strong>{activeJob!.customer.name}</strong><ArrowRight size={18}/></Link>{resume!==`/posao/${activeJob!.id}`&&<Link to={`/posao/${activeJob!.id}`}>Pregled posla</Link>}</div>}
    <div className={`main-content ${field?'work-content':''}`}>{children}</div>
   </div>
   <nav className="mobile-bottom-nav" aria-label="Donja navigacija">
-   {links.slice(0,3).map(({to,label,Icon})=><Link key={to} to={to} className={!more&&activeSection(location.pathname,to)?'active':''} aria-current={activeSection(location.pathname,to)?'page':undefined} onClick={()=>{setMore(false);onNavigation();}}><Icon aria-hidden="true"/><span>{label}</span></Link>)}
+   {primaryLinks.slice(0,3).map(({to,label,Icon})=><Link key={to} to={to} className={!more&&activeSection(location.pathname,to)?'active':''} aria-current={activeSection(location.pathname,to)?'page':undefined} onClick={()=>{setMore(false);onNavigation();}}><Icon aria-hidden="true"/><span>{label}</span></Link>)}
    <button className={more||moreLinks.some(({to})=>activeSection(location.pathname,to))?'active':''} aria-expanded={more} aria-label="Više" onClick={()=>{onNavigation();setMore(!more);}}><MoreHorizontal aria-hidden="true"/><span>Više</span></button>
   </nav>
   {more&&<Modal title="Više" sheet onClose={()=>setMore(false)}><nav className="more-navigation" aria-label="Dodatna navigacija">{moreLinks.map(({to,label,Icon})=><Link key={to} to={to} onClick={()=>setMore(false)}><Icon/>{label}<ArrowRight/></Link>)}{resume&&<Link to={resume} onClick={()=>setMore(false)}><Play/>Nastavi merenje<ArrowRight/></Link>}<button onClick={()=>{setMore(false);onNew();}}><BriefcaseBusiness/>Novi posao<ArrowRight/></button></nav></Modal>}

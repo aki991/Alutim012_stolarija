@@ -37,7 +37,7 @@ export function TeamHeaderLinks() {
   };
  }, [open]);
 
- if (!member) return null;
+ if (!member||member.role==='salon') return null;
  const counts = {
   '/obavestenja': items.filter(item => !item.read_at).length + messageAlerts.length,
   '/poruke': conversations.filter(item => item.unread).length,

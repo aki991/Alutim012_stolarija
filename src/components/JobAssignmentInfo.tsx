@@ -12,6 +12,6 @@ export function JobAssignmentInfo({job,compact=false}:{job:Job;compact?:boolean}
  return <section className="job-assignment-info" aria-label="Kreiranje i dodela posla">
   <h2>Kreiranje i dodela</h2>
   <dl><div><dt>Kreirao posao</dt><dd>{creator}</dd></div><div><dt>Zahtev za merenje poslao</dt><dd>{sender}</dd></div><div><dt>Merenje dodeljeno</dt><dd>{recipient}</dd></div></dl>
-  {hasRequest&&<p>Dodelu merenja može da promeni samo {sender}.</p>}
+  {hasRequest&&<p>{job.salonRequest?`Zahtev salona vodi šef ${job.salonRequest.managerName}.`:`Dodelu merenja može da promeni samo ${sender}.`}</p>}
  </section>;
 }

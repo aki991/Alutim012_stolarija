@@ -77,6 +77,7 @@ export function Editor(){
   {teamMember&&locationState?.offlineJobTransferred===true&&<p className="field-message" role="status">Posao je prebačen u tim.</p>}
   {assigned&&measurementDate&&<p className="field-message">Merenje treba uraditi <time dateTime={measurementDate}>{formatMeasurementDate(measurementDate)}</time></p>}
   <JobAssignmentInfo job={job}/>
+  {job.salonRequest&&<section className="team-card"><h2>Zahtev salona: {job.salonRequest.salonName}</h2><p>Poslato šefu: {job.salonRequest.managerName}</p><p>{job.salonRequest.instructions}</p>{job.positions.some(p=>p.measurementPending)&&<p>Otvorite izabrana vrata i sačuvajte izmerene dimenzije za svaki model.</p>}</section>}
   <JobProgress job={job}/>
   {(editable||teamMember?.role==='manager')&&<JobSiteCosts job={job} readOnly={!editable} onChange={patch=>updateJob(job.id,patch)}/>}
   {waiting?<section className="team-card team-measurement-wait"><h2>Merenje je u toku</h2><p>Elementi, mere i ponuda biće dostupni kad zadužena osoba potvrdi završetak merenja.</p></section>:
@@ -87,7 +88,7 @@ export function Editor(){
     return <article className="job-line" key={p.id}>
     <span className="line-number">{i+1}.</span>
     {editable?<Link className="line-element" to={`/posao/${job.id}/element/${p.id}`}>{element}</Link>:<div className="line-element">{element}</div>}
-    <span className="line-dimensions">{fmt(p.width)} × {fmt(p.height+openingBoxHeight(p))}<span className="line-quantity-inline">{p.quantity} kom.</span><small>{p.portaRoyal?`Tip ${portaRoyalTypes[p.portaRoyal.type]}`:p.modelLayout?`${p.modelLayout.rows.reduce((n,row)=>n+row.cells.filter(cell=>cell.infill!=='space').length,0)} polja`:`${p.segments.length} ${p.segments.length===1?'krilo':'krila'}`}</small>{doorBottomLabel(p)&&<small>{doorBottomLabel(p)}</small>}</span>
+    <span className="line-dimensions">{p.measurementPending?'Čeka merenje':`${fmt(p.width)} × ${fmt(p.height+openingBoxHeight(p))}`}<span className="line-quantity-inline">{p.quantity} kom.</span><small>{p.portaRoyal?`Tip ${portaRoyalTypes[p.portaRoyal.type]}`:p.modelLayout?`${p.modelLayout.rows.reduce((n,row)=>n+row.cells.filter(cell=>cell.infill!=='space').length,0)} polja`:`${p.segments.length} ${p.segments.length===1?'krilo':'krila'}`}</small>{doorBottomLabel(p)&&<small>{doorBottomLabel(p)}</small>}</span>
     <span className="line-quantity">{p.quantity}<small> kom.</small></span>
     {settings.showPrices!==false&&<strong className="line-price">{positionPriceLabel(total.positions[i],p)}</strong>}
     {editable&&<div className="line-tools"><Link to={`/posao/${job.id}/element/${p.id}`} className="field-icon-button" aria-label={`Izmeni element ${i+1}`}><Pencil/></Link><details className="line-menu"><summary className="field-icon-button" aria-label={`Meni elementa ${i+1}`}><MoreVertical/></summary><div>

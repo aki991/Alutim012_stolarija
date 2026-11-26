@@ -39,12 +39,12 @@ interface AppState {
 }
 export const assignedMeasurement=(state:Pick<AppState,'teamAssignments'>,job:Job)=>job.status==='Merenje'&&Boolean(state.teamAssignments[job.id]);
 type JobAccess=Pick<AppState,'teamAssignments'|'teamMember'>;
-export const canEditJob=(state:JobAccess,job:Pick<Job,'id'>)=>state.teamMember?.role!=='worker'
- ||!Object.hasOwn(state.teamAssignments,job.id)||state.teamAssignments[job.id]===state.teamMember.id;
+export const canEditJob=(state:JobAccess,job:Pick<Job,'id'>&Partial<Pick<Job,'status'|'salonRequest'>>)=>state.teamMember?.role!=='salon'&&(!(job.salonRequest&&job.status==='Merenje')||state.teamAssignments[job.id]===state.teamMember?.id)&&(state.teamMember?.role!=='worker'
+ ||!Object.hasOwn(state.teamAssignments,job.id)||state.teamAssignments[job.id]===state.teamMember.id);
 export const awaitingMeasurements=(state:JobAccess,job:Job)=>assignedMeasurement(state,job)
- &&state.teamAssignments[job.id]!==state.teamMember?.id;
+ &&state.teamAssignments[job.id]!==state.teamMember?.id&&!(job.salonRequest&&state.teamMember?.role==='manager'&&job.positions.length>0);
 export const canReassignJob=(state:Pick<AppState,'teamMember'|'teamJobOrigins'>,id:string)=>canChangeAssignment(state.teamMember,state.teamJobOrigins[id]);
-export const canEditPrices=(state:Pick<AppState,'teamMember'>)=>state.teamMember?.role!=='worker';
+export const canEditPrices=(state:Pick<AppState,'teamMember'>)=>!state.teamMember||state.teamMember.role==='manager';
 export const hasPositionPriceCorrection=(p:Position)=>p.manualPrice!=null||Boolean(p.extraCost);
 export const withPositionPrice=(p:Position,source?:Position)=>({...p,manualPrice:source?.manualPrice??null,extraCost:source?.extraCost??0});
 export function workerJobPricing(transport:number):Partial<Job>{
@@ -106,6 +106,7 @@ export const useStore=create<AppState>((set,get)=>({
  },
  addJob:job=>{
   if(workspace){
+   if(workspace.member.role==='salon')return;
    const worker=workspace.member.role==='worker';
    enqueue({type:'create',job:{...job,technician:workspace.member.name,status:worker?'Merenje':job.status,
     positions:worker?job.positions.map(p=>withPositionPrice(p)):job.positions}});
@@ -141,7 +142,7 @@ export const useStore=create<AppState>((set,get)=>({
   const fresh=jobFromSettings(state.settings),job=structuredClone(original);
   const worker=state.teamMember?.role==='worker';
   const pricing=worker?workerJobPricing(fresh.transport):{};
-  const copy={...job,...pricing,id:fresh.id,customer:{...job.customer,name:job.customer.name+' (kopija)'},
+  const copy={...job,...pricing,salonRequest:undefined,id:fresh.id,customer:{...job.customer,name:job.customer.name+' (kopija)'},
    status:'U izradi' as const,completionDeadline:'',measuredOn:'',completedOn:'',installedOn:'',createdAt:fresh.createdAt,updated:fresh.updated,
    positions:job.positions.map(p=>({...p,id:uid()}))};
   state.addJob(copy);
@@ -272,7 +273,7 @@ function publishTeamPricing(w:TeamWorkspace,row:TeamPricingRow){
 
 export async function refreshTeamPricing(){
  const w=workspace;
- if(!w||w.pricingRefreshing)return;
+ if(!w||w.pricingRefreshing||w.member.role==='salon')return;
  w.pricingRefreshing=true;
  try{publishTeamPricing(w,await fetchTeamPricing());}
  catch{if(workspace===w)useStore.setState({teamPricingError:'Zajednički cenovnik trenutno nije dostupan.'});}

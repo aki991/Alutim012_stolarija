@@ -3,7 +3,7 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 import type { Job, Settings } from '../models';
 import { getSupabase } from './supabase';
 
-export type TeamMember={id:string;name:string;role:'manager'|'worker';active:boolean;is_admin?:boolean;document_author?:string};
+export type TeamMember={id:string;name:string;role:'manager'|'worker'|'salon';active:boolean;is_admin?:boolean;document_author?:string};
 export type TeamAccount=Pick<TeamMember,'id'|'name'|'active'>&{role:TeamMember['role']|'admin';email:string|null};
 export type PriceSettings=Pick<Settings,'prices'|'portaRoyalPrices'|'vat'|'vatMode'>;
 export type TeamPricingRow={prices:Partial<Settings['prices']>;porta_royal_prices:Record<string,number>;vat:number;vat_mode:Settings['vatMode'];revision:number;worker_prices_visible?:boolean};
@@ -39,6 +39,12 @@ export async function fetchTeamMember(id:string):Promise<TeamMember|null>{
 
 export async function fetchTeamAssignees():Promise<TeamMember[]>{
  return check(await getSupabase().from('field_team_members').select('id,name,role,active').eq('active',true).order('name'))??[];
+}
+
+export async function createSalonRequest(job:Job,manager:string,instructions:string):Promise<TeamJob>{
+ return checkedJob(await getSupabase().rpc('field_team_salon_request',{
+  p_job:job,p_manager:manager,p_instructions:instructions,
+ }).single<TeamJob>());
 }
 
 export async function fetchTeamPricing():Promise<TeamPricingRow>{

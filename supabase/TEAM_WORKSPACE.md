@@ -1,5 +1,17 @@
 # Zajednički poslovi zaposlenih
 
+## Saloni i sobna vrata
+
+Za novu ulogu primenite [migraciju salona](migrations/202611250005_salon_requests.sql) posle migracije vlasnika dodele i ponovo objavite funkciju `field-team-accounts`, zatim klijentsku aplikaciju. Migracija ne menja postojeći cenovnik ni uloge zaposlenih.
+
+Šef ili admin u **Podešavanja → Korisnici** može da napravi ili poveže nalog sa ulogom **Salon**. Salon u svom katalogu bira seriju, dekor i tip sobnih vrata, dodaje količine i podatke kupca, bira šefa i šalje zahtev. Izbor modela do slanja ostaje sačuvan na tom uređaju.
+
+Šef dobija obaveštenje i otvara već izabrane modele. Preko **Prosledi majstoru** bira majstora i termin merenja. Zahtev ostaje isti posao, sa zabeleženim salonom, šefom i trenutnim primaocem. Dodelu ovog zahteva vodi izabrani šef; drugi zaposleni ne mogu da ga preuzmu. Majstor otvara postojeće pozicije, unosi mere i čuva ih. **Merenje završeno** postaje dostupno tek kada sve izabrane pozicije imaju sačuvane mere. Šef može i sam da izmeri vrata dok je zahtev dodeljen njemu.
+
+Salon vidi svoje zahteve, statuse i sačuvane dimenzije. Nikada ne vidi cene, uključujući i kada je šef uključio prikaz cena majstorima. Baza salonima ne dozvoljava čitanje cenovnika, izvornih podataka posla, internih razgovora i arhiviranih dokumenata. Pregled njihovih zahteva vraća samo dozvoljena polja, bez iznosa i troškova. Posle slanja salon ne menja merenje ili dodelu.
+
+[SQL provera](tests/salon_requests.sql) proverava dodelu, merenje, izolaciju salona i zaštitu cena kroz stvarne dozvole u bazi. Pokreće se u transakciji i vraća sve test izmene. Potrebna su dva aktivna majstora i dva šefa. [Test pregledača](../tests/salon-workflow.spec.ts) proverava isti tok kroz tri odvojene sesije.
+
 ## Podešavanje dva test naloga
 
 1. U Supabase SQL Editoru primenite [migraciju za tim](migrations/202611120001_team_workspace.sql), pa [migraciju za prikaz završenih merenja](migrations/202611130001_team_measurement_visibility.sql). Svaku migraciju pokrenite jednom. Ako nalozi već rade, primenite samo novu migraciju za prikaz merenja.

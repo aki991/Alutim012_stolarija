@@ -42,7 +42,7 @@ Deno.serve(async request => {
   const body = await request.json().catch(() => null);
   if (body?.action === 'create' || body?.action === 'link') {
    const role = body.role === undefined ? 'worker' : body.role;
-   if (role !== 'manager' && role !== 'worker') return reply(400, 'Izaberite ulogu šefa ili majstora.');
+   if (role !== 'manager' && role !== 'worker' && role !== 'salon') return reply(400, 'Izaberite ulogu šefa, majstora ili salona.');
    const identifier = typeof body.identifier === 'string' ? body.identifier.trim().toLowerCase() : '';
    const invalidIdentifier = identifierError(identifier);
    if (invalidIdentifier) return reply(400, invalidIdentifier);

@@ -36,7 +36,7 @@ function useAssignees() {
 }
 
 function AssigneePicker({ assignees, value, onChange }: { assignees: TeamMember[]; value: string; onChange: (value: string) => void }) {
- return <label>Zadužena osoba<select required value={value} onChange={event => onChange(event.target.value)}>
+ return <label>Zadužena osoba<select aria-label="Zadužena osoba" required value={value} onChange={event => onChange(event.target.value)}>
   <option value="">Izaberite osobu</option>
   {([['worker', 'Majstori'], ['manager', 'Šefovi']] as const).map(([role, label]) => {
    const people = assignees.filter(person => person.role === role);
@@ -59,7 +59,7 @@ export function AccountPage() {
   <FieldHeader title="Nalog" back="/"/>
   <main className="team-content">
    <div className="team-account">
-    <div><strong>{member.name}</strong><small>{member.is_admin ? 'Admin' : member.role === 'manager' ? 'Šef' : 'Majstor'}</small></div>
+    <div><strong>{member.name}</strong><small>{member.is_admin ? 'Admin' : member.role === 'manager' ? 'Šef' : member.role === 'salon' ? 'Salon' : 'Majstor'}</small></div>
     <div className="team-actions">
      <button type="button" className="field-button field-button-light" onClick={() => { setPasswordChanged(false); setChangingPassword(true); }}>
       <KeyRound size={18} aria-hidden="true"/>Promeni lozinku
@@ -134,7 +134,7 @@ function JobVisibility({ checked, onChange }: { checked: boolean; onChange: (che
 
 function NewAssignment({ member }: { member: TeamMember }) {
  const { assignees, error: assigneesError, retry } = useAssignees();
- const candidates = assignees.filter(person => person.id !== member.id);
+ const candidates = assignees.filter(person => person.id !== member.id&&person.role!=='salon');
  const [assignee, setAssignee] = useState('');
  const [assigneeOnly, setAssigneeOnly] = useState(false);
  const [busy, setBusy] = useState(false);
@@ -204,13 +204,13 @@ export function TeamJobPanel({ job }: { job: Job }) {
  const assigneeOnly = useStore(state => state.teamAssigneeOnly[job.id]);
  const editable = useStore(state => canEditJob(state,job));
  const canChange=useStore(state=>canReassignJob(state,job.id));
- if (!member || !editable || !Object.hasOwn(assignments, job.id)) return null;
+ if (!member || (!editable&&member.role!=='manager') || !Object.hasOwn(assignments, job.id)) return null;
  const manager = member.role === 'manager';
  const assignedTo = assignments[job.id];
  return <section className="team-card team-conversation" aria-label="Merenje i dodela">
   {manager && assignedTo && <p className="team-current-worker">Vidljivost posla · {assigneeOnly ? 'Zadužena osoba i šefovi' : 'Ceo tim'}</p>}
   <div className="team-actions">
-   {manager && canChange && <Link className="field-button field-button-light" to={`/dodeli-merenje/${job.id}`}>{assignedTo ? 'Dodela i vidljivost' : 'Dodeli merenje'}</Link>}
+   {manager && canChange && <Link className="field-button field-button-light" to={`/dodeli-merenje/${job.id}`}>{job.salonRequest?'Prosledi majstoru':assignedTo ? 'Dodela i vidljivost' : 'Dodeli merenje'}</Link>}
    {(!manager || assignedTo) && <Link className="field-button field-button-light" to={`/poruke/${job.id}`}><MessageSquare size={18}/>Poruke o poslu</Link>}
   </div>
  </section>;
@@ -218,7 +218,7 @@ export function TeamJobPanel({ job }: { job: Job }) {
 
 function ExistingAssignment({ job, member, assignedTo, assigneeOnly }: { job: Job; member: TeamMember; assignedTo: string | null; assigneeOnly?: boolean }) {
  const { assignees, error: assigneesError, retry } = useAssignees();
- const candidates = assignees;
+ const candidates = assignees.filter(person=>person.role!=='salon'&&(!job.salonRequest||person.role==='worker'||person.id===member.id));
  const [selectedAssignee, setAssignee] = useState<string | null>(null);
  const [selectedVisibility, setRestricted] = useState<boolean | null>(null);
  const [instructions, setInstructions] = useState('');
@@ -261,7 +261,7 @@ function ExistingAssignment({ job, member, assignedTo, assigneeOnly }: { job: Jo
    {assigneesError && <p className="team-error" role="alert">{assigneesError} <button type="button" onClick={retry}>Učitaj ponovo</button></p>}
    <form className="team-form" onSubmit={assign}><fieldset disabled={busy}>
     <AssigneePicker assignees={candidates} value={assignee} onChange={setAssignee}/>
-    <JobVisibility checked={restricted} onChange={setRestricted}/>
+    {!job.salonRequest&&<JobVisibility checked={restricted} onChange={setRestricted}/>}
     {reassigning && <>
      <AssignmentDateInput defaultValue={defaultDate} onPastDate={() => setError(assignmentDateError)}/>
      <label>Uputstvo za merenje<textarea value={instructions} onChange={event => setInstructions(event.target.value)} rows={2} maxLength={4000}/></label>

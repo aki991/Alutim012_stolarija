@@ -6,7 +6,7 @@ import { changeTeamAccount, fetchTeamAccounts, type TeamAccount, type TeamMember
 import { Field, Modal } from './UI';
 
 const loadError = 'Lista korisnika trenutno nije dostupna.';
-const roleLabels = { admin: 'Admin', manager: 'Šef', worker: 'Majstor' };
+const roleLabels = { admin: 'Admin', manager: 'Šef', worker: 'Majstor', salon: 'Salon' };
 const loginIdentifier = (email: string | null) => email?.endsWith(usernameDomain) ? email.slice(0, -usernameDomain.length) : email ?? '';
 
 function EditAccount({ account, isAdmin, onClose, onSaved }: {
@@ -83,7 +83,7 @@ export function TeamAccounts({member}: {member:TeamMember}){
   const identifier=String(data.get('identifier')??'').trim();
   const name=String(data.get('name')??'').trim();
   const password=String(data.get('password')??'');
-  const role=data.get('role')==='manager'?'manager':'worker';
+  const role=data.get('role')==='salon'?'salon':data.get('role')==='manager'?'manager':'worker';
   setFeedback('');
   if(!identifier.includes('@')&&!usernamePattern.test(identifier.toLowerCase())){setFormError(usernameHint);return;}
   setFormError('');
@@ -122,7 +122,7 @@ export function TeamAccounts({member}: {member:TeamMember}){
    <form className="settings-fields" onSubmit={addAccount}>
     <Field label="Korisničko ime ili e-mail"><input name="identifier" required maxLength={254} autoComplete="off" autoCapitalize="none" spellCheck={false} disabled={creating}/></Field>
     <Field label="Uloga"><select name="role" disabled={creating} defaultValue="worker">
-     <option value="worker">Majstor</option><option value="manager">Šef</option>
+     <option value="worker">Majstor</option><option value="manager">Šef</option><option value="salon">Salon</option>
     </select></Field>
     {!existingAccount&&<>
     <Field label="Ime i prezime"><input name="name" required maxLength={100} autoComplete="off" disabled={creating}/></Field>

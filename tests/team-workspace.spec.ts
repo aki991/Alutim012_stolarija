@@ -316,7 +316,7 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
  await page.getByRole('link', {name:/Korisnici/}).click();
  await expect(page.getByText('Šef · Vaš nalog')).toBeVisible();
  await expect(page.getByText(admin.name)).toHaveCount(0);
- await expect(page.getByRole('combobox',{name:'Uloga'}).locator('option')).toHaveText(['Majstor','Šef']);
+ await expect(page.getByRole('combobox',{name:'Uloga'}).locator('option')).toHaveText(['Majstor','Šef','Salon']);
  await expect(page.getByText('milos', {exact:true})).toBeVisible();
  await expect(page.getByRole('button', {name:'Obriši nalog za Šef'})).toHaveCount(0);
  await page.getByRole('button', {name:'Uredi profil za Šef'}).click();

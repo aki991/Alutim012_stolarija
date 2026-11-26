@@ -184,7 +184,7 @@ function PortaMeasurements({initial,jobId,customer,back,editing,showPrices,draft
   const store=useStore.getState(),job=store.jobs.find(job=>job.id===jobId);
   if(!job)return;
   const positions=job.positions.some(position=>position.id===p.id)
-   ?job.positions.map(position=>position.id===p.id?p:position)
+   ?job.positions.map(position=>position.id===p.id?{...p,measurementPending:false}:position)
    :[...job.positions,p];
   if(!draftStorage.commit(()=>store.updateJob(jobId,{positions}))){setDraftError(true);return;}
   navigate(`/posao/${jobId}`);
@@ -192,6 +192,7 @@ function PortaMeasurements({initial,jobId,customer,back,editing,showPrices,draft
  const title=customer?`${editing?'Izmeni sobna vrata':'Sobna vrata'} — ${customer}`:series.name;
  return <div className="field-page measuring-page porta-page">
   <FieldHeader title={title} back={back}/>
+  {initial.measurementPending&&<p className="field-message">Model je izabran u salonu. Unesite izmerenu širinu, visinu i debljinu zida pa sačuvajte vrata.</p>}
   <PortaWorkspace onDimensionSelect={axis=>setEditingDimension(positionDimensions(p).find(d=>d.id===axis)!)} selection={config} size={p} ral={config.ral} onDimension={(key,value)=>patch(withDoor({...p,[key]:value},config))}>
     {!editing&&<p className="porta-size-hint">Početne mere otvora su približne.</p>}
     <div className="porta-card">

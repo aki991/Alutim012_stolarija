@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { teamPriceVisibility } from './price-visibility';
 
 describe('Prikaz cena u timu',()=>{
+ it('salon nikada ne vidi cene, bez obzira na lični i timski prekidač',()=>{
+  for(const personal of [true,false,undefined])for(const ready of [true,false])for(const visible of [true,false,null]){
+   expect(teamPriceVisibility('salon',personal,ready,visible)).toBe(false);
+  }
+ });
  it('šef određuje da li majstor može da vidi cene bez obzira na lični izbor',()=>{
   for(const personal of [true,false,undefined])expect(teamPriceVisibility('worker',personal,true,false)).toBe(false);
   expect(teamPriceVisibility('worker',true,true,true)).toBe(true);

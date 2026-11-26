@@ -27,6 +27,11 @@ describe('Evidencija posla',()=>{
   expect(canFinishMeasurement({...job,positions:[]})).toBe(false);
   expect(canChangeJobStatus({...job,completionDeadline:''},'Poslati ponudu')).toBe(true);
  });
+ it('ne završava merenje dok svaki model salona nema potvrđene mere',()=>{
+  const measured=makePosition(),pending={...makePosition(),measurementPending:true};
+  expect(canFinishMeasurement({...job,positions:[measured,pending]})).toBe(false);
+  expect(canFinishMeasurement({...job,positions:[measured,{...pending,measurementPending:false}]})).toBe(true);
+ });
  it('blokira sve promene iz Ponude dok nije izabran važeći rok',()=>{
   const offer={...job,status:'Ponuda' as const,measuredOn:'2026-11-25',completionDeadline:''};
   expect(canChangeJobStatus(offer,'Ponuda')).toBe(true);

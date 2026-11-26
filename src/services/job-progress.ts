@@ -18,7 +18,7 @@ export function jobProgressPatch(job:Job,patch:Partial<Job>,today=todayInBelgrad
 }
 
 export function canFinishMeasurement(job:Job){
- return job.positions.length>0;
+ return job.positions.length>0&&job.positions.every(position=>!position.measurementPending);
 }
 
 export function hasCompletionDeadline(job:Pick<Job,'completionDeadline'|'measuredOn'>){
