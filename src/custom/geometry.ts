@@ -58,7 +58,7 @@ function isSampledEllipse(g:Geometry){
  });
 }
 
-export function contourAngles(g:Geometry):ContourAngle[]{
+export function contourCorners(g:Geometry):ContourAngle[]{
  if(!isClosed(g))return [];
  try{
   if(isSampledEllipse(g))return [];
@@ -82,10 +82,17 @@ export function contourAngles(g:Geometry):ContourAngle[]{
    const interior=Math.PI-winding*Math.atan2(Math.sin(turn),Math.cos(turn));
    const degrees=interior*180/Math.PI;
    const rounded=Math.round(degrees*100)/100;
-   if(rounded===0||rounded===90||rounded===180||rounded===360)return [];
+   if(rounded===0||rounded===360)return [];
    return [{vertex:edge.vertex,degrees,start:edge.start,sweep:winding*interior,shorterSide}];
   });
  }catch{return [];}
+}
+
+export function contourAngles(g:Geometry):ContourAngle[]{
+ return contourCorners(g).filter(({degrees})=>{
+  const rounded=Math.round(degrees*100)/100;
+  return rounded!==90&&rounded!==180;
+ });
 }
 
 const angleFormat=new Intl.NumberFormat('sr-Latn-RS',{maximumFractionDigits:2});

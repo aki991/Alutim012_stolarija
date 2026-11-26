@@ -4,7 +4,8 @@ import { DimensionDialog } from './components/DimensionDialog';
 import { hasDoorDimensions, type PositionDimension } from './position-dimensions';
 import { NumberInput } from './components/NumberInput';
 import { fmt } from './custom/geometry';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import { ElementCutList } from './custom/ElementCutList';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowDown, ArrowRight, ArrowUp, Check, ChevronRight, Copy, Expand, Minus, MoreVertical, Pencil, Plus, RotateCcw, Settings2, Trash2, UserRound, X } from 'lucide-react';
 import { canEditJob, canEditPrices, hasPositionPriceCorrection, assignedMeasurement, awaitingMeasurements, useStore, workspaceDraft, withPositionPrice } from './store';
@@ -85,7 +86,7 @@ export function Editor(){
   <div className={settings.showPrices===false?"summary-grid without-prices":"summary-grid"}><section className="job-lines" aria-label="Elementi posla"><div className="job-line-head"><span>#</span><span>Element</span><span>Dimenzije (mm)</span><span>Kom.</span>{settings.showPrices!==false&&<span>Cena</span>}<span/></div>
    {job.positions.map((p,i)=>{
     const element=<><span className="line-sketch"><Drawing position={p} compact/></span><strong>{p.name}</strong></>;
-    return <article className="job-line" key={p.id}>
+    return <Fragment key={p.id}><article className="job-line">
     <span className="line-number">{i+1}.</span>
     {editable?<Link className="line-element" to={`/posao/${job.id}/element/${p.id}`}>{element}</Link>:<div className="line-element">{element}</div>}
     <span className="line-dimensions">{p.measurementPending?'Čeka merenje':`${fmt(p.width)} × ${fmt(p.height+openingBoxHeight(p))}`}<span className="line-quantity-inline">{p.quantity} kom.</span><small>{p.portaRoyal?`Tip ${portaRoyalTypes[p.portaRoyal.type]}`:p.modelLayout?`${p.modelLayout.rows.reduce((n,row)=>n+row.cells.filter(cell=>cell.infill!=='space').length,0)} polja`:`${p.segments.length} ${p.segments.length===1?'krilo':'krila'}`}</small>{doorBottomLabel(p)&&<small>{doorBottomLabel(p)}</small>}</span>
@@ -97,7 +98,7 @@ export function Editor(){
       <button disabled={i===job.positions.length-1} onClick={e=>{move(i,1);e.currentTarget.closest('details')?.removeAttribute('open');}}><ArrowDown/>Pomeri dole</button>
       {(editPrices||!hasPositionPriceCorrection(p))&&<button onClick={e=>{setDeleting(p);e.currentTarget.closest('details')?.removeAttribute('open');}}><Trash2/>Obriši</button>}
     </div></details></div>}
-   </article>;})}
+   </article><ElementCutList position={p} job={job}/></Fragment>;})}
   </section>{settings.showPrices!==false&&<aside className="summary-price"><div><span>{(total.manual||total.vatMode==='inclusive')?'Osnovica bez PDV-a':'Elementi i odabrani radovi'}</span><strong>{euro(total.manual||total.vatMode==='inclusive'?total.net:total.subtotal)}</strong></div>{total.discount>0&&<div><span>Popust {job.discountMode==='amount'?'':`${job.discount}%`}</span><strong>−{euro(total.discount)}</strong></div>}<>{total.surcharge>0&&<div><span>Uvećanje</span><strong>{euro(total.surcharge)}</strong></div>}{total.manual&&<p>Ručna ukupna cena</p>}</><div><span>{total.vatMode==='none'?'Bez obračuna PDV-a':`PDV ${total.vat}%${total.vatMode==='inclusive'?' (uključen)':''}`}</span><strong>{euro(total.tax)}</strong></div><section><h2>{total.hasUnpriced?'Zbir poznatih stavki':'Okvirna cena'}</h2><strong data-testid="job-total">{euro(total.total)}</strong></section><p>{total.hasUnpriced?jobReviewLabel(job,total)+'. Zbir obuhvata stavke sa izračunatom cenom.':'Demonstracione cene. Konačnu ponudu potvrđuje kancelarija.'}</p></aside>}</div>}
   <TeamJobPanel job={job}/>
  </main>
