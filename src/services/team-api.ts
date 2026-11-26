@@ -97,6 +97,12 @@ export async function changeTeamAccount(body:{action:'create';identifier:string;
  throw new Error('Upravljanje korisnicima trenutno nije dostupno. Pokušajte ponovo.');
 }
 
+export async function setTeamAccountRole(id:string,role:TeamMember['role']){
+ const {error}=await getSupabase().rpc('field_team_set_account_role',{p_target:id,p_role:role});
+ if(error?.code==='PGRST202')throw new Error('Promena uloge još nije podešena u bazi. Primenite SQL izmenu za uloge i profile.');
+ check({data:null,error});
+}
+
 export async function fetchTeamJobs(known:ReadonlyMap<string,TeamJob>):Promise<TeamJob[]>{
  const api=getSupabase(),rows:TeamJob[]=[];
  const pageSize=100;

@@ -52,7 +52,7 @@ Deno.serve(async request => {
     if (error?.code === '42501') return reply(403, accessDenied);
     if (error?.code === 'P0002') return reply(404, 'Postojeći nalog nije pronađen. Proverite korisničko ime ili e-mail.');
     if (error?.code === '22023') return reply(409, 'Pristup ovom nalogu je ukinut.');
-    if (error?.code === 'P2001') return reply(409, 'Nalog već ima ulogu u Stolariji.');
+    if (error?.code === 'P2001') return reply(409, 'Nalog već ima pristup Stolariji. U listi korisnika izaberite Promeni ulogu.');
     return error ? reply(503, unavailable) : reply(200);
    }
    const name = typeof body.name === 'string' ? body.name.trim() : '';
@@ -88,6 +88,7 @@ Deno.serve(async request => {
    }).single<{ is_admin: boolean; email: string | null }>();
    if (permissionError?.code === '42501') return reply(403, accessDenied);
    if (permissionError?.code === 'P0002') return reply(404, 'Nalog nije pronađen.');
+   if (permissionError?.code === 'PGRST202') return reply(503, 'Čuvanje profila još nije podešeno u bazi. Primenite SQL izmenu za uloge i profile.');
    if (permissionError || !permission) return reply(503, unavailable);
 
    let email: string | undefined;

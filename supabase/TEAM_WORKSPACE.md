@@ -1,5 +1,24 @@
 # Zajednički poslovi zaposlenih
 
+## Promena uloge i popravka čuvanja profila
+
+1. U Supabase projektu Stolarije otvorite **SQL Editor → New query**. Kopirajte ceo sadržaj [202611260001_team_roles_and_profiles.sql](migrations/202611260001_team_roles_and_profiles.sql) i kliknite **Run**. Ova izmena ide posle migracije salona. Uključuje i podršku za uređivanje profila, pa ne morate posebno da pokrećete staru migraciju `202611160004`. Može ponovo da se pokrene ako je ranije već primenjena podrška za profile. Postojećim nalozima ne menja uloge niti podatke.
+2. Otvorite PowerShell u folderu aplikacije i objavite funkciju za upravljanje korisnicima:
+
+   ```powershell
+   Set-Location -LiteralPath 'C:\Users\Andreja\Desktop\Alu tim 012 - Stolarija Teren'
+   npx.cmd --yes supabase@3.1.0 login
+   npx.cmd --yes supabase@3.1.0 functions deploy field-team-accounts --remote=KOD_PROJEKTA --use-api
+   ```
+
+   Zamenite `KOD_PROJEKTA` identifikatorom istog Supabase projekta koji koristi aplikacija. Vidi se u adresi projekta u dashboardu (`/project/KOD_PROJEKTA`) ili kao deo adrese `https://KOD_PROJEKTA.supabase.co`. Ne unosite lozinku korisnika aplikacije u terminal; `login` prijavljuje vaš Supabase nalog. Komanda za objavu koristi [zvanične CLI opcije](https://supabase.com/docs/reference/cli/supabase-functions-deploy).
+3. Objavite izmenjeni frontend na postojećem Vercel projektu Stolarije uobičajenim postupkom. Ako je Vercel povezan sa Git repozitorijumom, izmenjeni kod mora prvo da stigne na granu za produkciju; **Redeploy** stare verzije ne uključuje lokalne izmene. Za ručnu objavu iz ovog foldera pokrenite `npx.cmd --yes vercel --prod`; ako CLI traži povezivanje, izaberite postojeći projekat Stolarije. Lokalna provera je `npm run build`.
+4. Osvežite aplikaciju. U **Podešavanja → Korisnici → Svi korisnici** uz nalog izaberite **Promeni ulogu**, zatim **Šef**, **Majstor** ili **Salon**, pa **Sačuvaj ulogu**. Ovo radi šefu i adminu. **Postojeći nalog → Dodeli pristup** i dalje služi za povezivanje naloga koji još nema pristup Stolariji. Admin ostaje poseban pristup i ne menja se kroz ovaj izbor. Poslednji aktivni šef ne može da izgubi ulogu dok drugi nalog ne dobije ulogu šefa.
+5. Za ime ili korisničko ime izaberite **Uredi**, unesite podatke i kliknite **Sačuvaj profil**. Šef menja ime i korisnička imena poput `salon.vp`; stvarnu e-mail adresu menja admin. Promena korisničkog imena važi i u Ogradama. Lozinka ostaje ista.
+6. Za proveru promenite probnom nalogu ulogu u Salon i nazad. U već otvorenoj aplikaciji nova uloga se učitava pri sledećoj proveri naloga (oko pet sekundi uz vezu) ili po povratku u aplikaciju; baza proverava aktuelnu ulogu pri svakom zahtevu. Zatim proverite izmenu imena i prijavu novim korisničkim imenom. Za sačuvana imena i korisničko ime ponovo otvorite listu korisnika.
+
+[SQL regresiona provera](tests/team_roles_and_profiles.sql) proverava promenu uloga, prava pristupa i čuvanje profila u transakciji koja se na kraju poništava.
+
 ## Saloni i sobna vrata
 
 Za novu ulogu primenite [migraciju salona](migrations/202611250005_salon_requests.sql) posle migracije vlasnika dodele i ponovo objavite funkciju `field-team-accounts`, zatim klijentsku aplikaciju. Migracija ne menja postojeći cenovnik ni uloge zaposlenih.

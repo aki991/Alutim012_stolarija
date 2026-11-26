@@ -194,7 +194,13 @@ function TeamSession({ children, loginPath, onTeamReady }: { children: ReactNode
     if (!current?.active) {
      endTeamWorkspace();
      setProfile({ id: activeProfileId, error: 'Nalog nema pristup timu. Obratite se administratoru.' });
-    } else renameWorkspaceMember(current.id, current.name);
+    } else {
+     const previous=useStore.getState().teamMember;
+     if(previous?.role!==current.role||Boolean(previous.is_admin)!==Boolean(current.is_admin)){
+      endTeamWorkspace();
+      await beginTeamWorkspace(current);
+     } else renameWorkspaceMember(current.id, current.name);
+    }
    } catch { /* A temporary connection failure does not revoke the session. */ }
   });
  }, [activeProfileId, userId]);

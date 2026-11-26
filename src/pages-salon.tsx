@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
-import { Plus, Search, Send, Trash2 } from 'lucide-react';
+import { ClipboardList, Plus, Search, Send, Trash2 } from 'lucide-react';
 import { AppShell } from './components/AppShell';
 import { FieldHeader } from './components/FieldHeader';
 import { PortaPhoto, PortaVariantOptions } from './components/PortaOptions';
@@ -20,12 +20,32 @@ export function SalonApp(){
  return <AppShell onNew={()=>navigate('/katalog')} onSearch={()=>navigate('/poslovi')} onNotifications={()=>navigate('/poslovi')} onNavigation={()=>{}}>
   {error&&<p className="team-error" role="alert">{error}</p>}
   <Routes>
-   <Route path="/" element={<SalonJobs/>}/><Route path="/poslovi" element={<SalonJobs/>}/>
+   <Route path="/" element={<SalonHome/>}/><Route path="/poslovi" element={<SalonJobs/>}/>
    <Route path="/katalog" element={<SalonRequest/>}/><Route path="/katalog/sobna-vrata" element={<SalonRequest/>}/>
    <Route path="/posao/:id" element={<SalonJob/>}/><Route path="/nalog" element={<AccountPage/>}/>
    <Route path="*" element={<Navigate to="/poslovi" replace/>}/>
   </Routes>
  </AppShell>;
+}
+
+function SalonHome(){
+ const jobs=useStore(s=>s.jobs),member=useStore(s=>s.teamMember);
+ return <div className="team-page salon-page"><FieldHeader title="Početna" back="/"/>
+  <main className="team-content salon-home">
+   <section className="team-card salon-home-welcome">
+    <h2>Dobro došli, {member?.name}</h2>
+    <p>Izaberite modele sobnih vrata i pošaljite zahtev za merenje šefu.</p>
+    <div className="salon-home-actions">
+     <Link className="field-button field-button-yellow" to="/katalog"><Plus aria-hidden="true"/>Novi zahtev</Link>
+     <Link className="field-button field-button-light" to="/poslovi"><ClipboardList aria-hidden="true"/>Moji zahtevi</Link>
+    </div>
+   </section>
+   <dl className="salon-home-stats" aria-label="Pregled zahteva">
+    <div className="team-card"><dt>Ukupno zahteva</dt><dd>{jobs.length}</dd></div>
+    <div className="team-card"><dt>Na merenju</dt><dd>{jobs.filter(job=>job.status==='Merenje').length}</dd></div>
+   </dl>
+  </main>
+ </div>;
 }
 
 function SalonJobs(){

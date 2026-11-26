@@ -2,12 +2,42 @@ import { useEffect, useId, useState, type FormEvent } from 'react';
 import { Eye, EyeOff, Pencil, Trash2, UserPlus } from 'lucide-react';
 import { canChangeLoginIdentifier, usernameDomain, usernameHint, usernamePattern } from '../../supabase/functions/_shared/team-login';
 import { renameWorkspaceMember } from '../store';
-import { changeTeamAccount, fetchTeamAccounts, type TeamAccount, type TeamMember } from '../services/team-api';
+import { changeTeamAccount, fetchTeamAccounts, setTeamAccountRole, type TeamAccount, type TeamMember } from '../services/team-api';
 import { Field, Modal } from './UI';
 
 const loadError = 'Lista korisnika trenutno nije dostupna.';
 const roleLabels = { admin: 'Admin', manager: 'Šef', worker: 'Majstor', salon: 'Salon' };
 const loginIdentifier = (email: string | null) => email?.endsWith(usernameDomain) ? email.slice(0, -usernameDomain.length) : email ?? '';
+
+function EditRole({ account, ownAccount, onClose, onSaved }: {
+ account: TeamAccount; ownAccount: boolean; onClose: () => void; onSaved: (role: TeamMember['role']) => void;
+}) {
+ const [role, setRole] = useState<TeamMember['role']>(account.role === 'admin' ? 'manager' : account.role);
+ const [busy, setBusy] = useState(false);
+ const [error, setError] = useState('');
+ async function submit(event: FormEvent<HTMLFormElement>) {
+  event.preventDefault();
+  if (busy || role === account.role) return;
+  setBusy(true);setError('');
+  try { await setTeamAccountRole(account.id, role);onSaved(role); }
+  catch (failure) { setError((failure as Error).message); }
+  finally { setBusy(false); }
+ }
+ return <Modal title="Promeni ulogu" onClose={() => { if (!busy) onClose(); }}>
+  <form className="settings-fields team-profile-form" onSubmit={submit}>
+   <p>{account.name} · {loginIdentifier(account.email)}</p>
+   <Field label="Nova uloga"><select value={role} disabled={busy} onChange={event=>setRole(event.target.value as TeamMember['role'])}>
+    <option value="worker">Majstor</option><option value="manager">Šef</option><option value="salon">Salon</option>
+   </select></Field>
+   {ownAccount&&role!=='manager'&&<p className="settings-note">Promenom svoje uloge gubite pristup upravljanju korisnicima i podešavanjima šefa.</p>}
+   {error&&<p className="team-error" role="alert">{error}</p>}
+   <div className="modal-footer">
+    <button type="button" className="field-button field-button-light" disabled={busy} onClick={onClose}>Otkaži</button>
+    <button type="submit" className="field-button field-button-yellow" disabled={busy||role===account.role}>{busy?'Čuvam…':'Sačuvaj ulogu'}</button>
+   </div>
+  </form>
+ </Modal>;
+}
 
 function EditAccount({ account, isAdmin, onClose, onSaved }: {
  account: TeamAccount; isAdmin: boolean; onClose: () => void; onSaved: (name: string) => void;
@@ -64,6 +94,7 @@ export function TeamAccounts({member}: {member:TeamMember}){
  const passwordId=useId();
  const [formError,setFormError]=useState('');
  const [editing,setEditing]=useState<TeamAccount|null>(null);
+ const [editingRole,setEditingRole]=useState<TeamAccount|null>(null);
  const [deleting,setDeleting]=useState<TeamAccount|null>(null);
  const [busyDelete,setBusyDelete]=useState(false);
  const [deleteError,setDeleteError]=useState('');
@@ -118,7 +149,7 @@ export function TeamAccounts({member}: {member:TeamMember}){
    <label className="team-account-mode"><input type="checkbox" checked={existingAccount} disabled={creating} onChange={event=>{
     setExistingAccount(event.target.checked);setShowPassword(false);setFormError('');
    }}/>Postojeći nalog</label>
-   {existingAccount&&<p className="settings-note">Korisnik nastavlja da se prijavljuje istim korisničkim imenom i lozinkom.</p>}
+   {existingAccount&&<p className="settings-note">Korisnik nastavlja da se prijavljuje istim korisničkim imenom i lozinkom. Ako već ima pristup Stolariji, koristite „Promeni ulogu” u listi korisnika.</p>}
    <form className="settings-fields" onSubmit={addAccount}>
     <Field label="Korisničko ime ili e-mail"><input name="identifier" required maxLength={254} autoComplete="off" autoCapitalize="none" spellCheck={false} disabled={creating}/></Field>
     <Field label="Uloga"><select name="role" disabled={creating} defaultValue="worker">
@@ -153,6 +184,7 @@ export function TeamAccounts({member}: {member:TeamMember}){
      <button type="button" className="field-button field-button-light" aria-label={`Uredi profil za ${account.name}`} onClick={()=>setEditing(account)}>
       <Pencil size={17} aria-hidden="true"/>Uredi
      </button>
+     {account.role!=='admin'&&account.active&&<button type="button" className="field-button field-button-light" aria-label={`Promeni ulogu za ${account.name}`} onClick={()=>setEditingRole(account)}>Promeni ulogu</button>}
      {account.id!==member.id&&account.role!=='admin'&&<button type="button" className="field-button field-button-light" aria-label={`Obriši nalog za ${account.name}`}
       onClick={()=>{setDeleteError('');setDeleting(account);}}><Trash2 size={17}/>Obriši</button>}
     </div>
@@ -161,6 +193,11 @@ export function TeamAccounts({member}: {member:TeamMember}){
   {editing&&<EditAccount account={editing} isAdmin={Boolean(member.is_admin)} onClose={()=>setEditing(null)} onSaved={name=>{
    setFeedback(`Profil za ${name} je sačuvan.`);
    setEditing(null);
+   setReload(value=>value+1);
+  }}/>}
+  {editingRole&&<EditRole account={editingRole} ownAccount={editingRole.id===member.id} onClose={()=>setEditingRole(null)} onSaved={role=>{
+   setFeedback(`Uloga za ${editingRole.name} je promenjena u ${roleLabels[role]}.`);
+   setEditingRole(null);
    setReload(value=>value+1);
   }}/>}
   {deleting&&<Modal title="Obriši nalog?" onClose={()=>{if(!busyDelete)setDeleting(null);}}>

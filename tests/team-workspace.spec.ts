@@ -111,7 +111,11 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
     can_reassign:member.role==='manager'&&(!row.assigned_by||row.assigned_by===member.id),
    });
    switch (endpoint) {
-    case 'field_team_my_profile': return reply(request.headers().accept?.includes('vnd.pgrst.object') ? member : [member]);
+    case 'field_team_my_profile': {
+     const account=accounts.find(account=>account.id===member.id)!;
+     const profile={...member,name:account.name,role:account.role==='admin'?'manager':account.role};
+     return reply(request.headers().accept?.includes('vnd.pgrst.object') ? profile : [profile]);
+    }
     case 'field_team_members': return reply(accounts.filter(account => account.active && (member.is_admin || account.role !== 'admin'))
      .map(account => ({ id: account.id, name: account.name, active: account.active, role: account.role === 'admin' ? 'manager' : account.role })));
     case 'field_team_pricing': return reply(pricing);
@@ -138,6 +142,15 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
     case 'field_team_list_accounts': {
      expect(member.role).toBe('manager');
      return reply(accounts.filter(account => member.is_admin || account.role !== 'admin'));
+    }
+    case 'field_team_set_account_role': {
+     expect(member.role).toBe('manager');
+     const account=accounts.find(account=>account.id===body.p_target);
+     expect(account).toBeDefined();
+     expect(account!.role).not.toBe('admin');
+     expect(['manager','worker','salon']).toContain(body.p_role);
+     account!.role=body.p_role;
+     return reply(null);
     }
     case 'field-team-accounts': {
      expect(member.role).toBe('manager');
@@ -344,6 +357,16 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
  await editProfile.getByLabel('Korisničko ime ili e-mail').fill('petar.p');
  await editProfile.getByRole('button', { name: 'Sačuvaj profil' }).click();
  await expect(page.getByText('petar.p', {exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Promeni ulogu za Petar P.',exact:true}).click();
+ const roleDialog=page.getByRole('dialog',{name:'Promeni ulogu',exact:true});
+ await expect(roleDialog.getByRole('button',{name:'Sačuvaj ulogu'})).toBeDisabled();
+ for(const role of ['salon','manager','worker']){
+  await roleDialog.getByLabel('Nova uloga').selectOption(role);
+  await roleDialog.getByRole('button',{name:'Sačuvaj ulogu'}).click();
+  await expect(roleDialog).toBeHidden();
+  expect(accounts.find(account=>account.email==='petar.p@alutim012.local')!.role).toBe(role);
+  if(role!=='worker')await page.getByRole('button',{name:'Promeni ulogu za Petar P.',exact:true}).click();
+ }
  await page.getByRole('button', {name:'Obriši nalog za Petar P.'}).click();
  await page.getByRole('dialog').getByRole('button', {name:'Obriši nalog',exact:true}).click();
  await expect(page.getByText('Nalog za Petar P. je obrisan.')).toBeVisible();
@@ -369,6 +392,18 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
   await chiefPage.goto('/podesavanja/korisnici');
   await expect(chiefPage.getByText('Šef · Vaš nalog')).toBeVisible();
   await expect(chiefPage.getByRole('button',{name:'Dodaj korisnika'})).toBeVisible();
+  for(const role of ['salon','manager']){
+   await page.getByRole('button',{name:'Promeni ulogu za Sara',exact:true}).click();
+   await page.getByRole('dialog',{name:'Promeni ulogu'}).getByLabel('Nova uloga').selectOption(role);
+   await page.getByRole('dialog',{name:'Promeni ulogu'}).getByRole('button',{name:'Sačuvaj ulogu'}).click();
+   await expect(page.getByRole('dialog',{name:'Promeni ulogu'})).toBeHidden();
+   await chiefPage.evaluate(()=>window.dispatchEvent(new Event('focus')));
+   if(role==='salon'){
+    await expect(chiefPage.getByRole('heading',{name:'Zahtevi salona',exact:true})).toBeVisible();
+    await expect(chiefPage.getByRole('link',{name:'Dodeli merenje',exact:true})).toHaveCount(0);
+   }else await expect(chiefPage.getByRole('link',{name:'Dodeli merenje',exact:true})).toBeVisible();
+  }
+  await chiefPage.goto('/podesavanja/korisnici');
   await chiefPage.getByRole('button',{name:'Obriši nalog za Jelena Ograde'}).click();
   await chiefPage.getByRole('dialog').getByRole('button',{name:'Obriši nalog',exact:true}).click();
   await expect(chiefPage.getByText('Nalog za Jelena Ograde je obrisan.')).toBeVisible();
@@ -381,6 +416,16 @@ test('Šef dodeljuje merenje majstoru ili drugom šefu i prima mere, poruke i st
   await adminPage.goto('/podesavanja/korisnici');
   await expect(adminPage.getByText('Admin · Vaš nalog')).toBeVisible();
   await expect(adminPage.getByText('Sara',{exact:true})).toBeVisible();
+  await expect(adminPage.getByRole('button',{name:'Promeni ulogu za Privatni nalog'})).toHaveCount(0);
+  await adminPage.getByRole('button',{name:'Promeni ulogu za Sara',exact:true}).click();
+  await adminPage.getByRole('dialog',{name:'Promeni ulogu'}).getByLabel('Nova uloga').selectOption('salon');
+  await adminPage.getByRole('dialog',{name:'Promeni ulogu'}).getByRole('button',{name:'Sačuvaj ulogu'}).click();
+  await expect(adminPage.getByRole('dialog',{name:'Promeni ulogu'})).toBeHidden();
+  expect(newChief.role).toBe('salon');
+  await adminPage.getByRole('button',{name:'Promeni ulogu za Sara',exact:true}).click();
+  await adminPage.getByRole('dialog',{name:'Promeni ulogu'}).getByLabel('Nova uloga').selectOption('manager');
+  await adminPage.getByRole('dialog',{name:'Promeni ulogu'}).getByRole('button',{name:'Sačuvaj ulogu'}).click();
+  await expect(adminPage.getByRole('dialog',{name:'Promeni ulogu'})).toBeHidden();
   await adminPage.getByRole('button', { name: 'Uredi profil za Sara' }).click();
   const adminEdit = adminPage.getByRole('dialog', { name: 'Uredi profil' });
   await adminEdit.getByLabel('Korisničko ime ili e-mail').fill('sara@example.test');
