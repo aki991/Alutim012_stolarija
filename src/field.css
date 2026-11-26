@@ -316,6 +316,12 @@
 .door-bottom-control button{min-width:0;min-height:48px;padding:9px 7px;border:1px solid #d8dadd;border-radius:9px;background:#fff;color:#1d1d1d;font:700 20px AluNarrow,Arial,sans-serif;cursor:pointer}
 .door-bottom-control button.selected{border-color:#b00015;background:#b00015;color:#fff}
 .door-bottom-control p{margin:8px 0 0;font-size:16px;color:#53636c}
+.choice-control{min-width:0;width:100%;grid-column:1/-1}
+.choice-control>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.choice-control button{min-width:0;min-height:48px;padding:9px 7px;border:1px solid #d8dadd;border-radius:9px;background:#fff;color:#1d1d1d;font:700 20px AluNarrow,Arial,sans-serif;cursor:pointer}
+.choice-control button.selected{border-color:#b00015;background:#b00015;color:#fff}
+.equal-fields-control button:active{border-color:#b00015;background:#fbeaec}
+.choice-control p{margin:8px 0 0;font-size:16px;color:#53636c}
 .porta-bottom-preview{height:180px;margin-top:12px}
 .drawing-dimension.interactive{cursor:pointer}
 .drawing-dimension.interactive g:focus{outline:none}
@@ -327,7 +333,7 @@
 .dimension-dialog .modal-footer{margin-top:14px}
 @media(max-width:600px){.measurement-canvas:has(.position-dimensions){min-height:485px}.field-drawing:has(.position-dimensions),.field-drawing:has(.position-dimensions)>svg{min-height:420px;max-height:none;height:420px;flex:none}}
 .custom-settings>.door-bottom-control{margin-bottom:16px}
-@media(min-width:601px) and (max-width:999px){.measurement-controls{grid-template-areas:'dimensions dimensions' 'layout layout' 'wings material' 'opening opening' 'door-bottom door-bottom' 'equipment equipment' 'extras extras'}.measurement-controls>.door-bottom-control{grid-area:door-bottom}}
+@media(min-width:601px) and (max-width:999px){.measurement-controls{grid-template-areas:'dimensions dimensions' 'layout layout' 'wings material' 'opening opening' 'main-leaf main-leaf' 'equal-fields equal-fields' 'door-bottom door-bottom' 'equipment equipment' 'extras extras'}.measurement-controls>.door-bottom-control{grid-area:door-bottom}.measurement-controls>.main-leaf-control{grid-area:main-leaf}.measurement-controls>.equal-fields-control{grid-area:equal-fields}}
 
 .pricing-search{display:flex;align-items:center;gap:8px;margin-bottom:16px;min-width:0}
 .pricing-search .jobs-search{flex:1;max-width:none;min-width:0}

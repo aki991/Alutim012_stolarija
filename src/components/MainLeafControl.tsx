@@ -12,7 +12,7 @@ export function MainLeafControl({position,onChange,select=true}:{position:Positi
  const value=position.mainLeaf??'both';
  const change=(next:string)=>onChange({mainLeaf:next==='left'||next==='right'?next:undefined});
  if(select)return <Field label="Glavno krilo (vrata)"><select value={value} onChange={event=>change(event.target.value)}><option value="both">Nije izabrano (oba)</option><option value="left">Levo</option><option value="right">Desno</option></select></Field>;
- return <section className="visual-control door-bottom-control main-leaf-control" aria-labelledby={heading}>
+ return <section className="visual-control choice-control main-leaf-control" aria-labelledby={heading}>
   <h2 id={heading}>Glavno krilo</h2>
   <div role="group" aria-label="Glavno krilo">
    {choices.map(choice=><button type="button" key={choice} aria-pressed={value===choice} className={value===choice?'selected':''} onClick={()=>change(choice)}>{mainLeafLabels[choice]}</button>)}
