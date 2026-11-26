@@ -2,29 +2,34 @@ import { NumberInput } from './NumberInput';
 import type { Opening, Position } from '../models';
 import { Field } from './UI';
 import { openingBoxHeight } from '../shutters';
+import { combinationParts, resizePart, resizePartLeaf, setPartLeafCount, setPartOpening, type CombinationPart } from '../combination';
+import { MainLeafControl } from './MainLeafControl';
 
 export function CombinationControls({position,combination,onChange}:{
  position:Position; combination:NonNullable<Position['combination']>; onChange:(next:Partial<Position>)=>void;
 }) {
+ const parts=combinationParts(position);
  return <>
   <div className="dimension-controls combination-parts">
-   {['Vrata','Prozor'].map((label,index)=>{
-    const segment=position.segments[index];
-    const isWindow=index===1;
-    const boxHeight=openingBoxHeight(position,isWindow?'window':'door');
+   {([['Vrata','door'],['Prozor','window']] as const).map(([label,part]:readonly [string,CombinationPart])=>{
+    const isWindow=part==='window';
+    const leaves=parts[part],width=isWindow?parts.windowWidth:parts.doorWidth;
+    const name=label.toLowerCase();
+    const boxHeight=openingBoxHeight(position,part);
+    const openings=['Levo','Desno','Levo + kip','Desno + kip','Kip',...(isWindow?['Fiksno']:[])];
     return <section key={label} className="visual-control">
      <h2>{label}</h2>
-     <Field label={`Širina (${label.toLowerCase()}, mm)`}><NumberInput inputMode="numeric" min={100} value={segment.width} onChange={event=>{
-      const width=Number(event.target.value);
-      onChange({width:width+position.segments[1-index].width,segments:position.segments.map((part,i)=>i===index?{...part,width}:part)});
-     }}/></Field>
-     <Field label={`Visina${boxHeight?' otvora':''} (${label.toLowerCase()}, mm)`}><NumberInput inputMode="numeric" min={200+boxHeight} value={(isWindow?combination.windowHeight:position.height)+boxHeight} onChange={event=>{
+     <Field label={`Broj krila (${name})`}><select value={leaves.length} onChange={event=>onChange(setPartLeafCount(position,part,Number(event.target.value)))}><option value={1}>{isWindow?'Jednokrilni':'Jednokrilna'}</option><option value={2}>{isWindow?'Dvokrilni':'Dvokrilna'}</option></select></Field>
+     <Field label={`Širina (${name}, mm)`}><NumberInput inputMode="numeric" min={100*leaves.length} value={Math.round(width*100)/100} onChange={event=>onChange(resizePart(position,part,Number(event.target.value)))}/></Field>
+     <Field label={`Visina${boxHeight?' otvora':''} (${name}, mm)`}><NumberInput inputMode="numeric" min={200+boxHeight} value={(isWindow?combination.windowHeight:position.height)+boxHeight} onChange={event=>{
       const height=Number(event.target.value)-boxHeight;
       onChange(isWindow?{combination:{...combination,windowHeight:height}}:{height});
      }}/></Field>
-     <Field label={`Otvaranje (${label.toLowerCase()})`}><select value={segment.opening} onChange={event=>onChange({segments:position.segments.map((part,i)=>i===index?{...part,opening:event.target.value as Opening}:part)})}>
-      {['Levo','Desno','Levo + kip','Desno + kip','Kip',...(isWindow?['Fiksno']:[])].map(value=><option key={value}>{value}</option>)}
-     </select></Field>
+     {leaves.length>1&&leaves.map((leaf,index)=><Field key={`width-${index}`} label={`Krilo ${index+1} (${name}, mm)`}><NumberInput inputMode="numeric" min={100} max={width-100} value={Math.round(leaf.width*100)/100} onChange={event=>onChange(resizePartLeaf(position,part,index,Number(event.target.value)))}/></Field>)}
+     {leaves.map((leaf,index)=><Field key={`opening-${index}`} label={leaves.length>1?`Otvaranje (${name}, krilo ${index+1})`:`Otvaranje (${name})`}><select value={leaf.opening} onChange={event=>onChange(setPartOpening(position,part,index,event.target.value as Opening))}>
+      {openings.map(value=><option key={value}>{value}</option>)}
+     </select></Field>)}
+     {!isWindow&&leaves.length===2&&<MainLeafControl position={position} onChange={onChange}/>}
     </section>;
    })}
   </div>

@@ -4,6 +4,7 @@ import { noPanels } from '../fixed-panels';
 import { glassFractionOf, panelHeightOf, weightTotal, type Movement } from '../model-layout';
 import { omittedDoorBottomLength } from '../door-bottom';
 import { customInfillOf, type Opening, type Position } from '../models';
+import { combinationParts } from '../combination';
 
 const segmentMovements:Record<Opening,Movement>={Fiksno:'fixed',Levo:'left',Desno:'right',Kip:'tilt','Levo + kip':'tiltLeft','Desno + kip':'tiltRight',Klizno:'slideLeft'};
 const mm2ToM2=1e6;
@@ -103,20 +104,21 @@ export function positionMeasures(p:Position){
 
  const perimeter=2*(width+height)/1000;
  if(combination){
-  if(p.segments.length!==2||!Number.isFinite(combination.windowHeight)||combination.windowHeight<=0)return null;
-  const heights=[height,combination.windowHeight];
-  let area=0,frame=0;
-  p.segments.forEach((segment,index)=>{
-   const partHeight=heights[index];
-   const partPerimeter=2*(segment.width+partHeight);
-   area+=segment.width*partHeight;
-   frame+=partPerimeter;
-   if(segment.opening!=='Fiksno'){
-    sash+=partPerimeter;
-    openings.push({movement:segmentMovements[segment.opening],door:index===0});
-   }
-  });
-  return {area:area/mm2ToM2,perimeter,frame:frame/1000-omittedBottom,sash:sash/1000,divider:0,bend:0,glass:area/mm2ToM2,panel:0,louvres:0,shaped:false,openings};
+  const parts=combinationParts(p);
+  if(p.segments.length<2||parts.windowLeaves<1||!Number.isFinite(combination.windowHeight)||combination.windowHeight<=0)return null;
+  let area=0,frame=0,divider=0;
+  for(const [leaves,partHeight,isDoor] of [[parts.door,height,true],[parts.window,combination.windowHeight,false]] as const){
+   const partWidth=leaves.reduce((total,s)=>total+s.width,0);
+   area+=partWidth*partHeight;
+   frame+=2*(partWidth+partHeight);
+   leaves.forEach((segment,index)=>{
+    if(index>0&&(segment.opening==='Fiksno'||leaves[index-1].opening==='Fiksno'))divider+=partHeight;
+    if(segment.opening==='Fiksno')return;
+    sash+=2*(segment.width+partHeight);
+    openings.push({movement:segmentMovements[segment.opening],door:isDoor});
+   });
+  }
+  return {area:area/mm2ToM2,perimeter,frame:frame/1000-omittedBottom,sash:sash/1000,divider:divider/1000,bend:0,glass:area/mm2ToM2,panel:0,louvres:0,shaped:false,openings};
  }
  const area=width*height/mm2ToM2;
  const {top,bottom,left,right}=p.fixedPanels??noPanels;

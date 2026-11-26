@@ -72,7 +72,7 @@ describe('Izmena mera preko kota vrata',()=>{
  });
  it('menja prozor u kombinaciji i čuva ukupnu visinu sa ALU pragom',()=>{
   const p={...makeFieldPosition('kombinacija'),doorBottom:'alu24' as const};
-  let next=changePositionDimension(p,'segment:0',950);
+  let next=changePositionDimension(p,'part:door',950);
   expect(next.width).toBe(1850);expect(next.segments[1].width).toBe(900);
   next=changePositionDimension(next,'windowHeight',1300);
   expect(next.combination!.windowHeight).toBe(1300);expect(next.height).toBe(2100);

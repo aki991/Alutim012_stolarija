@@ -1,4 +1,5 @@
 import { doorBottomLabel } from '../door-bottom';
+import { combinationParts, mainLeafText } from '../combination';
 import { formatMeasurementDate } from './measurement-schedule';
 import { accessories, accessorySize, hasMosquitoMotor } from '../accessories';
 import { panelLabels, type PanelSide } from '../fixed-panels';
@@ -93,10 +94,14 @@ export async function makeDocument(job:Job,settings:Settings,kind:'kupac'|'kance
   if(p.customGeometry||p.modelLayout)text('Terenska skica — potrebna tehnička provera',9,true);
   if(p.extraWork)text(`Dodatni radovi: ${p.extraWork}${showPrices?` (${euro(p.extraCost)} / kom)`:''}`);
   if(p.combination){
-   text(`Vrata: ${fmt(p.segments[0].width)} × ${fmt(p.height)} mm / ${p.segments[0].opening}`,9);
-   text(`Prozor ${p.combination.windowSide==='left'?'levo':'desno'}: ${fmt(p.segments[1].width)} × ${fmt(p.combination.windowHeight)} mm / ${p.segments[1].opening}`,9);
+   const parts=combinationParts(p);
+   const leaves=(list:Position['segments'])=>list.length>1?list.map((s,k)=>`krilo ${k+1}: ${fmt(s.width)} mm ${s.opening}`).join(', '):list[0].opening;
+   text(`Vrata${parts.doorLeaves>1?' (dvokrilna)':''}: ${fmt(parts.doorWidth)} × ${fmt(p.height)} mm / ${leaves(parts.door)}`,9);
+   text(`Prozor ${p.combination.windowSide==='left'?'levo':'desno'}${parts.windowLeaves>1?' (dvokrilni)':''}: ${fmt(parts.windowWidth)} × ${fmt(p.combination.windowHeight)} mm / ${leaves(parts.window)}`,9);
    text(`Poravnanje: ${p.combination.alignment==='top'?'gornja ivica':'donja ivica'}`,9);
   }
+  const mainLeaf=mainLeafText(p);
+  if(mainLeaf)text(mainLeaf,9,true);
   if(shutter){
    const {part,width,totalHeight,frameHeight,openingHeight}=shutterMeasures(p,shutter);
    const target=p.combination?` na delu ${part==='window'?'prozor':'vrata'}`:'';

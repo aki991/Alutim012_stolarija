@@ -12,6 +12,7 @@ import { DoorBottomArtwork } from './DoorBottomArtwork';
 import { PositionDimensions } from './PositionDimensions';
 import { hasDoorDimensions, type PositionDimension } from '../position-dimensions';
 import { layoutDimensions } from '../dimension-layout';
+import { combinationParts, doubleDoorLeaves, mainLeafIndices } from '../combination';
 
 /** Proportional field sketch. Geometry and opening marks are shared by UI and PDFs. */
 export function Drawing({position:p,selected=-1,onSelect,onDimensionSelect,zoom=1,compact=false}:{position:Position;selected?:number;onSelect?:(i:number)=>void;onDimensionSelect?:(dimension:PositionDimension)=>void;zoom?:number;compact?:boolean}) {
@@ -28,9 +29,11 @@ export function Drawing({position:p,selected=-1,onSelect,onDimensionSelect,zoom=
  const openingHeight=p.height+doorBoxHeight;
  const doorFrame:DrawingBox={x:0,y:doorBoxHeight,width:p.width,height:p.height};
  let windowFrame:DrawingBox|undefined;
- if(combination){
-  doorFrame.width=p.segments[0].width;
-  const windowWidth=p.segments[1].width,windowBoxHeight=openingBoxHeight(p,'window');
+ const parts=combination?combinationParts(p):undefined;
+ const doubleDoor=doubleDoorLeaves(p),mainLeaves=mainLeafIndices(p);
+ if(combination&&parts){
+  doorFrame.width=parts.doorWidth;
+  const windowWidth=parts.windowWidth,windowBoxHeight=openingBoxHeight(p,'window');
   const windowOpeningHeight=combination.windowHeight+windowBoxHeight;
   if(combination.windowSide==='left')doorFrame.x=windowWidth;
   windowFrame={x:combination.windowSide==='right'?doorFrame.width:0,y:windowBoxHeight+(combination.alignment==='bottom'?openingHeight-windowOpeningHeight:0),width:windowWidth,height:combination.windowHeight};
@@ -88,12 +91,21 @@ export function Drawing({position:p,selected=-1,onSelect,onDimensionSelect,zoom=
    const inset=Math.min(5,pane.w/5,pane.h/5);
    return <rect key={pane.side} data-fixed-panel={pane.side} aria-label={panelLabels[pane.side]} x={pane.x+inset} y={pane.y+inset} width={pane.w-2*inset} height={pane.h-2*inset} fill={`url(#glass-${safeId})`} stroke="#222a2e" strokeWidth="1.5"/>;
   })}
+  {combination&&!p.modelLayout&&!standalone&&([['door',doorFrame],['window',windowFrame!]] as const).map(([part,frame])=>{
+   const box=drawingFrame(frame),openBottom=noThreshold&&part==='door';
+   return <g key={part}><rect data-combination-part={part} x={box.x} y={box.y} width={box.width} height={box.height} fill="#f5f5f3" stroke={openBottom?'none':'#1f2529'} strokeWidth="2.4"/>{openBottom&&<path data-open-door-frame="true" d={openDoorFramePath(box,[{x:box.x,width:box.width}])} fill="none" stroke="#1f2529" strokeWidth="2.4"/>}</g>;
+  })}
   {!p.modelLayout&&!standalone&&p.segments.map((segment,i)=>{
    const sw=Math.max(1,segment.width*scale);
-   const combinedFrame=combination?drawingFrame(i===0?doorFrame:windowFrame!):undefined;
+   const isWindow=!!parts&&i>=parts.doorLeaves;
+   let combinedFrame:DrawingBox|undefined;
+   if(parts){
+    const frame=isWindow?windowFrame!:doorFrame,start=isWindow?parts.doorLeaves:0;
+    const before=p.segments.slice(start,i).reduce((sum,s)=>sum+s.width,0);
+    combinedFrame=drawingFrame({...frame,x:frame.x+before,width:segment.width});
+   }
    const sx=combinedFrame?.x??x+offset;
    offset+=sw;
-   const isWindow=!!combination&&i===1;
    const sh=combinedFrame?.height??middleHeight;
    const sy=combinedFrame?.y??y+top;
    const threshold=bottomMode==='alu24'&&!isWindow?aluThresholdMm*scale:0;
@@ -101,7 +113,6 @@ export function Drawing({position:p,selected=-1,onSelect,onDimensionSelect,zoom=
    const inset=Math.min(9,sw/5,sh/5),l=sx+inset,r=Math.max(l+1,sx+sw-inset),t=sy+inset,b=Math.max(t+1,sy+sh-(threshold?threshold+6:inset)),mid=(t+b)/2;
    const left=segment.opening.includes('Levo'),right=segment.opening.includes('Desno');
    return <g key={i} onClick={()=>onSelect?.(i)} role={onSelect?'button':undefined} tabIndex={onSelect?0:undefined} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();onSelect?.(i);}}} aria-label={`Krilo ${i+1}, ${segment.opening}`} style={{cursor:onSelect?'pointer':undefined}}>
-    {combination&&<><rect data-combination-part={isWindow?'window':'door'} x={sx} y={sy} width={sw} height={sh} fill="#f5f5f3" stroke={openBottom?'none':'#1f2529'} strokeWidth="2.4"/>{openBottom&&<path data-open-door-frame="true" d={openDoorFramePath({x:sx,y:sy,width:sw,height:sh},[{x:sx,width:sw}])} fill="none" stroke="#1f2529" strokeWidth="2.4"/>}</>}
     <rect x={sx+3} y={sy+3} width={Math.max(1,sw-6)} height={Math.max(1,sh-(openBottom?3:6)-threshold)} fill="#f5f5f3" stroke={selected===i?'#b00919':'#555e63'} strokeWidth={selected===i?3:1.2}/>
     <rect x={l} y={t} width={r-l} height={b-t} fill={`url(#glass-${safeId})`} stroke="#222a2e" strokeWidth="1.5"/>
     {!specialized&&<g stroke="#283a43" strokeWidth="1.7" strokeDasharray="7 5" fill="none">
@@ -110,6 +121,10 @@ export function Drawing({position:p,selected=-1,onSelect,onDimensionSelect,zoom=
      {(segment.opening.toLowerCase().includes('kip'))&&<path d={`M${l} ${b}L${(l+r)/2} ${t}L${r} ${b}`}/>}
      {segment.opening==='Klizno'&&<path d={`M${l+8} ${mid}H${r-8}m-12 -8l12 8-12 8`} strokeDasharray="none"/>}
     </g>}
+    {mainLeaves.includes(i)&&(()=>{
+     const handleWidth=Math.max(2,Math.min(5,(r-l)/12)),handleHeight=Math.max(6,Math.min(34,(b-t)/7)),meetsRight=i===doubleDoor![0];
+     return <rect data-main-leaf={meetsRight?'left':'right'} x={meetsRight?r-handleWidth-3:l+3} y={mid-handleHeight/2} width={handleWidth} height={handleHeight} rx={handleWidth/2} fill="#1f2529"/>;
+    })()}
     {p.category==='Komarnici'&&Array.from({length:12},(_,k)=><path key={k} d={`M${l} ${t+(b-t)*k/12}H${r}M${l+(r-l)*k/12} ${t}V${b}`} stroke="#8298a3" strokeWidth=".7"/>)}
    </g>;
   })}

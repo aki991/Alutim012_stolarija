@@ -18,6 +18,8 @@ import { fieldTypes, makeFieldPosition, selectableFieldTypes, typeOfPosition } f
 import { Empty, Modal, Saved } from './components/UI';
 import { centralWidth } from './fixed-panels';
 import { CombinationControls } from './components/CombinationControls';
+import { MainLeafControl } from './components/MainLeafControl';
+import { doubleDoorLeaves } from './combination';
 import { FixedPanelPicker } from './components/FixedPanelPicker';
 import { Drawing } from './components/Drawing';
 import { DimensionControls } from './components/DimensionControls';
@@ -142,7 +144,7 @@ export function ElementEditor(){
   const oldWidth=centralWidth(previous.width,previous.fixedPanels),newWidth=Math.max(0,centralWidth(value,previous.fixedPanels));
   persist({...previous,width:value,segments:previous.segments.map(s=>({...s,width:oldWidth>0?Math.round(s.width/oldWidth*newWidth*100)/100:newWidth/previous.segments.length}))});
  };
- const count=(n:number)=>{patch({segments:Array.from({length:n},(_,i)=>({width:centralWidth(p.width,p.fixedPanels)/n,opening:isFixed||special?'Fiksno':isSliding?'Klizno':p.segments[i]?.opening||(i===0?'Levo + kip':'Desno')}))});setChosen(null);setMessage('');};
+ const count=(n:number)=>{patch({...(n===2?{}:{mainLeaf:undefined}),segments:Array.from({length:n},(_,i)=>({width:centralWidth(p.width,p.fixedPanels)/n,opening:isFixed||special?'Fiksno':isSliding?'Klizno':p.segments[i]?.opening||(i===0?'Levo + kip':'Desno')}))});setChosen(null);setMessage('');};
  const opening=(value:string)=>{
   if(value==='pair'){
    if(p.segments.length<2){setMessage('Za levo + desno izaberite najmanje dva krila.');return;}
@@ -173,7 +175,8 @@ export function ElementEditor(){
  {modelLayout?<ModelLayoutControls dimensionsOnDrawing={hasDoorDimensions(p)} layout={modelLayout} width={p.width} height={p.height} onChange={modelLayout=>patch({modelLayout})}/>:<>
  {(mode==='prozor'||isDoor)&&<button className="field-options-button fixed-panel-trigger" onClick={()=>setLayout(true)}><Settings2/>Raspored fiksnih polja<ChevronRight/></button>}
  {!special&&<section className="visual-control"><h2>Broj krila</h2><div className="wing-count-options" role="group" aria-label="Broj krila">{(isDoor?[1,2]:p.segments.length===4?[1,2,3,4]:[1,2,3]).map(n=><button key={n} className={p.segments.length===n?'selected':''} aria-pressed={p.segments.length===n} aria-label={n===1?'Jedno krilo':n===2?'Dva krila':n===3?'Tri krila':'Četiri krila'} onClick={()=>count(n)}><ElementGlyph type="prozor" wings={n}/><span>{n===1?'Jedno':n===2?'Dva':n===3?'Tri':'Četiri'}</span></button>)}</div></section>}
- {!special&&<section className="visual-control"><div className="opening-heading"><h2>Otvaranje</h2>{chosen!==null&&<button className="field-text-button" onClick={()=>setChosen(null)}>Sva krila</button>}</div><div className="opening-options" role="group" aria-label="Otvaranje">{openingChoices.map(([value,label])=><button key={value} className={activeOpening===value?'selected':''} aria-pressed={activeOpening===value} onClick={()=>opening(value)}><ElementGlyph type={value==='Fiksno'?'fiksni':isSliding?'klizni':'prozor'} wings={value==='pair'?2:1} opening={value==='pair'?undefined:value}/><span>{label}</span></button>)}</div></section>}</>}</>}
+ {!special&&<section className="visual-control"><div className="opening-heading"><h2>Otvaranje</h2>{chosen!==null&&<button className="field-text-button" onClick={()=>setChosen(null)}>Sva krila</button>}</div><div className="opening-options" role="group" aria-label="Otvaranje">{openingChoices.map(([value,label])=><button key={value} className={activeOpening===value?'selected':''} aria-pressed={activeOpening===value} onClick={()=>opening(value)}><ElementGlyph type={value==='Fiksno'?'fiksni':isSliding?'klizni':'prozor'} wings={value==='pair'?2:1} opening={value==='pair'?undefined:value}/><span>{label}</span></button>)}</div></section>}
+ {isDoor&&doubleDoorLeaves(p)&&<MainLeafControl position={p} onChange={patch} select={false}/>}</>}</>}
  <section className="visual-control material-control"><h2>Materijal</h2><div role="group" aria-label="Materijal">{(['PVC','ALU'] as const).map(material=><button key={material} aria-pressed={p.material===material} className={p.material===material?'selected':''} onClick={()=>patch({material,profile:material==='PVC'?'PVC 70 mm':'ALU termo profil'})}>{material}</button>)}</div></section>
  <DoorBottomControls position={p} onChange={patch}/>
  <PositionEquipment position={p} onChange={patch}/>

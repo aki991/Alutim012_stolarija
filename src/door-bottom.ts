@@ -1,6 +1,7 @@
 import type { DoorBottom, Position } from './models';
 import { bounds, ends, isClosed, type Edge, type Geometry } from './custom/geometry';
 import { weightTotal } from './model-layout';
+import { partWidth } from './combination';
 
 export const aluThresholdMm=24;
 export const doorBottomLabels:Record<DoorBottom,string>={alu24:'ALU prag 24 mm',frame:'Ram u krug',none:'Bez praga'};
@@ -21,7 +22,7 @@ export function doorBottomSpans(p:Position):{x:number;width:number}[]{
   });
  }
  if(!['Vrata','Ulazna vrata','Sobna vrata','Klizni sistemi'].includes(p.category))return [];
- if(p.combination)return [{x:p.combination.windowSide==='left'?p.segments[1].width:0,width:p.segments[0].width}];
+ if(p.combination)return [{x:p.combination.windowSide==='left'?partWidth(p,'window'):0,width:partWidth(p,'door')}];
  if(p.modelLayout){
   const row=p.modelLayout.rows.at(-1)!;
   const total=weightTotal(row.cells);

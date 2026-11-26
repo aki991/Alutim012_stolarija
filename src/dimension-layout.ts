@@ -1,6 +1,7 @@
 import type { Position } from './models';
 import { positionDimensions, type PositionDimension } from './position-dimensions';
 import { weightTotal } from './model-layout';
+import { partWidth } from './combination';
 
 export interface DimensionPlacement {
  dimension:PositionDimension; x:number; y:number; length:number;
@@ -23,7 +24,7 @@ export function layoutDimensions(p:Position,origin:{x:number;y:number},scale:num
   if(p.modelLayout){
    const [r,c]=key.split(':').map(Number),row=p.modelLayout.rows[r];
    if(row)center-=p.width*row.cells[c].weight/weightTotal(row.cells)/2;
-  }else if(p.combination)center-=p.segments[1].width/2;
+  }else if(p.combination)center-=partWidth(p,'window')/2;
   const side=chainKeys.length===1||center>=p.width/2?'right':'left';
   const start=Math.min(...chain.map(d=>d.y)),end=Math.max(...chain.map(d=>d.y+d.value));
   let lane=lanes[side].findIndex(intervals=>intervals.every(i=>end<i.start-80||start>i.end+80));

@@ -1,4 +1,5 @@
 import type { Position } from './models';
+import { partWidth } from './combination';
 
 export const shutterTypes={
  top:{label:'Nadgradna (nasadna)',mount:'inside',boxHeight:200,rate:'shutterTop'},
@@ -101,7 +102,7 @@ export function openingBoxHeight(p:Position,part:ShutterPart='door') {
 export function shutterMeasures(p:Position,config:ShutterConfig) {
  const part=shutterPart(p,config);
  const frameHeight=part==='window'?p.combination!.windowHeight:p.height;
- const frameWidth=p.combination?p.segments[part==='window'?1:0].width:p.width;
+ const frameWidth=p.combination?partWidth(p,part):p.width;
  const width=p.category==='Roletne'?p.width:config.width??frameWidth;
  const totalHeight= p.category==='Roletne'||config.mount==='overlay'?frameHeight:frameHeight+config.boxHeight;
  return {part,width,totalHeight,frameHeight,openingHeight:frameHeight+openingBoxHeight(p,part)};

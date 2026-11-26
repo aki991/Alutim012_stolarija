@@ -3,6 +3,7 @@ import { centralWidth, noPanels, panelLabels, type PanelSide } from './fixed-pan
 import { panelHeightOf, resizeBand, weightTotal } from './model-layout';
 import { openingBoxHeight } from './shutters';
 import { portaMaxDimension } from './porta-royal';
+import { combinationParts, resizePart, resizePartLeaf, type CombinationPart } from './combination';
 
 export interface PositionDimension {
  id:string; label:string; value:number; min:number; max:number;
@@ -40,10 +41,19 @@ export function positionDimensions(p:Position):PositionDimension[]{
    y+=height;
   });
  }else if(p.combination){
-  const c=p.combination,doorX=c.windowSide==='left'?p.segments[1].width:0,windowX=c.windowSide==='left'?0:p.segments[0].width;
+  const c=p.combination,parts=combinationParts(p),doorX=c.windowSide==='left'?parts.windowWidth:0,windowX=c.windowSide==='left'?0:parts.doorWidth;
   const windowBox=openingBoxHeight(p,'window'),windowY=-box+windowBox+(c.alignment==='bottom'?p.height+box-c.windowHeight-windowBox:0);
-  p.segments.forEach((segment,index)=>result.push({id:`segment:${index}`,label:`Širina ${index?'prozora':'vrata'}`,value:segment.width,min:100,max:6000-p.segments[1-index].width,axis:'width',x:index?windowX:doorX,y:(index?windowY+c.windowHeight:p.height),placement:'inside'}));
-  result.push({id:'windowHeight',label:'Visina prozora',value:c.windowHeight+windowBox,min:200+windowBox,max:p.height+box,axis:'height',x:windowX+p.segments[1].width,y:windowY-windowBox,placement:'inside'});
+  for(const part of ['door','window'] as CombinationPart[]){
+   const isWindow=part==='window',leaves=parts[part],width=isWindow?parts.windowWidth:parts.doorWidth;
+   const x=isWindow?windowX:doorX,bottom=isWindow?windowY+c.windowHeight:p.height,name=isWindow?'prozora':'vrata';
+   result.push({id:`part:${part}`,label:`Širina ${name}`,value:width,min:100*leaves.length,max:6000-(isWindow?parts.doorWidth:parts.windowWidth),axis:'width',x,y:bottom,placement:'inside'});
+   // Leaf widths sit on their own chain, nearer the element than the part width.
+   let leafX=x;
+   if(leaves.length>1)leaves.forEach((leaf,index)=>{
+    result.push({id:`leaf:${part}:${index}`,label:`Širina krila ${index+1} (${isWindow?'prozor':'vrata'})`,value:leaf.width,min:100,max:width-100,axis:'width',x:leafX,y:bottom+.01,placement:'inside'});leafX+=leaf.width;
+   });
+  }
+  result.push({id:'windowHeight',label:'Visina prozora',value:c.windowHeight+windowBox,min:200+windowBox,max:p.height+box,axis:'height',x:windowX+parts.windowWidth,y:windowY-windowBox,placement:'inside'});
  }else{
   const panels=p.fixedPanels??noPanels,middle=p.height-panels.top-panels.bottom;
   for(const side of ['top','bottom','left','right'] as PanelSide[]){
@@ -83,10 +93,11 @@ export function changePositionDimension(p:Position,id:string,value:number):Posit
   return {...p,modelLayout:layout};
  }
  if(kind==='segment'){
-  if(p.combination)return {...p,width:p.width-p.segments[r].width+value,segments:p.segments.map((s,i)=>i===r?{...s,width:value}:s)};
   if(p.segments.length===1)return {...p,width:value+(p.fixedPanels?.left??0)+(p.fixedPanels?.right??0),segments:[{...p.segments[0],width:value}]};
   return {...p,segments:resizeBand(p.segments.map(s=>({...s,weight:s.width})),r,value,centralWidth(p.width,p.fixedPanels)).map(({weight,...s})=>({...s,width:weight}))};
  }
+ if(p.combination&&kind==='part')return {...p,...resizePart(p,first as CombinationPart,value)};
+ if(p.combination&&kind==='leaf')return {...p,...resizePartLeaf(p,first as CombinationPart,c,value)};
  if(id==='windowHeight')return {...p,combination:{...p.combination!,windowHeight:value-openingBoxHeight(p,'window')}};
  const panels={...(p.fixedPanels??noPanels)};
  if(kind==='fixed')panels[first as PanelSide]=value;
