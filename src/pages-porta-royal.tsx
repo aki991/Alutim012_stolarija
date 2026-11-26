@@ -6,6 +6,8 @@ import { Check, DoorOpen, Search } from 'lucide-react';
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { catalog, makePosition } from './catalog';
 import { DimensionControls, type ElementDimensions } from './components/DimensionControls';
+import { DoorBottomControls } from './components/DoorBottomControls';
+import { Drawing } from './components/Drawing';
 import { FieldHeader } from './components/FieldHeader';
 import { ModuleHeader } from './components/ModuleHeader';
 import { NewJobDialog } from './components/NewJobDialog';
@@ -155,7 +157,7 @@ function PortaMeasurements({initial,jobId,customer,back,editing,showPrices,draft
   setP(next);
   try{draftStorage.write(next);setDraftError(false);}catch{setDraftError(true);}
  }
- function setConfig(next:Partial<PortaRoyalConfig>){patch(withDoor(p,{...config,...next}));}
+ function setConfig(next:Partial<PortaRoyalConfig>){patch(withDoor({...p,...(next.threshold?{doorBottom:undefined}:{})},{...config,...next}));}
  function select(next:PortaSelection){
   const defaults=portaConfiguration(next);
   const previousSize=portaStartingSize(config.type),nextSize=portaStartingSize(next.type);
@@ -209,6 +211,7 @@ function PortaMeasurements({initial,jobId,customer,back,editing,showPrices,draft
      </select></Field>
      <PortaVariantOptions selection={config} onChange={select}/>
     </div>
+    <div className="porta-card"><DoorBottomControls position={p} onChange={next=>patch({...p,...next,portaRoyal:{...config,threshold:false}})}/>{p.doorBottom&&<div className="porta-bottom-preview" aria-label="Skica donjeg dela vrata"><Drawing position={p} compact/></div>}</div>
     <details className="porta-card porta-equipment" open>
      <summary>Konstrukcija i oprema</summary>
      <div className="field-options-grid">

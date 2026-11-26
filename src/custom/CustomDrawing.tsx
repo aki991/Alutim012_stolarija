@@ -1,5 +1,5 @@
 import type { DoorBottom } from '../models';
-import { aluThresholdMm, doorBottomLabels } from '../door-bottom';
+import { aluThresholdMm, doorBottomLabels, isDoorBottomEdge } from '../door-bottom';
 import { useId } from 'react';
 import { ShutterArtwork, shutterBox, shutterExtent } from '../components/ShutterArtwork';
 import type { ShutterConfig } from '../shutters';
@@ -38,17 +38,17 @@ export function GeometryArtwork({geometry:g,selected,unit=4,editable=false,dimen
  const shutterBounds=shutter&&shutterFrame?shutterBox(shutterFrame,shutter):undefined;
  const labels=dimensions?dimensionLabels(g,unit,viewport,shutterBounds?[shutterBounds]:[]):[];
  const angles=dimensions?angleLabels(g,unit,labels,viewport):[];
- const contourBounds=bounds(g);
+ const omitted=new Set(doorBottom==='none'?g.edges.filter(edge=>isDoorBottomEdge(g,edge)).map(edge=>edge.id):[]);
+ const profilePath=omitted.size?contourPath({...g,edges:g.edges.filter(edge=>!omitted.has(edge.id))}):path;
  const thresholdProfiles=doorBottom==='alu24'?g.edges.map(edge=>{
-  const [a,b]=ends(g,edge);
-  const threshold=edge.kind==='line'&&Math.abs(a.y-(contourBounds.y+contourBounds.height))<.01&&Math.abs(a.y-b.y)<.01;
+  const threshold=isDoorBottomEdge(g,edge);
   const size=threshold?aluThresholdMm:frame,color=threshold?'#bbc8d0':tone,d=edgePath(g,edge);
   return <g key={edge.id} data-door-bottom={threshold?'alu24':undefined} data-threshold-mm={threshold?aluThresholdMm:undefined}><path d={d} fill="none" stroke="#52595e" strokeWidth={2*size}/><path d={d} fill="none" stroke={color} strokeWidth={2*Math.max(1,size-5)}/><path d={d} fill="none" stroke="#c5c9c9" strokeWidth={Math.max(1,size*.85)}/><path d={d} fill="none" stroke={color} strokeWidth={Math.max(1,size*.72)}/></g>;
  }):null;
  return <>
-  {isClosed(g)?<g className="custom-profile-frame" pointerEvents="none"><defs><clipPath id={clipId}><path d={path}/></clipPath></defs><path d={path} fill={infill==='glass'?'#dcf2fc':frameColor==='Antracit'?'#596168':frameColor==='Bela'?'#e2e4df':'#b18a63'}/><g clipPath={`url(#${clipId})`}>{thresholdProfiles??<><path d={path} fill="none" stroke="#52595e" strokeWidth={2*frame} strokeLinejoin="miter"/><path d={path} fill="none" stroke={tone} strokeWidth={2*Math.max(1,frame-5)} strokeLinejoin="miter"/><path d={path} fill="none" stroke={frameColor==='Antracit'?'#687078':'#c5c9c9'} strokeWidth={Math.max(1,frame*.85)} strokeLinejoin="miter"/><path d={path} fill="none" stroke={tone} strokeWidth={Math.max(1,frame*.72)} strokeLinejoin="miter"/></>}</g><path d={path} fill="none" stroke="#3e474d" strokeWidth="1.5" vectorEffect="non-scaling-stroke"/></g>:<path d={path} fill="none" stroke="#42484d" strokeWidth="3" vectorEffect="non-scaling-stroke"/>}
+  {isClosed(g)?<g className="custom-profile-frame" pointerEvents="none"><defs><clipPath id={clipId}><path d={path}/></clipPath></defs><path d={path} fill={infill==='glass'?'#dcf2fc':frameColor==='Antracit'?'#596168':frameColor==='Bela'?'#e2e4df':'#b18a63'}/><g clipPath={`url(#${clipId})`}>{thresholdProfiles??<><path d={profilePath} data-open-door-frame={omitted.size?'true':undefined} fill="none" stroke="#52595e" strokeWidth={2*frame} strokeLinejoin="miter"/><path d={profilePath} fill="none" stroke={tone} strokeWidth={2*Math.max(1,frame-5)} strokeLinejoin="miter"/><path d={profilePath} fill="none" stroke={frameColor==='Antracit'?'#687078':'#c5c9c9'} strokeWidth={Math.max(1,frame*.85)} strokeLinejoin="miter"/><path d={profilePath} fill="none" stroke={tone} strokeWidth={Math.max(1,frame*.72)} strokeLinejoin="miter"/></>}</g><path d={profilePath} fill="none" stroke="#3e474d" strokeWidth="1.5" vectorEffect="non-scaling-stroke"/></g>:<path d={profilePath} fill="none" stroke="#42484d" strokeWidth="3" vectorEffect="non-scaling-stroke"/>}
   {g.edges.map(e=>{let d='';try{d=edgePath(g,e);}catch{return null;}return <g key={e.id}>
-   {e.locked&&<path d={d} className="custom-locked-edge" stroke="#23658c" fill="none" strokeWidth="2.5" strokeDasharray="7 4" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
+   {!omitted.has(e.id)&&(e.locked||e.axisLock)&&<path d={d} data-axis-lock={e.axisLock?.axis} className="custom-locked-edge" stroke="#23658c" fill="none" strokeWidth="2.5" strokeDasharray="7 4" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
    {editable&&<path data-edge={e.id} d={d} fill="none" stroke="transparent" strokeWidth="30" vectorEffect="non-scaling-stroke" className="custom-edge-hit"/>}
    {selected===e.id&&<path d={d} stroke="#be0018" fill="none" strokeWidth="3" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
   </g>;})}
@@ -65,9 +65,9 @@ export function GeometryArtwork({geometry:g,selected,unit=4,editable=false,dimen
   })}
   {labels.map(label=><g key={label.id+'label'}>
    {label.leader&&<path d={`M${label.anchor.x} ${label.anchor.y}L${label.center.x} ${label.center.y}`} fill="none" stroke="#8d9aa8" strokeWidth="1" vectorEffect="non-scaling-stroke" pointerEvents="none"/>}
-   <g transform={`translate(${label.center.x} ${label.center.y}) rotate(${label.angle})`} data-dimension={editable?label.id:undefined} className={editable?'custom-dimension-label':undefined} role={editable?'button':undefined} tabIndex={editable?0:undefined} aria-label={editable?`${label.text}${label.locked?', zaključano':''}`:undefined} onKeyDown={e=>{if(editable&&(e.key==='Enter'||e.key===' ')){e.preventDefault();onDimensionSelect?.(label.id);}}}>
-    <rect x={-label.width/2} y={-label.height/2} width={label.width} height={label.height} rx={5*unit} fill={label.locked?'#edf7ff':'#ffffff'} fillOpacity=".95" stroke={selected===label.id?'#c0001a':'none'} strokeWidth="1" vectorEffect="non-scaling-stroke"/>
-    <text data-dimension-text={label.id} x={label.locked?-8*unit:0} y={0} textAnchor="middle" dominantBaseline="central" fontSize={15*unit} fontFamily="Arial,sans-serif" fontWeight="700" fill={label.locked?'#205775':'#191d21'} pointerEvents="none">{label.text}</text>
+   <g transform={`translate(${label.center.x} ${label.center.y}) rotate(${label.angle})`} data-dimension={editable?label.id:undefined} className={editable?'custom-dimension-label':undefined} role={editable?'button':undefined} tabIndex={editable?0:undefined} aria-label={editable?`${label.text}${label.locked?', mera zaključana':''}${label.axisLock?`, ${label.axisLock==='horizontal'?'vodoravni':'uspravni'} pravac zaključan`:''}`:undefined} onKeyDown={e=>{if(editable&&(e.key==='Enter'||e.key===' ')){e.preventDefault();onDimensionSelect?.(label.id);}}}>
+    <rect x={-label.width/2} y={-label.height/2} width={label.width} height={label.height} rx={5*unit} fill={label.locked||label.axisLock?'#edf7ff':'#ffffff'} fillOpacity=".95" stroke={selected===label.id?'#c0001a':'none'} strokeWidth="1" vectorEffect="non-scaling-stroke"/>
+    <text data-dimension-text={label.id} x={label.locked?-8*unit:0} y={0} textAnchor="middle" dominantBaseline="central" fontSize={15*unit} fontFamily="Arial,sans-serif" fontWeight="700" fill={label.locked||label.axisLock?'#205775':'#191d21'} pointerEvents="none">{label.text}</text>
     {label.locked&&<g transform={`translate(${label.width/2-21*unit} ${-8*unit}) scale(${unit})`} fill="none" stroke="#23658c" strokeWidth="1.7" pointerEvents="none"><rect x="1" y="7" width="12" height="10" rx="2"/><path d="M4 7V4a3 3 0 016 0v3"/></g>}
    </g>
   </g>)}

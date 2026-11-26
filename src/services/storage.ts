@@ -31,7 +31,7 @@ function parseSettings(settings:unknown):Settings{
 
 export function parseStoredPosition(p:unknown):Position{
    if(!record(p)||!strings(p,['id','name','color','notes','access','extraWork'])||![p.width,p.height,p.quantity].every(draftNumber)||!number(p.extraCost)||!(p.manualPrice===null||number(p.manualPrice))||!['PVC','ALU'].includes(String(p.material))||!['Dvoslojno','Troslojno','Sigurnosno'].includes(String(p.glass))||!['Standardni','Sigurnosni'].includes(String(p.hardware))||!['Prozori','Vrata','Sobna vrata','Klizni sistemi','Ulazna vrata','Roletne','Komarnici','Klupice','Usluge'].includes(String(p.category))||!['shutter','mosquito','sill','installation','removal'].every(k=>typeof p[k]==='boolean')||!Array.isArray(p.segments)||p.segments.length<1||p.segments.length>4)return fail();
-   if(p.doorBottom!==undefined&&p.doorBottom!=='alu24'&&p.doorBottom!=='frame')return fail();
+   if(p.doorBottom!==undefined&&p.doorBottom!=='alu24'&&p.doorBottom!=='frame'&&p.doorBottom!=='none')return fail();
    if(p.mosquitoMotor!==undefined&&typeof p.mosquitoMotor!=='boolean')return fail();
    if(p.drip!==undefined&&typeof p.drip!=='boolean')return fail();
    if(p.accessoryDimensions!==undefined&&!isAccessoryDimensions(p.accessoryDimensions))return fail();

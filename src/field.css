@@ -312,10 +312,11 @@
 .equipment-measures small{display:block;margin:8px 0 0;font-size:16px;color:#53636c}
 .equipment-measures .field-text-button{margin-top:5px;min-height:44px;font-size:17px}
 .door-bottom-control{min-width:0;width:100%;grid-column:1/-1}
-.door-bottom-control>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.door-bottom-control>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .door-bottom-control button{min-width:0;min-height:48px;padding:9px 7px;border:1px solid #d8dadd;border-radius:9px;background:#fff;color:#1d1d1d;font:700 20px AluNarrow,Arial,sans-serif;cursor:pointer}
 .door-bottom-control button.selected{border-color:#b00015;background:#b00015;color:#fff}
 .door-bottom-control p{margin:8px 0 0;font-size:16px;color:#53636c}
+.porta-bottom-preview{height:180px;margin-top:12px}
 .drawing-dimension.interactive{cursor:pointer}
 .drawing-dimension.interactive g:focus{outline:none}
 .drawing-dimension.interactive g:hover .drawing-dimension-label,.drawing-dimension.interactive g:focus .drawing-dimension-label{fill:#e4f6f3;stroke:#087c72;stroke-width:1.5}

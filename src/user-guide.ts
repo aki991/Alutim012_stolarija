@@ -87,7 +87,7 @@ export const guideChapters: readonly GuideChapter[] = [
   blocks: [
    { heading: 'Vrata sa prozorom', text: 'Izaberite Kombinacija. Unesite odvojene mere i otvaranja za vrata i prozor, odredite da li je prozor levo ili desno i izaberite poravnanje. U poslu se vodi kao jedna pozicija, sa posebnim merama i okovom za svaki deo.' },
    { heading: 'Mere na kotama vrata', text: 'Kliknite ili dodirnite kotu na crtežu vrata. Otvara se prozor sa trenutnom merom i pregledom koji prati unos. Primeni meru potvrđuje promenu, a Otkaži zadržava prethodnu meru. Kote određuju ukupne mere, širine krila i polja, nadsvetlo, bočna fiksna polja i visine stakla i parapeta. Kod modela sa parapetom promena njegove visine menja preostalu visinu stakla u istom polju. Mere polja prate granice polja na terenskoj skici; kancelarija potvrđuje proizvodne mere.' },
-   { heading: 'Donji deo vrata', text: 'Na glavnom ekranu vrata izaberite ALU prag 24 mm ili Ram u krug. Uneta ukupna visina vrata uključuje prag: za visinu 2100 mm prag ostaje unutar tih 2100 mm. Kod kombinacije prag pripada samo delu vrata. Izbor se čuva uz element i vidi na skici, u ponudi i specifikaciji.' },
+   { heading: 'Donji deo vrata', text: 'Na glavnom ekranu vrata izaberite ALU prag 24 mm, Ram u krug ili Bez praga. Opcija Bez praga uklanja prag i donji profil rama, dok ram ostaje gore i sa strane. Uneta ukupna visina vrata uključuje prag: za visinu 2100 mm prag ostaje unutar tih 2100 mm. Kod kombinacije prag pripada samo delu vrata. Izbor se čuva uz element i vidi na skici, u ponudi i specifikaciji.' },
    { heading: 'Roletna, komarnik i klupica', items: [
     'Roletnu dodajte kao poseban element ili kao dodatak prozoru. Izaberite tip i unesite mere prema mestu ugradnje. Kada je kutija u otvoru, proverite ukupnu visinu otvora i preostalu visinu rama.',
     'Za kutiju roletne izaberite PVC ili ALU, a za vodilicu Ravna vodilica ili Vodilica sa dodatkom. Poluobla kutija ima izbore Poluobla rondo i Poluobla eko. Izaberite pogon bez motora sa kanapom ili trakom i levu ili desnu stranu (gledano iznutra), ili pogon sa motorom pa sa daljinskim ili bez daljinskog upravljača. Kod motorne roletne izaberite i levu ili desnu stranu motora, gledano iznutra. Izbori se čuvaju uz poziciju i navode u dokumentima.',
@@ -109,7 +109,7 @@ export const guideChapters: readonly GuideChapter[] = [
    ] },
    { heading: 'Ispravke i preciznost', items: [
     'Izaberi / Pomeri služi za izbor stranice i pomeranje čvorova. Dodir stranice ili oznake mere otvara unos dužine, a kod luka i radijusa.',
-    'Za pravu liniju dostupno je vodoravno ili uspravno poravnanje. Pri izmeni izaberite kraj koji ostaje fiksan. Zaključajte meru kada želite da se zadrži pri pomeranju okoline.',
+    'Za pravu liniju dostupno je vodoravno ili uspravno poravnanje. Pri izmeni izaberite kraj koji ostaje fiksan. Zaključajte meru kada želite da se zadrži pri pomeranju okoline. Dugmad Zaključaj vodoravno i Zaključaj uspravno poravnavaju stranicu i zadržavaju je na istoj vodoravnoj ili uspravnoj liniji. Pravac i meru zaključavate i otključavate zasebno. Kada su zaključani i mera i pravac, cela stranica ostaje na mestu.',
     'Vratite potez komandom Undo ili ga ponovite komandom Redo. Uvećanje, pomeranje platna i opcija Uklopi ceo nacrt služe za pregled. Kontura predstavlja spoljašnju ivicu rama.',
    ] },
   ],

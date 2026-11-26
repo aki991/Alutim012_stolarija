@@ -2,6 +2,7 @@ import { bounds, distance, edgeLength, ends, isClosed, signedArea, type Geometry
 import { openingRegions } from '../custom/openings';
 import { noPanels } from '../fixed-panels';
 import { glassFractionOf, panelHeightOf, weightTotal, type Movement } from '../model-layout';
+import { omittedDoorBottomLength } from '../door-bottom';
 import { customInfillOf, type Opening, type Position } from '../models';
 
 const segmentMovements:Record<Opening,Movement>={Fiksno:'fixed',Levo:'left',Desno:'right',Kip:'tilt','Levo + kip':'tiltLeft','Desno + kip':'tiltRight',Klizno:'slideLeft'};
@@ -20,6 +21,7 @@ export function positionMeasures(p:Position){
  const {width,height,modelLayout,customGeometry,combination}=p;
  if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0)return null;
  const door=customGeometry&&p.customKind?p.customKind==='door':p.category==='Vrata'||p.category==='Ulazna vrata'||p.category==='Sobna vrata'||p.category==='Klizni sistemi';
+ const omittedBottom=omittedDoorBottomLength(p)/1000;
  const openings:{movement:Movement;door:boolean}[]=[];
  let sash=0;
  if(customGeometry){
@@ -50,7 +52,7 @@ export function positionMeasures(p:Position){
     const blank=bounds(customGeometry);
     glass=blank.width*blank.height/mm2ToM2;
    }
-   return {area,perimeter,frame:perimeter,sash:sash/1000,bend,divider,glass,panel:panel?area:0,louvres:0,shaped,openings};
+   return {area,perimeter,frame:perimeter-omittedBottom,sash:sash/1000,bend,divider,glass,panel:panel?area:0,louvres:0,shaped,openings};
   }catch{return null;}
  }
 
@@ -96,7 +98,7 @@ export function positionMeasures(p:Position){
    });
    previous=current;
   }
-  return area>0?{area,perimeter:perimeter/1000,frame:perimeter/1000,sash:sash/1000,divider:divider/1000,bend:0,glass,panel,louvres,shaped:false,openings}:null;
+  return area>0?{area,perimeter:perimeter/1000,frame:perimeter/1000-omittedBottom,sash:sash/1000,divider:divider/1000,bend:0,glass,panel,louvres,shaped:false,openings}:null;
  }
 
  const perimeter=2*(width+height)/1000;
@@ -114,7 +116,7 @@ export function positionMeasures(p:Position){
     openings.push({movement:segmentMovements[segment.opening],door:index===0});
    }
   });
-  return {area:area/mm2ToM2,perimeter,frame:frame/1000,sash:sash/1000,divider:0,bend:0,glass:area/mm2ToM2,panel:0,louvres:0,shaped:false,openings};
+  return {area:area/mm2ToM2,perimeter,frame:frame/1000-omittedBottom,sash:sash/1000,divider:0,bend:0,glass:area/mm2ToM2,panel:0,louvres:0,shaped:false,openings};
  }
  const area=width*height/mm2ToM2;
  const {top,bottom,left,right}=p.fixedPanels??noPanels;
@@ -128,5 +130,5 @@ export function positionMeasures(p:Position){
   sash+=2*(segment.width+centerHeight);
   openings.push({movement:segmentMovements[segment.opening],door});
  });
- return {area,perimeter,frame:perimeter,sash:sash/1000,divider:divider/1000,bend:0,glass:area,panel:0,louvres:0,shaped:false,openings};
+ return {area,perimeter,frame:perimeter-omittedBottom,sash:sash/1000,divider:divider/1000,bend:0,glass:area,panel:0,louvres:0,shaped:false,openings};
 }

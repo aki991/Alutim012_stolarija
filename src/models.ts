@@ -15,7 +15,7 @@ export interface Segment { width: number; opening: Opening }
 export type AccessoryKind='mosquito'|'sill'|'drip';
 export interface AccessoryDimensions {width?:number;height?:number}
 export type CustomKind = 'window' | 'door' | 'other';
-export type DoorBottom = 'alu24' | 'frame';
+export type DoorBottom = 'alu24' | 'frame' | 'none';
 export const customKindLabel = (kind?:CustomKind) => kind==='door'?'Vrata sa ramom':kind==='other'?'Element sa ramom':'Prozor sa ramom';
 export interface Position { measurementPending?:boolean; doorBottom?:DoorBottom; mosquitoMotor?:boolean; drip?:boolean; accessoryDimensions?:Partial<Record<AccessoryKind,AccessoryDimensions>>; portaRoyal?: PortaRoyalConfig; shutterConfig?: ShutterConfig; modelLayout?: ModelLayout; combination?: {windowHeight:number;windowSide:'left'|'right';alignment:'top'|'bottom'}; fixedPanels?: FixedPanels; customInfill?: 'glass'|'panel'; customKind?: CustomKind; customFrameMm?: number; customGeometry?: Geometry; id: string; name: string; category: Category; elementType?: string; width: number; height: number; quantity: number; material: 'PVC' | 'ALU'; profile?: string; color: string; glass: 'Dvoslojno' | 'Troslojno' | 'Sigurnosno'; hardware: 'Standardni' | 'Sigurnosni'; segments: Segment[]; shutter: boolean; mosquito: boolean; sill: boolean; installation: boolean; removal: boolean; notes: string; access: string; extraWork: string; extraCost: number; photos: string[]; manualPrice: number | null }
 export interface Customer { name: string; phone: string; email: string; address: string; building: string }

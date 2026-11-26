@@ -53,4 +53,11 @@ describe('Krojna lista spoljašnjeg rama',()=>{
   expect(contourCorners(presetGeometry('rectangle'))).toHaveLength(4);
   expect(cornerLabel(0)).toBe('A');expect(cornerLabel(25)).toBe('Z');expect(cornerLabel(26)).toBe('AA');
  });
+ it('bez praga izostavlja donji profil i ne računa spoj sa nepostojećim profilom',()=>{
+  const g=presetGeometry('trapezoid',1200,2100),p={...position(g),customKind:'door' as const,doorBottom:'none' as const};
+  const list=elementCutList(p)!;
+  expect(list.rows.map(row=>row.id)).toEqual(['e0','e1','e2']);expect(list.rows.some(row=>row.kind==='threshold')).toBe(false);
+  expect(list.rows[0].start).toMatchObject({angle:null,reason:'open'});expect(list.rows[2].end).toMatchObject({angle:null,reason:'open'});
+  expect(elementCutList({...p,doorBottom:'frame'})!.rows).toHaveLength(4);expect(p.customGeometry).toEqual(g);
+ });
 });

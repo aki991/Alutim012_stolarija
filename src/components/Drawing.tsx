@@ -7,7 +7,7 @@ import type { Position } from '../models';
 import { openingBoxHeight, shutterOf, shutterPart } from '../shutters';
 import { ShutterArtwork, shutterExtent, type DrawingBox } from './ShutterArtwork';
 import { PortaDrawing } from './PortaDrawing';
-import { aluThresholdMm, doorBottomSpans } from '../door-bottom';
+import { aluThresholdMm, doorBottomSpans, openDoorFramePath } from '../door-bottom';
 import { DoorBottomArtwork } from './DoorBottomArtwork';
 import { PositionDimensions } from './PositionDimensions';
 import { hasDoorDimensions, type PositionDimension } from '../position-dimensions';
@@ -18,6 +18,7 @@ export function Drawing({position:p,selected=-1,onSelect,onDimensionSelect,zoom=
  const drawingId=useId();
  const shutter=shutterOf(p);
  const bottomSpans=doorBottomSpans(p),bottomMode=bottomSpans.length?p.doorBottom:undefined;
+ const noThreshold=bottomMode==='none';
  if(p.portaRoyal)return <PortaDrawing position={p} config={p.portaRoyal} compact={compact} onDimensionSelect={onDimensionSelect}/>;
  if(p.customGeometry)return <CustomDrawing geometry={p.customGeometry} frameMm={p.customFrameMm??70} frameColor={p.color} infill={customInfillOf(p)} compact={compact} shutter={shutter} doorBottom={bottomMode}/>;
  const W=560,H=450;
@@ -81,8 +82,8 @@ export function Drawing({position:p,selected=-1,onSelect,onDimensionSelect,zoom=
    <path d={`M${outerX-36} ${openingY}V${openingBottom}`} markerStart={`url(#arrow-${safeId})`} markerEnd={`url(#arrow-${safeId})`}/>
   </g>}
   {!compact&&!doorDimensions&&<g fontFamily="Arial,sans-serif" fill="#15191b" fontSize="24" fontWeight="700"><text x={x+width/2} y={outerY-47} textAnchor="middle">{p.width} mm</text><text x={outerX-50} y={(openingY+openingBottom)/2} textAnchor="middle" transform={`rotate(-90 ${outerX-50} ${(openingY+openingBottom)/2})`}>{openingHeight} mm</text></g>}
-  {p.modelLayout&&<ModelArtwork layout={p.modelLayout} box={{x,y,width,height}} realHeight={p.height} glass={`url(#glass-${safeId})`} compact={compact} thresholdHeight={bottomMode==='alu24'?aluThresholdMm*scale:0} thresholdSpans={bottomSpans.map(span=>({x:x+span.x*scale,width:span.width*scale}))}/>}
-  {!combination&&!p.modelLayout&&!standalone&&<rect x={x} y={y} width={width} height={height} fill="#f5f5f3" stroke="#1f2529" strokeWidth="2.4"/>}
+  {p.modelLayout&&<ModelArtwork layout={p.modelLayout} box={{x,y,width,height}} realHeight={p.height} glass={`url(#glass-${safeId})`} compact={compact} openBottom={noThreshold} thresholdHeight={bottomMode==='alu24'?aluThresholdMm*scale:0} thresholdSpans={bottomSpans.map(span=>({x:x+span.x*scale,width:span.width*scale}))}/>}
+  {!combination&&!p.modelLayout&&!standalone&&<><rect x={x} y={y} width={width} height={height} fill="#f5f5f3" stroke={noThreshold?'none':'#1f2529'} strokeWidth="2.4"/>{noThreshold&&<path data-open-door-frame="true" d={openDoorFramePath({x,y,width,height},bottomSpans.map(span=>({x:x+span.x*scale,width:span.width*scale})))} fill="none" stroke="#1f2529" strokeWidth="2.4"/>}</>}
   {fixedPanes.filter(pane=>pane.w>0&&pane.h>0).map(pane=>{
    const inset=Math.min(5,pane.w/5,pane.h/5);
    return <rect key={pane.side} data-fixed-panel={pane.side} aria-label={panelLabels[pane.side]} x={pane.x+inset} y={pane.y+inset} width={pane.w-2*inset} height={pane.h-2*inset} fill={`url(#glass-${safeId})`} stroke="#222a2e" strokeWidth="1.5"/>;
@@ -96,11 +97,12 @@ export function Drawing({position:p,selected=-1,onSelect,onDimensionSelect,zoom=
    const sh=combinedFrame?.height??middleHeight;
    const sy=combinedFrame?.y??y+top;
    const threshold=bottomMode==='alu24'&&!isWindow?aluThresholdMm*scale:0;
+   const openBottom=noThreshold&&!isWindow;
    const inset=Math.min(9,sw/5,sh/5),l=sx+inset,r=Math.max(l+1,sx+sw-inset),t=sy+inset,b=Math.max(t+1,sy+sh-(threshold?threshold+6:inset)),mid=(t+b)/2;
    const left=segment.opening.includes('Levo'),right=segment.opening.includes('Desno');
    return <g key={i} onClick={()=>onSelect?.(i)} role={onSelect?'button':undefined} tabIndex={onSelect?0:undefined} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();onSelect?.(i);}}} aria-label={`Krilo ${i+1}, ${segment.opening}`} style={{cursor:onSelect?'pointer':undefined}}>
-    {combination&&<rect data-combination-part={isWindow?'window':'door'} x={sx} y={sy} width={sw} height={sh} fill="#f5f5f3" stroke="#1f2529" strokeWidth="2.4"/>}
-    <rect x={sx+3} y={sy+3} width={Math.max(1,sw-6)} height={Math.max(1,sh-6-threshold)} fill="#f5f5f3" stroke={selected===i?'#b00919':'#555e63'} strokeWidth={selected===i?3:1.2}/>
+    {combination&&<><rect data-combination-part={isWindow?'window':'door'} x={sx} y={sy} width={sw} height={sh} fill="#f5f5f3" stroke={openBottom?'none':'#1f2529'} strokeWidth="2.4"/>{openBottom&&<path data-open-door-frame="true" d={openDoorFramePath({x:sx,y:sy,width:sw,height:sh},[{x:sx,width:sw}])} fill="none" stroke="#1f2529" strokeWidth="2.4"/>}</>}
+    <rect x={sx+3} y={sy+3} width={Math.max(1,sw-6)} height={Math.max(1,sh-(openBottom?3:6)-threshold)} fill="#f5f5f3" stroke={selected===i?'#b00919':'#555e63'} strokeWidth={selected===i?3:1.2}/>
     <rect x={l} y={t} width={r-l} height={b-t} fill={`url(#glass-${safeId})`} stroke="#222a2e" strokeWidth="1.5"/>
     {!specialized&&<g stroke="#283a43" strokeWidth="1.7" strokeDasharray="7 5" fill="none">
      {left&&<path d={`M${l} ${t}L${r} ${mid}L${l} ${b}`}/>}

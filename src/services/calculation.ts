@@ -127,7 +127,7 @@ export function positionCostInJob(job:Job,p:Position,s:Settings){
 }
 export function validatePosition(p:Position):string[] {
  const errors:string[]=validateAccessories(p);
- if(p.doorBottom!==undefined&&!['alu24','frame'].includes(p.doorBottom))errors.push('Izaberite ALU prag 24 mm ili ram u krug.');
+ if(p.doorBottom!==undefined&&!['alu24','frame','none'].includes(p.doorBottom))errors.push('Izaberite ALU prag 24 mm, ram u krug ili bez praga.');
  if(p.portaRoyal){
   if(!isPortaRoyalConfig(p.portaRoyal))errors.push('Proverite seriju, dekor, tip i opremu sobnih vrata.');
   if(!p.name.trim())errors.push('Unesite naziv pozicije.');

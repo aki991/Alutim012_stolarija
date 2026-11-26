@@ -1,9 +1,10 @@
 import type { Position } from '../models';
 import { bounds, contourAngles, contourCorners, edgeArc, edgeLength, ends, validateGeometry, type Geometry } from './geometry';
+import { isDoorBottomEdge } from '../door-bottom';
 
 export interface ProfileCut {
  vertex:string;interior:number;angle:number|null;saw:number|null;concave:boolean;
- reason?:'arc'|'threshold';
+ reason?:'arc'|'threshold'|'open';
 }
 export interface CutListRow {
  id:string;label:string;from:string;to:string;length:number;quantity:number;
@@ -36,20 +37,21 @@ export function elementCutList(position:Position):ElementCuttingList|null{
   return position.customKind==='door'&&position.doorBottom==='alu24'&&edge.kind==='line'
    &&Math.abs(a.y-b.y)<.01&&Math.abs(a.y-(box.y+box.height))<.01;
  };
+ const omitted=(index:number)=>position.customKind==='door'&&position.doorBottom==='none'&&isDoorBottomEdge(g,g.edges[index]);
  const cut=(index:number):ProfileCut=>{
   const previous=(index+g.edges.length-1)%g.edges.length;
   const vertex=labels.get(g.edges[index].from)!,interior=corners.get(g.edges[index].from)??180;
-  const reason=threshold(index)||threshold(previous)?'threshold'
+  const reason=omitted(index)||omitted(previous)?'open':threshold(index)||threshold(previous)?'threshold'
    :g.edges[index].kind==='arc'||g.edges[previous].kind==='arc'?'arc':undefined;
   return {vertex,interior,...(reason?{angle:null,saw:null,concave:interior>180,reason}:miterCut(interior))};
  };
- const rows=g.edges.map((edge,index):CutListRow=>({
+ const rows=g.edges.flatMap((edge,index):CutListRow[]=>omitted(index)?[]:[{
   id:edge.id,label:`P${index+1}`,from:labels.get(edge.from)!,to:labels.get(edge.to)!,
   length:edgeLength(g,edge),quantity:position.quantity,
   kind:threshold(index)?'threshold':edge.kind==='arc'?'arc':'frame',
   radius:edge.kind==='arc'?edgeArc(g,edge).radius:undefined,
   start:cut(index),end:cut((index+1)%g.edges.length),
- }));
+ }]);
  return {geometry:g,rows,hasBars:g.bars.length>0};
 }
 
@@ -58,4 +60,4 @@ export const cutListNotes=[
  'Testera je podešavanje na skali na kojoj je prav rez 0°. Na skali sa pravim rezom 90° koristite vrednost Rez.',
  'Dužine su spoljne mere iz crteža, bez dodataka za varenje, širinu reza i obrade sistema profila.',
 ];
-export const specialCutText=(cut:ProfileCut)=>cut.reason==='threshold'?'Spoj sa pragom - prema sistemu profila':'Spoj sa lukom - po šablonu';
+export const specialCutText=(cut:ProfileCut)=>cut.reason==='open'?'Slobodan kraj bez praga - prema sistemu profila':cut.reason==='threshold'?'Spoj sa pragom - prema sistemu profila':'Spoj sa lukom - po šablonu';
