@@ -10,7 +10,7 @@ import { PortaDrawing } from './PortaDrawing';
 import { aluThresholdMm, doorBottomSpans, openDoorFramePath } from '../door-bottom';
 import { DoorBottomArtwork } from './DoorBottomArtwork';
 import { PositionDimensions } from './PositionDimensions';
-import { hasDoorDimensions, type PositionDimension } from '../position-dimensions';
+import { hasDrawingDimensions, type PositionDimension } from '../position-dimensions';
 import { layoutDimensions } from '../dimension-layout';
 import { combinationParts, doubleDoorLeaves, mainLeafIndices } from '../combination';
 
@@ -23,7 +23,7 @@ export function Drawing({position:p,selected=-1,onSelect,onDimensionSelect,zoom=
  if(p.portaRoyal)return <PortaDrawing position={p} config={p.portaRoyal} compact={compact} onDimensionSelect={onDimensionSelect}/>;
  if(p.customGeometry)return <CustomDrawing geometry={p.customGeometry} frameMm={p.customFrameMm??70} frameColor={p.color} infill={customInfillOf(p)} compact={compact} shutter={shutter} doorBottom={bottomMode}/>;
  const W=560,H=450;
- const doorDimensions=hasDoorDimensions(p);
+ const doorDimensions=hasDrawingDimensions(p);
  const combination=p.combination,standalone=p.category==='Roletne';
  const doorBoxHeight=openingBoxHeight(p);
  const openingHeight=p.height+doorBoxHeight;

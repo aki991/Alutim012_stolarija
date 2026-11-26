@@ -82,3 +82,15 @@ describe('glavno krilo dvokrilnih vrata',()=>{
   expect(mainLeafIndices(makeFieldPosition('kombinacija'))).toEqual([]);
  });
 });
+
+describe('kote na svim elementima',()=>{
+ it('prozor, fiksni element, roletna i komarnik imaju kote na skici',()=>{
+  const window={...makeFieldPosition('prozor'),width:2400,segments:[{width:800,opening:'Levo' as const},{width:800,opening:'Fiksno' as const},{width:800,opening:'Desno' as const}]};
+  expect(positionDimensions(window).map(d=>d.id)).toEqual(['width','height','segment:0','segment:1','segment:2']);
+  const svg=renderToStaticMarkup(createElement(Drawing,{position:window}));
+  expect(svg.match(/data-position-dimension=/g)).toHaveLength(5);
+  for(const type of ['fiksni','roletna','komarnik'])expect(positionDimensions(makeFieldPosition(type)).map(d=>d.id)).toEqual(expect.arrayContaining(['width','height']));
+  expect(positionDimensions(makeFieldPosition('roletna')).map(d=>d.id)).toEqual(['width','height']);
+  expect(positionDimensions(makeFieldPosition('nacrtaj'))).toEqual([]);
+ });
+});

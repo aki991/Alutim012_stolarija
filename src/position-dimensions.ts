@@ -9,18 +9,20 @@ export interface PositionDimension {
  id:string; label:string; value:number; min:number; max:number;
  axis:'width'|'height'; x:number; y:number; placement:'outside'|'inside';
 }
-export const hasDoorDimensions=(p:Position)=>!p.customGeometry&&['Vrata','Ulazna vrata','Sobna vrata','Klizni sistemi'].includes(p.category);
+/** Every element drawn by the field sketch shows clickable dimension lines; drawn contours have their own. */
+export const hasDrawingDimensions=(p:Position)=>!p.customGeometry;
 const round=(value:number)=>Math.round(value*100)/100;
 
 /** Field dimensions use the same outer field boundaries as the drawing and specification. */
 export function positionDimensions(p:Position):PositionDimension[]{
- if(!hasDoorDimensions(p))return [];
+ if(!hasDrawingDimensions(p))return [];
  const box=openingBoxHeight(p),limit=p.modelLayout?20000:p.portaRoyal?portaMaxDimension:3500;
  const result:PositionDimension[]=[
   {id:'width',label:'Ukupna širina',value:p.width,min:p.portaRoyal?1:200,max:p.modelLayout?20000:p.portaRoyal?portaMaxDimension:6000,axis:'width',x:0,y:-box,placement:'outside'},
   {id:'height',label:'Ukupna visina',value:p.height+box,min:(p.portaRoyal?1:200)+box,max:limit+box,axis:'height',x:0,y:-box,placement:'outside'},
  ];
- if(p.portaRoyal)return result;
+ // Porta Royal and standalone shutters have no leaves on the sketch, only overall measures.
+ if(p.portaRoyal||p.category==='Roletne')return result;
  if(p.modelLayout){
   const rows=p.modelLayout.rows,total=weightTotal(rows);
   let y=0;
